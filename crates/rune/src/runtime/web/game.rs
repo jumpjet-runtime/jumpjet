@@ -3,10 +3,6 @@ use std::{path::PathBuf, time::Duration};
 use anyhow::{Ok, Result};
 use gilrs::Gilrs;
 use uuid::Uuid;
-use wasmtime::{
-    component::{Component, Linker},
-    Config, Engine, Store,
-};
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{Runtime, RuntimePre};

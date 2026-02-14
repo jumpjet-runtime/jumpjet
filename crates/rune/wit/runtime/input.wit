@@ -3,7 +3,7 @@ package rune:runtime;
 /// APIs for accessing user input via gamepad, keyboard, mouse, touch, etc.
 interface input {
   /// Gets the device's gamepad, if one is available.
-  gamepad: func() -> option<gamepad-device>;
+  gamepad: func(id: u32) -> option<gamepad-device>;
   /// Gets the device's keyboard, if one is available.
   keyboard: func() -> option<keyboard-device>;
   /// Gets the device's mouse, if one is available.

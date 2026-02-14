@@ -1,5 +1,6 @@
 pub mod macos;
 // pub mod windows;
+pub mod web;
 
 use std::{
     env,
@@ -15,6 +16,8 @@ use std::os::unix::fs::OpenOptionsExt;
 use current_platform::CURRENT_PLATFORM;
 use semver::Version;
 use toml::Table;
+use xz2::read::XzDecoder;
+use zip::ZipArchive;
 
 use crate::settings::Settings;
 use crate::Result;
@@ -37,6 +40,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         "linux" => "x86_64-unknown-linux-musl",
         "macos" => "aarch64-apple-darwin",
         "windows" => "x86_64-pc-windows-msvc",
+        "web" => "wasm32-wasip1",
         _ => panic!("no --target provided"),
     }
     .to_owned();
@@ -74,10 +78,14 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
     // println!("Installing Rust...");
     install_rustup(&settings).await?;
 
-    // println!("Installing Cross...");
-    install_cross(&settings).await?;
+    // println!("Installing Zig...");
+    install_zig(&settings).await?;
 
-    // TODO: Ensure docker is available (no portable installation possible)
+    // println!("Installing cargo-zigbuild...");
+    install_cargo_zigbuild(&settings).await?;
+
+    // println!("Adding requested target...");
+    add_rust_target(&settings).await?;
 
     build_target(&settings).await?;
 
@@ -90,6 +98,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         "linux" => {}
         "macos" => macos::bundle_project(&settings)?,
         // "windows" => windows::bundle_project(&settings)?,
+        // "web" => web::bundle_project(&settings)?,
         _ => {}
     }
 
@@ -239,25 +248,110 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-async fn install_cross(settings: &Settings) -> Result<()> {
-    let cross_path = settings.rune_bin_dir.join("cargo/bin/cross");
-    if fs::metadata(cross_path).is_ok() {
+async fn install_zig(settings: &Settings) -> Result<()> {
+    let zig_dir = settings.rune_bin_dir.join("zig");
+    if zig_dir.exists() {
         return Ok(());
     }
 
-    let cargo_path = settings.rune_bin_dir.join("cargo/bin/cargo");
+    let os = env::consts::OS;
+    let arch = env::consts::ARCH;
+    let version = "0.13.0";
 
+    // Map Rust OS/Arch to Zig naming if necessary.
+    // Rust: x86_64, aarch64
+    // Zig: x86_64, aarch64 (mostly match)
+    
+    let (ext, filename) = if os == "windows" {
+        ("zip", format!("zig-{}-{}-{}.zip", os, arch, version))
+    } else {
+        ("tar.xz", format!("zig-{}-{}-{}.tar.xz", os, arch, version))
+    };
+
+    let url = format!("https://ziglang.org/download/{}/{}", version, filename);
+    println!("Downloading Zig from {}...", url);
+
+    let resp = reqwest::get(url).await?;
+    let content = resp.bytes().await?;
+
+    let tarball_path = settings.rune_bin_dir.join(&filename);
+    let mut file = File::create(&tarball_path)?;
+    file.write_all(&content)?;
+
+    println!("Extracting Zig...");
+    let file = File::open(&tarball_path)?;
+    if ext == "zip" {
+        let mut archive = ZipArchive::new(file)?;
+        archive.extract(&settings.rune_bin_dir)?;
+    } else {
+        let decoder = XzDecoder::new(file);
+        let mut archive = tar::Archive::new(decoder);
+        archive.unpack(&settings.rune_bin_dir)?;
+    }
+
+    // Rename extracted folder to "zig"
+    // The folder name inside the archive is usually "zig-{os}-{arch}-{version}"
+    let extracted_folder_name = filename.replace(&format!(".{}", ext), ""); 
+    let extracted_path = settings.rune_bin_dir.join(extracted_folder_name);
+    
+    if extracted_path.exists() {
+        fs::rename(extracted_path, &zig_dir)?;
+    } else {
+        return Err(color_eyre::eyre::eyre!("Failed to find extracted Zig folder"));
+    }
+
+    // Clean up archive
+    fs::remove_file(tarball_path)?;
+
+    Ok(())
+}
+
+async fn install_cargo_zigbuild(settings: &Settings) -> Result<()> {
+    // Check if cargo-zigbuild is installed
+    let cargo_path = settings.rune_bin_dir.join("cargo/bin/cargo");
+    let zigbuild_check = Command::new(&cargo_path)
+        .env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+        .arg("zigbuild")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+
+    if let Ok(status) = zigbuild_check {
+        if status.success() {
+            return Ok(());
+        }
+    }
+
+    println!("Installing cargo-zigbuild...");
     let mut cmd = Command::new(&cargo_path);
+    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"));
+    cmd.args(["install", "cargo-zigbuild"]);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        return Err(color_eyre::eyre::eyre!("Failed to install cargo-zigbuild"));
+    }
+
+    Ok(())
+}
+
+async fn add_rust_target(settings: &Settings) -> Result<()> {
+    let rustup_path = settings.rune_bin_dir.join("cargo/bin/rustup");
+    let mut cmd = Command::new(&rustup_path);
 
     cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
-        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"));
-
-    cmd.args(["install", "cross", "--target", CURRENT_PLATFORM]);
+        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"))
+        .args(["target", "add", &settings.target_triplet]);
 
     let output = cmd
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .output()?;
+    
+    if !output.status.success() {
+         return Err(color_eyre::eyre::eyre!("Failed to add rust target: {}", settings.target_triplet));
+    }
 
     Ok(())
 }
@@ -267,16 +361,22 @@ async fn build_target(settings: &Settings) -> Result<()> {
 
     let cargo_bin_path = settings.rune_bin_dir.join("cargo/bin");
 
-    let mut cmd = Command::new(cargo_bin_path.join("cross"));
+    let mut cmd = Command::new(cargo_bin_path.join("cargo"));
     cmd.current_dir(rust_project_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
-        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"));
+    // Add Zig to PATH
+    let zig_bin = settings.rune_bin_dir.join("zig");
+    let path_env = env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", zig_bin.to_str().unwrap(), path_env);
 
-    cmd.args(["build", "--locked", "--target", &settings.target_triplet]);
+    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"))
+        .env("PATH", new_path);
+
+    cmd.args(["zigbuild", "--locked", "--target", &settings.target_triplet, "--release"]);
 
     let output = cmd
-        .stdout(Stdio::null())
+        .stdout(Stdio::inherit()) // Changed to inherit to see build output
         .stderr(Stdio::inherit())
         .output()?;
 

@@ -178,7 +178,8 @@ interface audio {
 
   /// Represents an audio buffer source node, which can be used to play audio data from an audio buffer.
   resource audio-buffer-source-node {
-    // TODO: constructor
+    /// Creates a new audio buffer source node.
+    constructor(context: borrow<audio-context>);
     /// Starts playback of the audio buffer at a specific start time and with a time offset.
     start-at-with-offset: func(start: f32, offset: f32);
     /// Starts playback of the audio buffer at a specific start time, with an offset and a duration.
@@ -213,7 +214,8 @@ interface audio {
 
   /// Represents an audio analyzer node, used for extracting audio data such as time-domain and frequency-domain data for visualization.
   resource analyzer-node {
-    // TODO: constructor
+    /// Creates a new analyzer node.
+    constructor(context: borrow<audio-context>);
     /// Returns the FFT (Fast Fourier Transform) size, which determines the resolution of frequency analysis.
     fft-size: func() -> u32;
     /// Sets the FFT size for frequency analysis.
@@ -246,7 +248,8 @@ interface audio {
 
   /// Represents a biquad filter node, which can be used to apply various filter effects to audio signals.
   resource biquad-filter-node {
-    // TODO: constructor
+    /// Creates a new biquad filter node.
+    constructor(context: borrow<audio-context>);
     /// Returns the gain parameter of the filter, which controls the amplification or attenuation of the signal.
     gain: func() -> audio-param;
     /// Returns the frequency parameter of the filter, which controls the cutoff frequency for filtering.
@@ -287,7 +290,8 @@ interface audio {
 
   /// Represents a constant source node, which continuously outputs a fixed audio signal.
   resource constant-source-node {
-    // TODO: constructor
+    /// Creates a new constant source node.
+    constructor(context: borrow<audio-context>);
     /// Returns the offset parameter, which controls the value of the constant audio signal.
     offset: func() -> audio-param;
     /// Connects the constant source node to a destination audio node.
@@ -296,7 +300,8 @@ interface audio {
 
   /// Represents a convolver node, used to apply reverb effects to an audio signal by convolving it with an impulse response.
   resource convolver-node {
-    // TODO: constructor
+    /// Creates a new convolver node.
+    constructor(context: borrow<audio-context>);
     /// Returns the current audio buffer used as the impulse response for convolution.
     buffer: func() -> option<audio-buffer>;
     /// Sets the audio buffer to be used as the impulse response for convolution.
@@ -312,21 +317,24 @@ interface audio {
 
   /// Represents a channel merger node, which combines multiple audio channels into a single output stream.
   resource channel-merger-node {
-    // TODO: constructor
+    /// Creates a new channel merger node.
+    constructor(context: borrow<audio-context>, number-of-inputs: u32);
     /// Connects the channel merger node to a destination audio node.
     connect: func(destination: audio-node);
   }
 
   /// Represents a channel splitter node, which separates an audio stream into multiple individual channels.
   resource channel-splitter-node {
-    // TODO: constructor
+    /// Creates a new channel splitter node.
+    constructor(context: borrow<audio-context>, number-of-outputs: u32);
     /// Connects the channel splitter node to a destination audio node.
     connect: func(destination: audio-node);
   }
 
   /// Represents a delay node, which delays the incoming audio signal by a specified amount of time.
   resource delay-node {
-    // TODO: constructor
+    /// Creates a new delay node.
+    constructor(context: borrow<audio-context>, max-delay-time: f32);
     /// Returns the delay time parameter, which controls the amount of time by which the audio signal is delayed.
     delay-time: func() -> audio-param;
     /// Connects the delay node to a destination audio node.
@@ -335,7 +343,8 @@ interface audio {
 
   /// Represents a dynamics compressor node, which applies dynamic range compression to an audio signal.
   resource dynamics-compressor-node {
-    // TODO: constructor
+    /// Creates a new dynamics compressor node.
+    constructor(context: borrow<audio-context>);
     /// Returns the attack parameter, which controls the time it takes for the compressor to react to a signal exceeding the threshold.
     attack: func() -> audio-param;
     /// Returns the knee parameter, which adjusts the curve of the compression onset as the signal approaches the threshold.
@@ -354,7 +363,8 @@ interface audio {
 
   /// Represents a gain node, which controls the volume level of an audio signal.
   resource gain-node {
-    // TODO: constructor
+    /// Creates a new gain node.
+    constructor(context: borrow<audio-context>);
     /// Returns the gain parameter, which controls the volume level of the audio signal.
     gain: func() -> audio-param;
     /// Connects the gain node to a destination audio node.
@@ -363,7 +373,8 @@ interface audio {
 
   /// Represents an IIR (Infinite Impulse Response) filter node, which applies a digital filter with feedback to an audio signal.
   resource iir-filter-node {
-    // TODO: constructor
+    /// Creates a new IIR filter node.
+    constructor(context: borrow<audio-context>, feedforward: list<f32>, feedback: list<f32>);
     // get-frequency-response: func(frequency-hz: list<f32>, mag-response: list<f32>, phase-response: list<f32>);
     /// Connects the IIR filter node to a destination audio node
     connect: func(destination: audio-node);
@@ -371,7 +382,8 @@ interface audio {
 
   /// Represents an oscillator node, which generates periodic waveforms (such as sine, square, or sawtooth waves) for audio synthesis.
   resource oscillator-node {
-    // TODO: constructor
+    /// Creates a new oscillator node.
+    constructor(context: borrow<audio-context>);
     /// Returns the detune parameter, which adjusts the frequency of the oscillator.
     detune: func() -> audio-param;
     /// Returns the frequency parameter, which controls the frequency of the oscillator's waveform.
@@ -408,7 +420,8 @@ interface audio {
 
   /// Represents a panner node, which spatializes audio by setting its position and orientation in 3D space.
   resource panner-node {
-    // TODO: constructor
+    /// Creates a new panner node.
+    constructor(context: borrow<audio-context>);
     /// Returns the X position parameter for the audio source in 3D space.
     position-x: func() -> audio-param;
     /// Returns the Y position parameter for the audio source in 3D space.

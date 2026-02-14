@@ -7,8 +7,14 @@ use crate::rune::runtime::input::*;
 use super::state::RuneRuntimeState;
 
 impl Host for RuneRuntimeState {
-    async fn gamepad(&mut self) -> Option<Resource<GamepadDevice>> {
-        Some(Resource::new_own(0))
+    async fn gamepad(&mut self, id: u32) -> Option<Resource<GamepadDevice>> {
+        let mut gilrs = self.gilrs.gamepads();
+        if let Some((gamepad_id, _)) = gilrs.nth(id as usize) {
+            let idx = self.table.push(gamepad_id).unwrap();
+            Some(Resource::new_own(idx.rep()))
+        } else {
+            None
+        }
     }
 
     async fn keyboard(&mut self) -> Option<Resource<KeyboardDevice>> {
@@ -32,11 +38,12 @@ impl HostGamepadDevice for RuneRuntimeState {
         gamepad.name().to_owned()
     }
 
-    async fn is_pressed(&mut self, _gamepad: Resource<GamepadDevice>, btn: GamepadButton) -> bool {
+    async fn is_pressed(&mut self, gamepad: Resource<GamepadDevice>, btn: GamepadButton) -> bool {
+        let gamepad_id = self.table.get(&gamepad).unwrap();
         self.gamepad_state
             .active_buttons
             .iter()
-            .any(|k| k.1.eq(&<GamepadButton as Into<Button>>::into(btn.clone())))
+            .any(|k| k.1 == *gamepad_id && k.2 == <GamepadButton as Into<Button>>::into(btn.clone()))
     }
 
     async fn value(&mut self, _gamepad: Resource<GamepadDevice>, _axis: GamepadAxis) -> f32 {
@@ -49,23 +56,27 @@ impl HostGamepadDevice for RuneRuntimeState {
 
     async fn button_data(
         &mut self,
-        _gamepad: Resource<GamepadDevice>,
-        _btn: GamepadButton,
+        gamepad: Resource<GamepadDevice>,
+        btn: GamepadButton,
     ) -> Option<GamepadButtonData> {
-        // let gamepad_id = self.table.get(&gamepad).unwrap();
-        // let gamepad = self.gilrs.connected_gamepad(*gamepad_id).unwrap();
+        let gamepad_id = self.table.get(&gamepad).unwrap();
+        let btn_code = <GamepadButton as Into<Button>>::into(btn.clone());
+        
+        let button_state = self.gamepad_state
+            .active_buttons
+            .iter()
+            .find(|k| k.1 == *gamepad_id && k.2 == btn_code);
 
-        // if let Some(button_data) = gamepad.button_data(btn.into()) {
-        //     Ok(Some(GamepadButtonData {
-        //         is_pressed: button_data.is_pressed(),
-        //         value: button_data.value(),
-        //         is_repeating: button_data.is_repeating(),
-        //         counter: u32::try_from(button_data.counter()).ok().unwrap()
-        //     }))
-        // } else {
-        //     Ok(None)
-        // }
-        None
+        if let Some((_, _, _, is_repeating)) = button_state {
+            Some(GamepadButtonData {
+                is_pressed: true,
+                value: 1.0, // TODO: Get actual value from gilrs if possible, or support analog buttons in active_buttons
+                is_repeating: *is_repeating,
+                counter: 0 // TODO: Implement counter
+            })
+        } else {
+            None
+        }
     }
 
     async fn axis_data(

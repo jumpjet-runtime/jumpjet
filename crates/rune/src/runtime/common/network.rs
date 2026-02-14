@@ -1,12 +1,12 @@
 use reqwest::{Method, StatusCode};
-use wtransport::{endpoint::endpoint_side::{Client, Server}, Connection, Endpoint};
+use web_transport::{Client, Server, Session};
 
 use crate::network::HttpMethod;
 
-pub type NetworkClient = Endpoint<Client>;
-pub type NetworkServer = Endpoint<Server>;
+pub type NetworkClient = Client;
+pub type NetworkServer = Server;
 pub type NetworkHttpClient = reqwest::Client;
-pub type NetworkConnection = Connection;
+pub type NetworkConnection = Session;
 
 impl Into<Method> for HttpMethod {
     fn into(self) -> Method {

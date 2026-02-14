@@ -59,6 +59,8 @@ subprocess = "0.2.9"
 wasmparser = "0.219.1"
 cab = "0.4"
 uuid = "1.14.0"
+xz2 = "0.1.7"
+zip = "7.3.0"
 
 [build-dependencies]
 vergen = { version = "8.2.6", features = [ "build", "git", "gitoxide", "cargo" ]}
@@ -73,8 +75,8 @@ members = [
 [workspace.package]
 version = "0.1.12"
 authors = ["Lochlan Wansbrough"]
-edition = "2021"
-rust-version = "1.80.0"
+edition = "2024"
+rust-version = "1.85.0"
 
 [workspace.dependencies]
 rune = { path = "crates/rune", version = "0.1.12" }

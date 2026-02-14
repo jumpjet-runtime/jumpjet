@@ -1,0 +1,17 @@
+[package]
+identifier = "{{ identifier }}"
+version = "0.1.0"
+type = "game"
+author = ""
+
+[runtime]
+version = "{{ runtime_version }}"
+
+[build]
+pre = "componentize-py -d .rune/wit/runtime -w runtime componentize game -o game.wasm"
+input = "." 
+entrypoint = "game.wasm" 
+output = "./bin"
+
+[bundle]
+name = "{{ name }}"

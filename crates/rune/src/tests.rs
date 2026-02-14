@@ -39,9 +39,11 @@ impl Tests {
 
         let mut linker = Linker::new(&engine);
 
-        wasmtime_wasi::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
+        type Data = wasmtime::component::HasSelf<RuneRuntimeState>;
 
-        Runtime::add_to_linker(&mut linker, |state: &mut RuneRuntimeState| state)?;
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
+
+        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut RuneRuntimeState| state)?;
 
         Ok(Self {
             path: "bytes".to_owned(),

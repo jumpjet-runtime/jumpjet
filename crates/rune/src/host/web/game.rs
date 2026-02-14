@@ -8,8 +8,6 @@ use crate::{Runtime, RuntimePre};
 
 pub use crate::runtime::RuneRuntimeState;
 
-/// Game is used to run wasm component
-
 pub struct Game {
     pub path: String,
 }
@@ -21,7 +19,7 @@ impl std::fmt::Debug for Game {
 }
 
 impl Game {
-    pub fn from_binary(bytes: &[u8]) -> Result<Game> {
+    pub async fn from_binary(bytes: &[u8]) -> Result<Game> {
         let window = web_sys::window().unwrap();
         let jco = Reflect::get(&window, &JsValue::from_str("jco"))?;
         // Use JCO to instantiate the component
@@ -97,7 +95,7 @@ impl Game {
     pub async fn render(
         &mut self,
         epoch_time: Duration,
-        delta_time: Duration,
+        alpha: f64,
     ) -> Result<(), anyhow::Error> {
         self.runtime
             .as_ref()
@@ -106,7 +104,7 @@ impl Game {
             .call_render(
                 self.store.as_mut().expect("Store must be initialized"),
                 epoch_time.as_secs_f64(),
-                delta_time.as_secs_f64(),
+                alpha,
             )
             .await?;
 

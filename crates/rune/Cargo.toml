@@ -15,8 +15,6 @@ path = "tests/runtime.rs"
 harness = false
 
 [dependencies]
-wasmtime = { version = "29.0.1", features = ['component-model'] }
-wasmtime-wasi = "29.0.1"
 wit-bindgen-core = "0.32.0"
 wit-bindgen-rust = "0.32.0"
 wit-component = "0.217.0"
@@ -28,24 +26,30 @@ futures = "0.3.28"
 pollster = "0.2.5"
 once_cell = "1.18.0"
 slab = "0.4.9"
-uuid = { version = "1.4.1", features = ["v4"] }
 vfs = "0.10.0"
 termcolor = "1.3.0"
-wasi = "0.13.2"
-wtransport = "0.6.1"
-reqwest = "0.12.4"
+wasi = "0.14.2"
+reqwest = "0.12.22"
+url = "2.5.4"
+winit = "0.30.11"
+cpal = { version = "0.15.2", features = ["wasm-bindgen"] }
+# web-transport = "0.9.4"
 
 [target.'cfg(any(target_arch = "wasm32", target_arch = "wasm64"))'.dependencies]
-winit = { version = "0.29.10" }
+uuid = { version = "1.4.1", features = ["v4", "js"] }
 
 [target.'cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))'.dependencies]
-cpal = "0.15.2"
+wasmtime = { version = "34.0.1", features = ['component-model'] }
+wasmtime-wasi = "34.0.1"
 gdbstub = "0.7.1"
 gilrs = "0.10.2"
 libtest-mimic = "0.7.3"
 raw-window-handle = "0.6"
 web-audio-api = "0.45.2"
-winit = "0.29.10"
+uuid = { version = "1.4.1", features = ["v4"] }
+wasm-bindgen = "0.2.100"
+js-sys = "0.3.77"
+wasm-bindgen-futures = "0.4.50"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 wgpu-core = { version = "24.0.0", features = ["wgsl", "raw-window-handle", "vulkan"] }
@@ -58,11 +62,6 @@ wgpu-core = { version = "24.0.0", features = ["wgsl", "raw-window-handle", "meta
 
 [target.'cfg(all(not(target_os = "linux"), not(target_os = "android"), not(target_os = "windows"), not(target_os = "macos"), not(target_os = "ios")))'.dependencies]
 wgpu-core = { version = "24.0.0", features = ["wgsl", "raw-window-handle", "gles"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.100"
-js-sys = "0.3.77"
-wasm-bindgen-futures = "0.4.50"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3.77"

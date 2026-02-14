@@ -2,24 +2,20 @@ use std::net::SocketAddr;
 
 use wasmtime::component::Resource;
 use wasmtime::Result;
-use wtransport::{ClientConfig, Endpoint, Identity, ServerConfig, VarInt};
+use web_transport::{Client, ClientBuilder, Server, quinn::ServerBuilder};
 
 use crate::rune::runtime::network::*;
 use super::state::RuneRuntimeState;
 
 impl Host for RuneRuntimeState {
     async fn client(&mut self, config: NetworkClientConfig,) -> Resource<NetworkClient> {
-        let config = ClientConfig::default();
-        let client = Endpoint::client(config).unwrap();
+        let client = ClientBuilder::new().with_system_roots().unwrap();
         self.table.push(client).unwrap()
     }
 
     async fn server(&mut self, config: NetworkServerConfig,) -> Resource<NetworkServer> {
-        let config = ServerConfig::builder()
-            .with_bind_address(config.bind.parse::<SocketAddr>().unwrap())
-            .with_identity(Identity::self_signed(&["localhost", "127.0.0.1", "::1"]).unwrap())
-            .build();
-        let server = Endpoint::server(config).unwrap();
+        // let server = ServerBuilder::new().with_addr(SocketAddr::from(([0, 0, 0, 0], 443)))
+        //     .with_certificate(chain, key);
         self.table.push(server).unwrap()
     }
 

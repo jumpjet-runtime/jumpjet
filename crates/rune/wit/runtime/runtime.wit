@@ -7,7 +7,7 @@ interface guest {
   /// Rune runs this update loop at a fixed frequency per second. Use this for game logic.
   update: func(time: f64, delta-time: f64);
   /// Rune runs this render loop at a variable frequency depending on various performance constraints. Use this for render logic.
-  render: func(time: f64, delta-time: f64);
+  render: func(time: f64, alpha: f64);
 }
 
 world runtime {
@@ -16,7 +16,7 @@ world runtime {
   import audio;
   import input;
   import gpu;
-  import network;
+  // import network;
   import storage;
   import window;
 

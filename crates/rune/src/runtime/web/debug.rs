@@ -1,5 +1,5 @@
 use js_sys::Object;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 use crate::RuneRuntimeState;
 

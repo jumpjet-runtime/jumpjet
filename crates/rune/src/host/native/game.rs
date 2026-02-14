@@ -40,9 +40,11 @@ impl Game {
 
         let mut linker = Linker::new(&engine);
 
-        wasmtime_wasi::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
 
-        Runtime::add_to_linker(&mut linker, |state: &mut RuneRuntimeState| state)?;
+        type Data = wasmtime::component::HasSelf<RuneRuntimeState>;
+
+        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut RuneRuntimeState| state)?;
 
         Ok(Self {
             path: "bytes".to_owned(),
@@ -113,7 +115,7 @@ impl Game {
     pub async fn render(
         &mut self,
         epoch_time: Duration,
-        delta_time: Duration,
+        alpha: f64,
     ) -> Result<(), anyhow::Error> {
         self.runtime
             .as_ref()
@@ -122,7 +124,7 @@ impl Game {
             .call_render(
                 self.store.as_mut().expect("Store must be initialized"),
                 epoch_time.as_secs_f64(),
-                delta_time.as_secs_f64(),
+                alpha,
             )
             .await?;
 

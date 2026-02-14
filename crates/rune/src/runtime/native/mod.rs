@@ -2,7 +2,7 @@ pub mod audio;
 pub mod debug;
 pub mod gpu;
 pub mod input;
-pub mod network;
+// pub mod network;
 pub mod run;
 pub mod state;
 pub mod storage;

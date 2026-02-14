@@ -12,117 +12,131 @@ pub use crate::runtime::common::*;
 pub use super::state::RuneRuntimeState;
 
 use winit::{
+    application::ApplicationHandler,
     error::EventLoopError,
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopBuilder},
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
-    window::{Window, WindowBuilder},
+    window::{Window, WindowAttributes},
 };
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::WindowBuilderExtMacOS;
+use winit::platform::macos::WindowAttributesExtMacOS;
 
-async fn run_loop(
-    event_loop: EventLoop<GameEvent>,
-    window: Window,
+struct App {
     input_path: PathBuf,
     binary: Vec<u8>,
-) -> Result<(), EventLoopError> {
-    let instance = wgpu_core::global::Global::new(
-        "webgpu",
-        &wgpu_types::InstanceDescriptor {
-            backends: wgpu_types::Backends::all(),
-            flags: wgpu_types::InstanceFlags::from_build_config(),
-            ..Default::default()
-        },
-    );
-    let surface_id = unsafe {
-        instance
-            .instance_create_surface(
-                window.display_handle().unwrap().into(),
-                window.window_handle().unwrap().into(),
+    window: Option<Window>,
+    game: Option<Game>,
+    start_time: Option<std::time::Instant>,
+    last_update: Option<std::time::Instant>,
+    last_render_update: Option<std::time::Instant>,
+    accumulator: std::time::Duration,
+}
+
+impl ApplicationHandler<GameEvent> for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_none() {
+            let mut window_attributes = WindowAttributes::default()
+                .with_title("Game");
+
+            #[cfg(target_os = "macos")]
+            {
+                window_attributes = window_attributes.with_titlebar_hidden(true);
+            }
+
+            let window = event_loop.create_window(window_attributes).unwrap();
+
+            // Initialize the game with the window
+            let instance = wgpu_core::global::Global::new(
+                "webgpu",
+                &wgpu_types::InstanceDescriptor {
+                    backends: wgpu_types::Backends::all(),
+                    flags: wgpu_types::InstanceFlags::from_build_config(),
+                    ..Default::default()
+                },
+            );
+            let surface_id = unsafe {
+                instance
+                    .instance_create_surface(
+                        window.display_handle().unwrap().into(),
+                        window.window_handle().unwrap().into(),
+                        None,
+                    )
+                    .unwrap()
+            };
+            let adapter_id = instance
+                .request_adapter(
+                    &Default::default(),
+                    wgpu_types::Backends::all(),
+                    None
+                )
+                .unwrap();
+
+            let adapter_limits = instance
+                .adapter_limits(adapter_id);
+
+            // Create the logical device and command queue
+            let (device_id, queue_id) = instance.adapter_request_device(
+                adapter_id,
+                &wgpu_types::DeviceDescriptor {
+                    label: None,
+                    required_features: wgpu_types::Features::empty(),
+                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                    required_limits:
+                        wgpu_types::Limits::downlevel_webgl2_defaults().using_resolution(adapter_limits),
+                    memory_hints: wgpu_types::MemoryHints::default(),
+                },
                 None,
-            )
-            .unwrap()
-    };
-    let adapter_id = instance
-        .request_adapter(
-            &Default::default(),
-            wgpu_types::Backends::all(),
-            None
-        )
-        .unwrap();
+                None,
+                None,
+            ).unwrap();
 
-    let adapter_limits = instance
-        .adapter_limits(adapter_id);
+            let audio_host = cpal::default_host();
+            let audio_device = audio_host.default_output_device().unwrap();
 
-    // Create the logical device and command queue
-    let (device_id, queue_id) = instance.adapter_request_device(
-        adapter_id,
-        &wgpu_types::DeviceDescriptor {
-            label: None,
-            required_features: wgpu_types::Features::empty(),
-            // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-            required_limits:
-                wgpu_types::Limits::downlevel_webgl2_defaults().using_resolution(adapter_limits),
-            memory_hints: wgpu_types::MemoryHints::default(),
-        },
-        None,
-        None,
-        None,
-    ).unwrap();
+            let gilrs = gilrs::Gilrs::new().unwrap();
 
-    let audio_host = cpal::default_host();
-    let audio_device = audio_host.default_output_device().unwrap();
+            let mut game = Game::from_binary(&self.binary).unwrap();
+            pollster::block_on(game.init(
+                &window,
+                self.input_path.clone(),
+                audio_device,
+                instance,
+                surface_id,
+                adapter_id,
+                device_id,
+                queue_id,
+                gilrs,
+            )).expect("Game didn't initialize");
 
-    let gilrs = gilrs::Gilrs::new().unwrap();
+            let start_time = std::time::Instant::now();
+            self.start_time = Some(start_time);
+            self.last_update = Some(start_time);
+            self.last_render_update = Some(start_time);
+            self.accumulator = std::time::Duration::ZERO;
 
-    let mut game = Game::from_binary(&binary).unwrap();
-    game.init(
-        &window,
-        input_path,
-        audio_device,
-        instance,
-        surface_id,
-        adapter_id,
-        device_id,
-        queue_id,
-        gilrs,
-    )
-    .await
-    .expect("Game didn't initialize");
+            self.game = Some(game);
+            self.window = Some(window);
+        }
+    }
 
-    let start_time = std::time::Instant::now();
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: winit::window::WindowId, event: WindowEvent) {
+        if self.window.is_none() {
+            return;
+        }
 
-    let mut last_logic_update = start_time.clone();
-    let mut last_render_update = start_time.clone();
-
-    let logic_frame_time = std::time::Duration::from_millis(1000 / 30); // 30 FPS for logic
-    let render_frame_time = std::time::Duration::from_millis(1000 / 60); // 60 FPS for rendering
-
-    event_loop.run(move |event, elwt| {
-        let now = std::time::Instant::now();
-
-        elwt.set_control_flow(ControlFlow::WaitUntil(std::cmp::min(
-            last_logic_update + logic_frame_time,
-            last_render_update + render_frame_time,
-        )));
+        let window = self.window.as_ref().unwrap();
+        let game = match &mut self.game {
+            Some(game) => game,
+            None => return,
+        };
 
         match event {
-            Event::UserEvent(_event) => {}
-            Event::WindowEvent {
-                event: WindowEvent::Resized(size),
-                ..
-            } => {
+            WindowEvent::Resized(size) => {
                 game.resize(size);
             }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        event: key_event, ..
-                    },
-                ..
-            } => {
+            WindowEvent::KeyboardInput { event: key_event, .. } => {
                 let generation = game.store.as_ref().unwrap().data().generation;
                 let keyboard_state = &mut game.store.as_mut().unwrap().data_mut().keyboard_state;
 
@@ -150,113 +164,127 @@ async fn run_loop(
                     ));
                 }
             }
-            Event::AboutToWait => {
-                // start gamepad handling -- could this be a winit user event?
-                let generation = game.store.as_ref().unwrap().data().generation;
-
-                let game_store = game.store.as_mut().unwrap();
-                let gilrs_event = { game_store.data_mut().gilrs.next_event() };
-                let gamepad_state = &mut game_store.data_mut().gamepad_state;
-
-                while let Some(button_event) = gilrs_event {
-                    //TODO: Handle multiple gamepads
-
-                    match button_event.event {
-                        gilrs::EventType::ButtonPressed(button, _) => {
-                            if !gamepad_state.active_buttons.iter().any(|b| b.1.eq(&button)) {
-                                gamepad_state.active_buttons.push((generation, button));
-                            }
-                        }
-                        gilrs::EventType::ButtonRepeated(button, _) => {
-                            if !gamepad_state.active_buttons.iter().any(|b| b.1.eq(&button)) {
-                                gamepad_state.active_buttons.push((generation, button));
-                            }
-
-                            // TODO: Set is_repeating = true on this button
-                        }
-                        gilrs::EventType::ButtonReleased(button, _) => {
-                            gamepad_state.active_buttons.retain(|b| !b.1.eq(&button));
-                        }
-                        gilrs::EventType::ButtonChanged(_, _, _) => {}
-                        gilrs::EventType::AxisChanged(_, _, _) => {}
-                        gilrs::EventType::Connected => todo!(),
-                        gilrs::EventType::Disconnected => todo!(),
-                        gilrs::EventType::Dropped => continue,
-                    }
-                }
-                // end gamepad handling
-
-                if now - last_logic_update >= logic_frame_time {
-                    // TODO/FIXME: Generation should be based on logical frame not visual frame, and guest should specify
-                    // its logical frame rate, and then use its own logic to limit render calls if needed
-                    let generation = &mut game.store.as_mut().unwrap().data_mut().generation;
-                    *generation = *generation + 1;
-
-                    let epoch_time = now - start_time;
-                    let delta_time = now - last_render_update;
-
-                    pollster::block_on(game.update(epoch_time, delta_time)).unwrap();
-                    last_logic_update = now;
-                }
-
-                if now - last_render_update >= render_frame_time {
-                    window.request_redraw();
-                    last_render_update = now;
-                }
-            }
-            Event::WindowEvent {
-                event: WindowEvent::RedrawRequested,
-                ..
-            } => {
+            WindowEvent::RedrawRequested => {
+                let now = std::time::Instant::now();
+                let start_time = self.start_time.unwrap();
                 let epoch_time = now - start_time;
-                let delta_time = now - last_render_update;
-                pollster::block_on(game.render(epoch_time, delta_time)).unwrap();
+                let fixed_time_step = std::time::Duration::from_millis(33);
+                let alpha = self.accumulator.as_secs_f64() / fixed_time_step.as_secs_f64();
+                pollster::block_on(game.render(epoch_time, alpha)).unwrap();
             }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => elwt.exit(),
+            WindowEvent::CloseRequested => {
+                event_loop.exit();
+            }
             _ => {}
         }
-    })
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_none() || self.game.is_none() {
+            return;
+        }
+
+        let window = self.window.as_ref().unwrap();
+        let game = self.game.as_mut().unwrap();
+
+        let now = std::time::Instant::now();
+        let last_update = self.last_update.unwrap();
+        let delta_time = now - last_update;
+        self.last_update = Some(now);
+        
+        self.accumulator += delta_time;
+
+        // Fixed timestep: 30 FPS logic
+        let fixed_time_step = std::time::Duration::from_millis(33); 
+
+        // Limit accumulator to avoid spiral of death
+        if self.accumulator > std::time::Duration::from_millis(200) {
+            self.accumulator = std::time::Duration::from_millis(200);
+        }
+
+        while self.accumulator >= fixed_time_step {
+            self.accumulator -= fixed_time_step;
+
+            // start gamepad handling
+            let generation = game.store.as_ref().unwrap().data().generation;
+            let game_store = game.store.as_mut().unwrap();
+            let gilrs_event = { game_store.data_mut().gilrs.next_event() };
+            let gamepad_state = &mut game_store.data_mut().gamepad_state;
+
+            while let Some(gilrs::Event { id, event, .. }) = gilrs_event {
+                match event {
+                    gilrs::EventType::ButtonPressed(button, _) => {
+                         if !gamepad_state.active_buttons.iter().any(|b| b.1 == id && b.2 == button) {
+                             gamepad_state.active_buttons.push((generation, id, button, false));
+                         }
+                    }
+                    gilrs::EventType::ButtonRepeated(button, _) => {
+                         if let Some(idx) = gamepad_state.active_buttons.iter().position(|b| b.1 == id && b.2 == button) {
+                             gamepad_state.active_buttons[idx].3 = true;
+                         }
+                    }
+                    gilrs::EventType::ButtonReleased(button, _) => {
+                         gamepad_state.active_buttons.retain(|b| !(b.1 == id && b.2 == button));
+                    }
+                    _ => {}
+                }
+            }
+            // end gamepad handling
+
+            // Generation is logical frame count
+            let generation = &mut game.store.as_mut().unwrap().data_mut().generation;
+            *generation = *generation + 1;
+
+            // TODO: Track total logic time separately from wall clock?
+            // For now, epoch can be wall clock, but strictly it should be logic time.
+            let epoch_time = now - self.start_time.unwrap(); 
+
+            pollster::block_on(game.update(epoch_time, fixed_time_step)).unwrap();
+        }
+
+        // Logic to cap render rate at 60Hz
+        let render_frame_time = std::time::Duration::from_millis(1000 / 60);
+        let last_render_update = self.last_render_update.unwrap();
+        
+        if now - last_render_update >= render_frame_time {
+            window.request_redraw();
+            // Note: last_render_update is updated in processing RedrawRequested
+        }
+
+        // Don't wait, run as fast as possible (vsync will handle partial throttling if enabled, or we burn CPU)
+        // event_loop.set_control_flow(ControlFlow::Poll); 
+        // Or wait a tiny bit to be nice to CPU if vsync is off? 
+        // ControlFlow::Poll is standard for games.
+        event_loop.set_control_flow(ControlFlow::Poll);
+    }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: GameEvent) {
+        // Handle user events
+    }
+}
+
+async fn run_loop(
+    input_path: PathBuf,
+    binary: Vec<u8>,
+) -> Result<(), EventLoopError> {
+    let event_loop = EventLoop::<GameEvent>::with_user_event().build().unwrap();
+    
+    let mut app = App {
+        input_path,
+        binary,
+        window: None,
+        game: None,
+        start_time: None,
+        last_update: None,
+        last_render_update: None,
+        accumulator: std::time::Duration::ZERO,
+    };
+
+    event_loop.run_app(&mut app)
 }
 
 pub fn run(input_path: PathBuf, binary: Vec<u8>) {
-    let event_loop = EventLoopBuilder::<GameEvent>::with_user_event()
-        .build()
-        .unwrap();
-
-    let window_builder = WindowBuilder::new()
-        .with_title("Game");
-
-    #[cfg(target_os = "macos")]
-    let window_builder = window_builder.with_titlebar_hidden(true);
-
-    let window = window_builder.build(&event_loop).unwrap();
-
-    // #[cfg(not(target_arch = "wasm32"))]
-    // {
-    // env_logger::init();
-    // Temporarily avoid srgb formats for the swapchain on the web
-    pollster::block_on(run_loop(event_loop, window, input_path, binary)).ok();
-    // }
-    // #[cfg(target_arch = "wasm32")]
-    // {
-    //     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    //     console_log::init().expect("could not initialize logger");
-    //     use winit::platform::web::WindowExtWebSys;
-    //     // On wasm, append the canvas to the document body
-    //     web_sys::window()
-    //         .and_then(|win| win.document())
-    //         .and_then(|doc| doc.body())
-    //         .and_then(|body| {
-    //             body.append_child(&web_sys::Element::from(window.canvas()))
-    //                 .ok()
-    //         })
-    //         .expect("couldn't append canvas to document body");
-
-    //     wasm_bindgen_futures::spawn_local(run_loop(event_loop, window));
-    // }
+    pollster::block_on(run_loop(input_path, binary)).ok();
 }
 
 

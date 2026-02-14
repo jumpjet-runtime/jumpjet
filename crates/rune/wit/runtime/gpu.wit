@@ -196,7 +196,7 @@ interface gpu {
     /// State of GPU buffer map
     map-state: func() -> gpu-buffer-map-state;
     /// Map the GPU buffer
-    map: func(mode: gpu-map-mode, offset: gpu-size-u64, size: gpu-size-u64);
+    %map: func(mode: gpu-map-mode, offset: gpu-size-u64, size: gpu-size-u64);
     /// Get a range of bytes from the buffer
     get-mapped-range: func(offset: gpu-size-u64, size: gpu-size-u64) -> list<u8>;
     /// Unmap the GPU buffer
