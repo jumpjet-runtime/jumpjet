@@ -12,6 +12,8 @@ interface gpu {
   resource gpu-surface {
     /// Get the current texture for GPU surface.
     current-texture: func() -> gpu-texture;
+    /// Get the texture format for the GPU surface.
+    get-texture-format: func() -> gpu-texture-format;
   }
 
   /// A resource which represents a GPU query set.

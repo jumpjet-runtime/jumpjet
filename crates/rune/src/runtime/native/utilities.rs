@@ -12,7 +12,7 @@ use crate::gpu::{
     GpuBlendState, GpuBufferUsage, GpuColorWrite, GpuCompareFunction, GpuExtentD3, GpuFilterMode,
     GpuIndexFormat, GpuLoadOp, GpuMapMode, GpuQueryType, GpuShaderStage, GpuStencilFaceState,
     GpuStencilOperation, GpuStoreOp, GpuTextureAspect, GpuTextureDimension, GpuTextureFormat,
-    GpuTextureUsage, GpuVertexFormat, GpuVertexStepMode,
+    GpuTextureUsage, GpuTextureViewDimension, GpuVertexFormat, GpuVertexStepMode,
 };
 
 // use crate::renderer::{GpuCompareFunction, GpuTextureFormat, GpuStencilOperation, GpuStencilFaceState, GpuColorWrite, GpuBlendState, GpuBlendComponent, GpuBlendFactor, GpuBlendOperation};
@@ -495,6 +495,19 @@ impl Into<GpuTextureDimension> for wgpu_types::TextureDimension {
             wgpu_types::TextureDimension::D1 => GpuTextureDimension::D1,
             wgpu_types::TextureDimension::D2 => GpuTextureDimension::D2,
             wgpu_types::TextureDimension::D3 => GpuTextureDimension::D3,
+        }
+    }
+}
+
+impl Into<wgpu_types::TextureViewDimension> for GpuTextureViewDimension {
+    fn into(self) -> wgpu_types::TextureViewDimension {
+        match self {
+            GpuTextureViewDimension::D1 => wgpu_types::TextureViewDimension::D1,
+            GpuTextureViewDimension::D2 => wgpu_types::TextureViewDimension::D2,
+            GpuTextureViewDimension::D2Array => wgpu_types::TextureViewDimension::D2Array,
+            GpuTextureViewDimension::Cube => wgpu_types::TextureViewDimension::Cube,
+            GpuTextureViewDimension::CubeArray => wgpu_types::TextureViewDimension::CubeArray,
+            GpuTextureViewDimension::D3 => wgpu_types::TextureViewDimension::D3,
         }
     }
 }

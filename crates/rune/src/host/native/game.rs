@@ -135,6 +135,7 @@ impl Game {
         if ctx.gpu_state.present_surface {
             ctx.instance.surface_present(surface_id)?;
             ctx.gpu_state.present_surface = false;
+            ctx.gpu_state.current_surface_texture = None;
         }
 
         Ok(())

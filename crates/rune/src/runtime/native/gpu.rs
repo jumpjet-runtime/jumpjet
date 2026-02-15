@@ -11,7 +11,7 @@ use wgpu_types::{
     BindGroupLayoutEntry, Color, ColorTargetState, ColorWrites, DepthBiasState, DepthStencilState,
     DynamicOffset, Face, FrontFace, ImageCopyTexture, ImageDataLayout, ImageSubresourceRange,
     MultisampleState, Origin3d, PolygonMode, PrimitiveState, PrimitiveTopology, StencilFaceState,
-    StencilState, VertexAttribute,
+    StencilState, TextureDimension, TextureUsages, VertexAttribute,
 };
 
 use crate::{
@@ -47,14 +47,39 @@ impl Host for RuneRuntimeState {
 
 impl HostGpuSurface for RuneRuntimeState {
     async fn current_texture(&mut self, _surface: Resource<GpuSurface>) -> Resource<GpuTexture> {
-        let surface_output = self
-            .instance
-            .surface_get_current_texture(self.surface, None)
-            .unwrap();
+        let texture_id = if let Some(texture_id) = self.gpu_state.current_surface_texture {
+            texture_id
+        } else {
+            let surface_output = self
+                .instance
+                .surface_get_current_texture(self.surface, None)
+                .unwrap();
 
-        self.gpu_state.present_surface = true;
+            self.gpu_state.present_surface = true;
+            let texture_id = surface_output.texture_id.unwrap();
 
-        self.table.push(surface_output.texture_id.unwrap()).unwrap()
+            self.gpu_state.textures.insert(
+                texture_id,
+                Texture {
+                    width: self.surface_config.width,
+                    height: self.surface_config.height,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: self.surface_config.format,
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                },
+            );
+
+            self.gpu_state.current_surface_texture = Some(texture_id);
+            texture_id
+        };
+
+        self.table.push(texture_id).unwrap()
+    }
+
+    async fn get_texture_format(&mut self, _surface: Resource<GpuSurface>) -> GpuTextureFormat {
+        self.surface_config.format.into()
     }
 
     async fn drop(&mut self, _rep: Resource<GpuSurface>) -> Result<()> {
@@ -216,8 +241,8 @@ impl HostGpuDevice for RuneRuntimeState {
         self.gpu_state.textures.insert(
             texture_id,
             Texture {
-                height: 0,
-                width: 0,
+                height: texture_descriptor.size.height,
+                width: texture_descriptor.size.width,
                 dimension: texture_descriptor.dimension,
                 format: texture_descriptor.format,
                 mip_level_count: texture_descriptor.mip_level_count,
@@ -273,9 +298,60 @@ impl HostGpuDevice for RuneRuntimeState {
             .map(|entry| BindGroupLayoutEntry {
                 binding: entry.binding,
                 visibility: entry.visibility.into(),
-                ty: todo!(),
-                #[allow(unreachable_code)]
-                count: todo!(),
+                ty: if let Some(buffer) = entry.buffer {
+                    wgpu_types::BindingType::Buffer {
+                        ty: match buffer.type_ {
+                            GpuBufferBindingType::Uniform => wgpu_types::BufferBindingType::Uniform,
+                            GpuBufferBindingType::Storage => {
+                                wgpu_types::BufferBindingType::Storage { read_only: false }
+                            }
+                            GpuBufferBindingType::ReadOnlyStorage => {
+                                wgpu_types::BufferBindingType::Storage { read_only: true }
+                            }
+                        },
+                        has_dynamic_offset: buffer.has_dynamic_offset,
+                        min_binding_size: std::num::NonZeroU64::new(buffer.min_binding_size),
+                    }
+                } else if let Some(sampler) = entry.sampler {
+                    wgpu_types::BindingType::Sampler(match sampler.type_ {
+                        GpuSamplerBindingType::Filtering => wgpu_types::SamplerBindingType::Filtering,
+                        GpuSamplerBindingType::NonFiltering => {
+                            wgpu_types::SamplerBindingType::NonFiltering
+                        }
+                        GpuSamplerBindingType::Comparison => {
+                            wgpu_types::SamplerBindingType::Comparison
+                        }
+                    })
+                } else if let Some(texture) = entry.texture {
+                    wgpu_types::BindingType::Texture {
+                        sample_type: match texture.sample_type {
+                            GpuTextureSampleType::Float => {
+                                wgpu_types::TextureSampleType::Float { filterable: true }
+                            }
+                            GpuTextureSampleType::UnfilterableFloat => {
+                                wgpu_types::TextureSampleType::Float { filterable: false }
+                            }
+                            GpuTextureSampleType::Depth => wgpu_types::TextureSampleType::Depth,
+                            GpuTextureSampleType::Sint => wgpu_types::TextureSampleType::Sint,
+                            GpuTextureSampleType::Uint => wgpu_types::TextureSampleType::Uint,
+                        },
+                        view_dimension: texture.view_dimension.into(),
+                        multisampled: texture.multisampled,
+                    }
+                } else if let Some(storage_texture) = entry.storage_texture {
+                    wgpu_types::BindingType::StorageTexture {
+                        access: match storage_texture.access {
+                            GpuStorageTextureAccess::WriteOnly => {
+                                wgpu_types::StorageTextureAccess::WriteOnly
+                            }
+                        },
+                        format: storage_texture.format.into(),
+                        view_dimension: storage_texture.view_dimension.into(),
+                    }
+                } else {
+                    panic!("Invalid bind group layout entry");
+                },
+                count: None,
             })
             .collect();
 
