@@ -3,13 +3,12 @@ use std::sync::Mutex;
 use rand::Rng;
 use once_cell::sync::{Lazy, OnceCell};
 use wit_bindgen::generate;
-use glam::{Mat4, Vec3};
+use glam::{Mat4};
 
 use crate::exports::rune::runtime::guest::Guest;
 use crate::rune::runtime::gpu::*;
 use crate::rune::runtime::window;
 use crate::rune::runtime::input::{keyboard, KeyboardKey};
-use crate::rune::runtime::audio::{self};
 
 generate!({
     world: "runtime",
@@ -60,9 +59,19 @@ struct AudioState {
     context: Option<crate::rune::runtime::audio::AudioContext>,
 }
 
+
 static AUDIO: Lazy<Mutex<AudioState>> = Lazy::new(|| Mutex::new(AudioState {
     context: None,
 }));
+
+struct Graphics {
+    #[allow(dead_code)]
+    surface: GpuSurface,
+    device: GpuDevice,
+    queue: GpuQueue,
+}
+
+static GRAPHICS: OnceCell<Graphics> = OnceCell::new();
 
 const TILE_SIZE: f32 = 32.0;
 const MOVE_INTERVAL: f64 = 0.15;
@@ -71,6 +80,8 @@ impl Guest for Game {
     fn init() -> Result<(), String> {
         let adapter = crate::rune::runtime::gpu::request_adapter();
         let device = adapter.request_device();
+        let queue = device.queue();
+        let surface = crate::rune::runtime::gpu::surface();
 
         // Initialize grid size based on window
         let (window_width, window_height) = window::dimensions();
@@ -87,7 +98,8 @@ impl Guest for Game {
             audio_state.context = Some(context);
         }
 
-        let surface = crate::rune::runtime::gpu::surface();
+
+
         let format = surface.get_texture_format();
 
         let shader = device.create_shader_module(&GpuShaderModuleDescriptor {
@@ -224,6 +236,12 @@ impl Guest for Game {
         });
         RENDER_PIPELINE.set(pipeline).unwrap();
 
+        GRAPHICS.set(Graphics {
+            surface,
+            device,
+            queue,
+        }).map_err(|_| "Failed to set GRAPHICS".to_owned())?;
+
         Ok(())
     }
 
@@ -320,10 +338,10 @@ impl Guest for Game {
     }
 
     fn render(_time: f64, _delta_time: f64) {
-        let adapter = crate::rune::runtime::gpu::request_adapter();
-        let device = adapter.request_device();
-        let queue = device.queue();
-        let surface = crate::rune::runtime::gpu::surface();
+        let graphics = GRAPHICS.get().unwrap();
+        let device = &graphics.device;
+        let queue = &graphics.queue;
+        let surface = &graphics.surface;
         let view = surface.current_texture().create_view();
         
         let mut encoder = device.create_command_encoder(&GpuCommandEncoderDescriptor { label: None });

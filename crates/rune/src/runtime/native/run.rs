@@ -1,4 +1,5 @@
 use std::{path::PathBuf, net::TcpListener};
+use wasmtime::AsContextMut;
 
 use anyhow::Result;
 use cpal::traits::HostTrait;
@@ -201,9 +202,34 @@ impl ApplicationHandler<GameEvent> for App {
 
         // Check for new DAP connections
         if let Some(server) = &self.dap_server {
-            if let Ok((stream, _)) = server.accept() {
+            if let Ok((stream, addr)) = server.accept() {
+                eprintln!("Accepted new DAP connection from {}", addr);
+                stream.set_nonblocking(true).ok();
                 let mut conn = game.dap_connection.lock().unwrap();
                 *conn = Some(stream);
+            }
+        }
+
+        // Check for incoming DAP data
+        let mut dap_needs_handling = false;
+        {
+            let lock = game.dap_connection.lock().unwrap();
+            if let Some(conn) = lock.as_ref() {
+                let mut buf = [0u8; 1];
+                match conn.peek(&mut buf) {
+                    Ok(n) if n > 0 => dap_needs_handling = true,
+                    _ => {}
+                }
+            }
+        }
+
+        if dap_needs_handling {
+            let mut lock = game.dap_connection.lock().unwrap();
+            if let Some(conn) = lock.as_mut() {
+                let store = game.store.as_mut().unwrap();
+                if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None) {
+                    eprintln!("DAP handler error: {:?}", e);
+                }
             }
         }
 
@@ -297,6 +323,7 @@ async fn run_loop(
     };
 
     let dap_server = if debug {
+        eprintln!("Starting DAP server on port {}", crate::debug::dap::DEFAULT_DAP_PORT);
         Some(crate::debug::dap::start_dap_server(crate::debug::dap::DEFAULT_DAP_PORT).unwrap())
     } else {
         None

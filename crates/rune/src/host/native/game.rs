@@ -25,7 +25,7 @@ impl DebugHandler for RuneDebugHandler {
     fn handle(
         &self,
         store: wasmtime::StoreContextMut<'_, Self::Data>,
-        _event: DebugEvent<'_>,
+        event: DebugEvent<'_>,
     ) -> impl std::future::Future<Output = ()> + Send {
         let conn_clone = self.gdb_connection.clone();
         let dap_conn_clone = self.dap_connection.clone();
@@ -33,7 +33,7 @@ impl DebugHandler for RuneDebugHandler {
             {
                 let mut conn_lock = dap_conn_clone.lock().unwrap();
                 if let Some(conn) = conn_lock.as_mut() {
-                    if let Err(e) = crate::debug::dap::handle_dap_event(store, conn) {
+                    if let Err(e) = crate::debug::dap::handle_dap_event(store, conn, Some(event)) {
                         log::error!("DAP handler error: {:?}", e);
                     }
                     return;

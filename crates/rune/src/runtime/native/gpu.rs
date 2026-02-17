@@ -978,9 +978,7 @@ impl HostGpuTexture for RuneRuntimeState {
         ))
         .unwrap();
 
-        self.table
-            .push_child(texture_view_id, &texture_resource)
-            .unwrap()
+        self.table.push(texture_view_id).unwrap()
     }
 
     async fn destroy(&mut self, texture: Resource<GpuTexture>) -> () {
@@ -988,21 +986,27 @@ impl HostGpuTexture for RuneRuntimeState {
         self.instance
             .texture_destroy(*texture_id)
             .unwrap();
-        self.table.delete(texture).unwrap();
+        self.table.delete(texture).ok();
         ()
     }
 
-    async fn drop(&mut self, _texture: Resource<GpuTexture>) -> Result<()> {
+    async fn drop(&mut self, texture: Resource<GpuTexture>) -> Result<()> {
+        let texture_id = self.table.delete(texture).ok();
+        if let Some(texture_id) = texture_id {
+            self.instance.texture_drop(texture_id);
+        }
         Ok(())
     }
 }
 
 impl HostGpuTextureView for RuneRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuTextureView>) -> Result<()> {
-        let texture_view_id = self.table.delete(rep).unwrap();
-        self.instance
-            .texture_view_drop(texture_view_id)
-            .unwrap();
+        let texture_view_id = self.table.delete(rep).ok();
+        if let Some(texture_view_id) = texture_view_id {
+            self.instance
+                .texture_view_drop(texture_view_id)
+                .unwrap();
+        }
         Ok(())
     }
 }
