@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, net::TcpListener};
 
 use anyhow::Result;
 use cpal::traits::HostTrait;
@@ -32,6 +32,9 @@ struct App {
     last_update: Option<std::time::Instant>,
     last_render_update: Option<std::time::Instant>,
     accumulator: std::time::Duration,
+    debug: bool,
+    gdb_server: Option<TcpListener>,
+    dap_server: Option<TcpListener>,
 }
 
 impl ApplicationHandler<GameEvent> for App {
@@ -97,7 +100,8 @@ impl ApplicationHandler<GameEvent> for App {
 
             let gilrs = gilrs::Gilrs::new().unwrap();
 
-            let mut game = Game::from_binary(&self.binary).unwrap();
+            let mut game = Game::from_binary(&self.binary, self.debug).unwrap();
+
             pollster::block_on(game.init(
                 &window,
                 self.input_path.clone(),
@@ -187,6 +191,22 @@ impl ApplicationHandler<GameEvent> for App {
         let window = self.window.as_ref().unwrap();
         let game = self.game.as_mut().unwrap();
 
+        // Check for new GDB connections
+        if let Some(server) = &self.gdb_server {
+            if let Ok((stream, _)) = server.accept() {
+                let mut conn = game.gdb_connection.lock().unwrap();
+                *conn = Some(stream);
+            }
+        }
+
+        // Check for new DAP connections
+        if let Some(server) = &self.dap_server {
+            if let Ok((stream, _)) = server.accept() {
+                let mut conn = game.dap_connection.lock().unwrap();
+                *conn = Some(stream);
+            }
+        }
+
         let now = std::time::Instant::now();
         let last_update = self.last_update.unwrap();
         let delta_time = now - last_update;
@@ -266,9 +286,22 @@ impl ApplicationHandler<GameEvent> for App {
 async fn run_loop(
     input_path: PathBuf,
     binary: Vec<u8>,
+    debug: bool,
 ) -> Result<(), EventLoopError> {
     let event_loop = EventLoop::<GameEvent>::with_user_event().build().unwrap();
     
+    let gdb_server = if debug {
+        Some(crate::debug::gdb::start_gdb_server(crate::debug::gdb::DEFAULT_GDB_PORT).unwrap())
+    } else {
+        None
+    };
+
+    let dap_server = if debug {
+        Some(crate::debug::dap::start_dap_server(crate::debug::dap::DEFAULT_DAP_PORT).unwrap())
+    } else {
+        None
+    };
+
     let mut app = App {
         input_path,
         binary,
@@ -278,13 +311,16 @@ async fn run_loop(
         last_update: None,
         last_render_update: None,
         accumulator: std::time::Duration::ZERO,
+        debug,
+        gdb_server,
+        dap_server,
     };
 
     event_loop.run_app(&mut app)
 }
 
-pub fn run(input_path: PathBuf, binary: Vec<u8>) {
-    pollster::block_on(run_loop(input_path, binary)).ok();
+pub fn run(input_path: PathBuf, binary: Vec<u8>, debug: bool) {
+    pollster::block_on(run_loop(input_path, binary, debug)).ok();
 }
 
 

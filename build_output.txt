@@ -1,0 +1,325 @@
+    Checking rune v0.1.12 (/Users/loch/Documents/Projects/rune/crates/rune)
+warning: unused import: `std::path::PathBuf`
+ --> crates/rune/src/lib.rs:1:5
+  |
+1 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `slab::Slab`
+ --> crates/rune/src/lib.rs:4:5
+  |
+4 | use slab::Slab;
+  |     ^^^^^^^^^^
+
+warning: unused import: `vfs::VfsPath`
+ --> crates/rune/src/lib.rs:5:5
+  |
+5 | use vfs::VfsPath;
+  |     ^^^^^^^^^^^^
+
+warning: unused import: `wgpu_types::TextureFormat`
+ --> crates/rune/src/lib.rs:6:5
+  |
+6 | use wgpu_types::TextureFormat;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `AsContextMut`
+ --> crates/rune/src/host/native/game.rs:8:40
+  |
+8 | ...ore, DebugEvent, AsContextMut, DebugHandler,
+  |                     ^^^^^^^^^^^^
+
+warning: unused import: `std::path::PathBuf`
+ --> crates/rune/src/runtime/mod.rs:1:5
+  |
+1 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `anyhow::Result`
+ --> crates/rune/src/runtime/mod.rs:3:5
+  |
+3 | use anyhow::Result;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `cpal::traits::HostTrait`
+ --> crates/rune/src/runtime/mod.rs:4:5
+  |
+4 | use cpal::traits::HostTrait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Arguments` and `Trial`
+ --> crates/rune/src/runtime/mod.rs:5:21
+  |
+5 | use libtest_mimic::{Arguments, Trial};
+  |                     ^^^^^^^^^  ^^^^^
+
+warning: unused import: `pollster`
+ --> crates/rune/src/runtime/mod.rs:6:5
+  |
+6 | use pollster;
+  |     ^^^^^^^^
+
+warning: unused import: `super::state::RuneRuntimeState`
+  --> crates/rune/src/runtime/native/run.rs:12:9
+   |
+12 | pub use super::state::RuneRuntimeState;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `EventLoopBuilder`
+  --> crates/rune/src/runtime/native/run.rs:18:59
+   |
+18 | ...ow, EventLoop, EventLoopBuilder},
+   |                   ^^^^^^^^^^^^^^^^
+
+warning: unused import: `AsContext`
+ --> crates/rune/src/debug/context.rs:1:16
+  |
+1 | use wasmtime::{AsContext, AsContextMut, StoreConte...
+  |                ^^^^^^^^^
+
+warning: unused import: `Gilrs`
+   --> crates/rune/src/lib.rs:102:21
+    |
+102 | use gilrs::{Button, Gilrs};
+    |                     ^^^^^
+
+warning: unused import: `uuid::Uuid`
+   --> crates/rune/src/lib.rs:104:5
+    |
+104 | use uuid::Uuid;
+    |     ^^^^^^^^^^
+
+warning: unused import: `ResourceTable`
+   --> crates/rune/src/lib.rs:107:5
+    |
+107 |     ResourceTable,
+    |     ^^^^^^^^^^^^^
+
+error[E0277]: the trait bound `&...: AsContextMut` is not satisfied
+   --> crates/rune/src/debug/context.rs:24:87
+    |
+ 24 | ...rame.wasm_function_index_and_pc(&store) {
+    |         -------------------------- ^^^^^^ unsatisfied trait bound
+    |         |
+    |         required by a bound introduced by this call
+    |
+    = help: the trait `AsContextMut` is not implemented for `&StoreContextMut<'_, RuneRuntimeState>`
+note: required by a bound in `FrameHandle::wasm_function_index_and_pc`
+   --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:472:25
+    |
+470 |     pub fn wasm_function_index_and_pc(
+    |            -------------------------- required by a bound in this associated function
+471 |         &self,
+472 |         mut store: impl AsContextMut,
+    |                         ^^^^^^^^^^^^ required by this bound in `FrameHandle::wasm_function_index_and_pc`
+    = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-11886816789433507570.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider removing the leading `&`-reference
+    |
+ 24 -             if let Ok(Some((func_idx, pc_offset))) = frame.wasm_function_index_and_pc(&store) {
+ 24 +             if let Ok(Some((func_idx, pc_offset))) = frame.wasm_function_index_and_pc(store) {
+    |
+help: consider changing this borrow's mutability
+    |
+ 24 |             if let Ok(Some((func_idx, pc_offset))) = frame.wasm_function_index_and_pc(&mut store) {
+    |                                                                                        +++
+
+error[E0599]: no method named `index` found for struct `DefinedFuncIndex` in the current scope
+  --> crates/rune/src/debug/context.rs:26:40
+   |
+26 | ... Some(((func_idx.index() as u64) << 32) | (pc_...
+   |                     ^^^^^ method not found in `DefinedFuncIndex`
+   |
+  ::: /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/cranelift/entity/src/lib.rs:52:8
+   |
+52 |     fn index(self) -> usize;
+   |        ----- the method is available for `DefinedFuncIndex` here
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: trait `EntityRef` which provides `index` is implemented but not in scope; perhaps you want to import it
+   |
+ 1 + use cranelift_entity::EntityRef;
+   |
+
+error[E0277]: the trait bound `&...: AsContextMut` is not satisfied
+   --> crates/rune/src/debug/context.rs:40:50
+    |
+ 40 | ...e) = frame.instance(&store) {
+    |               -------- ^^^^^^ unsatisfied trait bound
+    |               |
+    |               required by a bound introduced by this call
+    |
+    = help: the trait `AsContextMut` is not implemented for `&StoreContextMut<'_, RuneRuntimeState>`
+note: required by a bound in `FrameHandle::instance`
+   --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:448:44
+    |
+448 | ... store: impl AsContextMut) -> Result<Instance> {
+    |                 ^^^^^^^^^^^^ required by this bound in `FrameHandle::instance`
+    = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-11886816789433507570.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider removing the leading `&`-reference
+    |
+ 40 -             if let Ok(instance) = frame.instance(&store) {
+ 40 +             if let Ok(instance) = frame.instance(store) {
+    |
+help: consider changing this borrow's mutability
+    |
+ 40 |             if let Ok(instance) = frame.instance(&mut store) {
+    |                                                   +++
+
+error[E0277]: the trait bound `&...: AsContextMut` is not satisfied
+   --> crates/rune/src/debug/context.rs:73:42
+    |
+ 73 | ..._map(|f| f.instance(&store).ok()).next()
+    |               -------- ^^^^^^ unsatisfied trait bound
+    |               |
+    |               required by a bound introduced by this call
+    |
+    = help: the trait `AsContextMut` is not implemented for `&StoreContextMut<'_, RuneRuntimeState>`
+note: required by a bound in `FrameHandle::instance`
+   --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:448:44
+    |
+448 | ... store: impl AsContextMut) -> Result<Instance> {
+    |                 ^^^^^^^^^^^^ required by this bound in `FrameHandle::instance`
+    = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-2856176263315975717.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider removing the leading `&`-reference
+    |
+ 73 -              itr.flat_map(|f| f.instance(&store).ok()).next()
+ 73 +              itr.flat_map(|f| f.instance(store).ok()).next()
+    |
+help: consider changing this borrow's mutability
+    |
+ 73 |              itr.flat_map(|f| f.instance(&mut store).ok()).next()
+    |                                           +++
+
+error[E0277]: the trait bound `&...: Into<...>` is not satisfied
+    --> crates/rune/src/debug/context.rs:102:41
+     |
+ 102 | ...d_then(|f| f.module(&store).ok().flatten())
+     |                 ------ ^^^^^^ unsatisfied trait bound
+     |                 |
+     |                 required by a bound introduced by this call
+     |
+     = help: the trait `From<&StoreContextMut<'_, RuneRuntimeState>>` is not implemented for `StoreContextMut<'_, _>`
+help: the following other types implement trait `From<T>`
+    --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/func.rs:2140:1
+     |
+2140 | impl<'a, T: 'static> From<Caller<'a, T>> for StoreContextMut<'a, T> {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StoreContextMut<'_, T>` implements `From<Caller<'_, T>>`
+     |
+    ::: /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/store/context.rs:219:1
+     |
+ 219 | impl<'a, T: AsContextMut> From<&'a mut T> for StoreContextMut<'a, T::Data> {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StoreContextMut<'_, ...>` implements `From<&mut T>`
+     = note: required for `&StoreContextMut<'_, RuneRuntimeState>` to implement `Into<StoreContextMut<'_, _>>`
+note: required by a bound in `FrameHandle::module`
+    --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:459:21
+     |
+ 457 |     pub fn module<'a, T: 'static>(
+     |            ------ required by a bound in this associated function
+ 458 |         &self,
+ 459 |         store: impl Into<StoreContextMut<'a, T>>,
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `FrameHandle::module`
+     = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-13432422977287326233.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0599]: no method named `add_breakpoint` found for enum `std::option::Option<T>` in the current scope
+   --> crates/rune/src/debug/context.rs:107:38
+    |
+107 | ...reakpoints().add_breakpoint(&module, pc_offse...
+    |                 ^^^^^^^^^^^^^^ method not found in `Option<BreakpointEdit<'_>>`
+    |
+note: the method `add_breakpoint` exists on the type `BreakpointEdit<'_>`
+   --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:980:5
+    |
+980 |     pub fn add_breakpoint(&mut self, module: &Module, pc: u32) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-13127999162221078575.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider using `Option::expect` to unwrap the `BreakpointEdit<'_>` value, panicking if the value is an `Option::None`
+    |
+107 |             store.edit_breakpoints().expect("REASON").add_breakpoint(&module, pc_offset)?;
+    |                                     +++++++++++++++++
+
+error[E0277]: the trait bound `&...: Into<...>` is not satisfied
+    --> crates/rune/src/debug/context.rs:120:41
+     |
+ 120 | ...d_then(|f| f.module(&store).ok().flatten())
+     |                 ------ ^^^^^^ unsatisfied trait bound
+     |                 |
+     |                 required by a bound introduced by this call
+     |
+     = help: the trait `From<&StoreContextMut<'_, RuneRuntimeState>>` is not implemented for `StoreContextMut<'_, _>`
+help: the following other types implement trait `From<T>`
+    --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/func.rs:2140:1
+     |
+2140 | impl<'a, T: 'static> From<Caller<'a, T>> for StoreContextMut<'a, T> {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StoreContextMut<'_, T>` implements `From<Caller<'_, T>>`
+     |
+    ::: /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/store/context.rs:219:1
+     |
+ 219 | impl<'a, T: AsContextMut> From<&'a mut T> for StoreContextMut<'a, T::Data> {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StoreContextMut<'_, ...>` implements `From<&mut T>`
+     = note: required for `&StoreContextMut<'_, RuneRuntimeState>` to implement `Into<StoreContextMut<'_, _>>`
+note: required by a bound in `FrameHandle::module`
+    --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:459:21
+     |
+ 457 |     pub fn module<'a, T: 'static>(
+     |            ------ required by a bound in this associated function
+ 458 |         &self,
+ 459 |         store: impl Into<StoreContextMut<'a, T>>,
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `FrameHandle::module`
+     = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-13432422977287326233.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0599]: no method named `remove_breakpoint` found for enum `std::option::Option<T>` in the current scope
+   --> crates/rune/src/debug/context.rs:124:38
+    |
+124 | ...akpoints().remove_breakpoint(&module, pc_offs...
+    |               ^^^^^^^^^^^^^^^^^ method not found in `Option<BreakpointEdit<'_>>`
+    |
+note: the method `remove_breakpoint` exists on the type `BreakpointEdit<'_>`
+   --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:997:5
+    |
+997 |     pub fn remove_breakpoint(&mut self, module: &Module, pc: u32) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-13127999162221078575.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider using `Option::expect` to unwrap the `BreakpointEdit<'_>` value, panicking if the value is an `Option::None`
+    |
+124 |             store.edit_breakpoints().expect("REASON").remove_breakpoint(&module, pc_offset)?;
+    |                                     +++++++++++++++++
+
+error[E0599]: no method named `single_step` found for enum `std::option::Option<T>` in the current scope
+    --> crates/rune/src/debug/context.rs:131:56
+     |
+ 131 | ...reakpoints().single_step(true)?;
+     |                 ^^^^^^^^^^^ method not found in `Option<BreakpointEdit<'_>>`
+     |
+note: the method `single_step` exists on the type `BreakpointEdit<'_>`
+    --> /Users/loch/.cargo/git/checkouts/wasmtime-ae46461068d65b15/f641800/crates/wasmtime/src/runtime/debug.rs:1015:5
+     |
+1015 |     pub fn single_step(&mut self, enabled: bool) -> Result<()> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: the full name for the type has been written to '/Users/loch/Documents/Projects/rune/target/debug/deps/rune-b3c9a9c5f02d814a.long-type-17899795337097991268.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+help: consider using `Option::expect` to unwrap the `BreakpointEdit<'_>` value, panicking if the value is an `Option::None`
+     |
+ 131 |         self.store.as_context_mut().edit_breakpoints().expect("REASON").single_step(true)?;
+     |                                                       +++++++++++++++++
+
+warning: unused variable: `window`
+   --> crates/rune/src/runtime/native/run.rs:132:13
+    |
+132 |         let window = self.window.as_ref().unwrap();
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0277, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `rune` (lib) generated 17 warnings
+error: could not compile `rune` (lib) due to 9 previous errors; 17 warnings emitted

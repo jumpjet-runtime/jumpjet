@@ -15,9 +15,9 @@ path = "tests/runtime.rs"
 harness = false
 
 [dependencies]
-wit-bindgen-core = "0.32.0"
-wit-bindgen-rust = "0.32.0"
-wit-component = "0.217.0"
+wit-bindgen-core = "0.53.0"
+wit-bindgen-rust = "0.53.0"
+wit-component = "0.245.0"
 wgpu-hal = "24.0.0"
 wgpu-types = "24.0.0"
 anyhow = "1.0.89"
@@ -32,6 +32,7 @@ wasi = "0.14.2"
 reqwest = "0.12.22"
 url = "2.5.4"
 winit = "0.30.11"
+log = "0.4"
 cpal = { version = "0.15.2", features = ["wasm-bindgen"] }
 # web-transport = "0.9.4"
 
@@ -39,9 +40,13 @@ cpal = { version = "0.15.2", features = ["wasm-bindgen"] }
 uuid = { version = "1.4.1", features = ["v4", "js"] }
 
 [target.'cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))'.dependencies]
-wasmtime = { version = "34.0.1", features = ['component-model'] }
-wasmtime-wasi = "34.0.1"
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", features = ['component-model', 'debug', 'anyhow'] }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime" }
+cranelift-entity = { git = "https://github.com/bytecodealliance/wasmtime" }
 gdbstub = "0.7.1"
+dapts = "0.0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 gilrs = "0.10.2"
 libtest-mimic = "0.7.3"
 raw-window-handle = "0.6"

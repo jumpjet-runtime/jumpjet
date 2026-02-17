@@ -26,7 +26,7 @@ pub async fn run(release: &bool) -> Result<()> {
             let output_path = current_dir.join(output_path);
             let entrypoint_path = output_path.join(entrypoint_path);
             let binary = std::fs::read(entrypoint_path).unwrap();
-            rune::runtime::run(output_path.to_path_buf(), binary);
+            rune::runtime::run(output_path.to_path_buf(), binary, !release);
         }
         None => panic!("No build input provided in config!"),
     }

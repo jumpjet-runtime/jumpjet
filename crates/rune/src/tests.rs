@@ -32,7 +32,6 @@ impl Tests {
     pub fn from_binary(bytes: &[u8]) -> Result<Tests> {
         let mut config = Config::new();
         config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
-        config.async_support(true);
         config.wasm_component_model(true);
         let engine = Engine::new(&config)?;
         let component = Component::from_binary(&engine, &bytes)?;

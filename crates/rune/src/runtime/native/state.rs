@@ -4,8 +4,7 @@ use gilrs::Gilrs;
 use slab::Slab;
 use uuid::Uuid;
 use vfs::VfsPath;
-use wasmtime_wasi::{ResourceTable};
-use wasmtime_wasi::p2::{WasiCtx, WasiCtxBuilder};
+use wasmtime_wasi::{ResourceTable, WasiCtxBuilder, WasiCtx};
 use wgpu_types::TextureFormat;
 use winit::dpi::PhysicalSize;
 

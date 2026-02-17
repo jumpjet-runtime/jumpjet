@@ -139,9 +139,11 @@ fn type_def_name(package: &UnresolvedPackage, type_def: &TypeDef) -> String {
             Some(t) => format!("future<{}>", type_name(package, &t)),
             None => "future".to_owned()
         },
-        wit_parser::TypeDefKind::Stream(stream) => "TODO".to_string(),
+        wit_parser::TypeDefKind::Map(k, v) => format!("map<{}: {}>", type_name(package, k), type_name(package, v)),
+        wit_parser::TypeDefKind::FixedLengthList(t, n) => format!("list<{}, {}>", type_name(package, t), n),
         wit_parser::TypeDefKind::Type(t) => type_name(package, &t),
         wit_parser::TypeDefKind::Unknown => "?".to_owned(),
+        _ => "unknown".to_owned(),
     }
 }
 
@@ -160,6 +162,7 @@ fn type_name(package: &UnresolvedPackage, type_: &Type) -> String {
         Type::F64 => "f64".to_owned(),
         Type::Char => "char".to_owned(),
         Type::String => "string".to_owned(),
+        Type::ErrorContext => "error-context".to_owned(),
         Type::Id(id) => type_def_name(package, package.types.get(*id).unwrap()),
     }
 }
@@ -226,7 +229,11 @@ fn render_type<'a>(
         Type::String => Span::styled(
             "string",
             Style::reset().bold().fg(Color::Indexed(75)),
-        )
+        ),
+        Type::ErrorContext => Span::styled(
+            "error-context",
+            Style::reset().bold().fg(Color::Indexed(75)),
+        ),
     }
 }
 
@@ -235,18 +242,18 @@ fn render_function_signature<'a>(
     func: &Function
 ) -> Line<'a> {
     match func.kind {
-        wit_parser::FunctionKind::Freestanding => {
+        wit_parser::FunctionKind::Freestanding | wit_parser::FunctionKind::AsyncFreestanding => {
             let name = func.item_name();
             let mut rendered_params = func
                 .params
                 .iter()
                 .skip(1)
-                .map(|(param_name, param_type)| vec![
+                .map(|param| vec![
                     Span::styled(
-                        format!("{param_name}: "),
+                        format!("{}: ", param.name),
                         Style::reset().bold().fg(Color::White),
                     ),
-                    render_type(&package, param_type),
+                    render_type(&package, &param.ty),
                     Span::styled(
                         format!(", "),
                         Style::reset().bold().fg(Color::White),
@@ -257,9 +264,9 @@ fn render_function_signature<'a>(
 
             rendered_params.pop();
 
-            let mut rendered_return = func
-                .results
-                .iter_types()
+            let rendered_return = func
+                .result
+                .iter()
                 .map(|t| render_type(package, t))
                 .collect::<Vec<_>>();
 
@@ -292,19 +299,19 @@ fn render_function_signature<'a>(
 
             Line::from(rendered_func)
         }
-        wit_parser::FunctionKind::Method(type_id) => {
+        wit_parser::FunctionKind::Method(type_id) | wit_parser::FunctionKind::AsyncMethod(type_id) => {
 
             let name = func.item_name();
             let mut rendered_params = func
                 .params
                 .iter()
                 .skip(1)
-                .map(|(param_name, param_type)| vec![
+                .map(|param| vec![
                     Span::styled(
-                        format!("{param_name}: "),
+                        format!("{}: ", param.name),
                         Style::reset().bold().fg(Color::White),
                     ),
-                    render_type(&package, param_type),
+                    render_type(&package, &param.ty),
                     Span::styled(
                         format!(", "),
                         Style::reset().bold().fg(Color::White),
@@ -315,9 +322,9 @@ fn render_function_signature<'a>(
 
             rendered_params.pop();
 
-            let mut rendered_return = func
-                .results
-                .iter_types()
+            let rendered_return = func
+                .result
+                .iter()
                 .map(|t| render_type(package, t))
                 .collect::<Vec<_>>();
 
@@ -350,17 +357,17 @@ fn render_function_signature<'a>(
 
             Line::from(rendered_func)
         }
-        wit_parser::FunctionKind::Static(type_id) => {
+        wit_parser::FunctionKind::Static(type_id) | wit_parser::FunctionKind::AsyncStatic(type_id) => {
             let name = func.item_name();
             let mut rendered_params = func
                 .params
                 .iter()
-                .map(|(param_name, param_type)| vec![
+                .map(|param| vec![
                     Span::styled(
-                        format!("{param_name}: "),
+                        format!("{}: ", param.name),
                         Style::reset().bold().fg(Color::White),
                     ),
-                    render_type(&package, param_type),
+                    render_type(&package, &param.ty),
                     Span::styled(
                         format!(", "),
                         Style::reset().bold().fg(Color::White),
@@ -371,9 +378,9 @@ fn render_function_signature<'a>(
 
             rendered_params.pop();
 
-            let mut rendered_return = func
-                .results
-                .iter_types()
+            let rendered_return = func
+                .result
+                .iter()
                 .map(|t| render_type(package, t))
                 .collect::<Vec<_>>();
 
@@ -412,12 +419,12 @@ fn render_function_signature<'a>(
             let mut rendered_params = func
                 .params
                 .iter()
-                .map(|(param_name, param_type)| vec![
+                .map(|param| vec![
                     Span::styled(
-                        format!("{param_name}: "),
+                        format!("{}: ", param.name),
                         Style::reset().bold().fg(Color::White),
                     ),
-                    render_type(&package, param_type),
+                    render_type(&package, &param.ty),
                     Span::styled(
                         format!(", "),
                         Style::reset().bold().fg(Color::White),
@@ -428,9 +435,9 @@ fn render_function_signature<'a>(
 
             rendered_params.pop();
 
-            let mut rendered_return = func
-                .results
-                .iter_types()
+            let rendered_return = func
+                .result
+                .iter()
                 .map(|t| render_type(package, t))
                 .collect::<Vec<_>>();
 
@@ -506,7 +513,9 @@ fn render_type_list_item<'a>(
         wit_parser::TypeDefKind::Result(result) => "result",
         wit_parser::TypeDefKind::List(t) => &format!("list<{}>", type_name(package, t)),
         wit_parser::TypeDefKind::Future(_) => "future",
-        wit_parser::TypeDefKind::Stream(stream) => "stream",
+        wit_parser::TypeDefKind::Stream(_) => "stream",
+        wit_parser::TypeDefKind::Map(_, _) => "map",
+        wit_parser::TypeDefKind::FixedLengthList(_, _) => "fixed-length-list",
         _ => "type"
     };
     (
@@ -566,14 +575,14 @@ fn render_function_page(
         .params
         .iter()
         .skip(1)
-        .map(|(param_name, param_type)| format!("{param_name}"))
+        .map(|param| format!("{}", param.name))
         .collect::<Vec<_>>()
         .join(", ");
 
     let description = Paragraph::new(func.docs.contents.clone().unwrap_or_default())
         .block(Block::new().padding(Padding::proportional(1)));
 
-    let params_list: Vec<_> = func.params.clone().into_iter().filter(|(name, _)| name != "self").collect();
+    let params_list: Vec<_> = func.params.clone().into_iter().filter(|p| p.name != "self").collect();
     let params_count = params_list.len();
 
     let params_header = Paragraph::new("Parameters")
@@ -581,8 +590,8 @@ fn render_function_page(
 
     let package = package.clone();
     let params_list_builder = ListBuilder::new(move |context| {
-        let (param_name, param_type) = params_list[context.index].clone();
-        let item = Paragraph::new(vec![Line::from(vec![Span::from(format!("{param_name}: ")), render_type(&package, &param_type)])])
+        let param = &params_list[context.index];
+        let item = Paragraph::new(vec![Line::from(vec![Span::from(format!("{}: ", param.name)), render_type(&package, &param.ty)])])
             .block(Block::new()
                 .padding(Padding::horizontal(1))
                 .borders(Borders::LEFT | Borders::BOTTOM)

@@ -9,9 +9,9 @@ use wgpu_core::{
 };
 use wgpu_types::{
     BindGroupLayoutEntry, Color, ColorTargetState, ColorWrites, DepthBiasState, DepthStencilState,
-    DynamicOffset, Face, FrontFace, ImageCopyTexture, ImageDataLayout, ImageSubresourceRange,
-    MultisampleState, Origin3d, PolygonMode, PrimitiveState, PrimitiveTopology, StencilFaceState,
-    StencilState, TextureDimension, TextureUsages, VertexAttribute,
+    DynamicOffset, Face, FrontFace, ImageSubresourceRange, MultisampleState, Origin3d, PolygonMode,
+    PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState, TexelCopyBufferLayout,
+    TexelCopyTextureInfo, TextureDimension, TextureUsages, VertexAttribute,
 };
 
 use crate::{
@@ -782,7 +782,7 @@ impl HostGpuQueue for RuneRuntimeState {
         self.instance
             .queue_write_texture(
                 *queue_id,
-                &ImageCopyTexture {
+                &TexelCopyTextureInfo {
                     texture: *texture_id,
                     mip_level: destination.mip_level,
                     origin: Origin3d {
@@ -793,7 +793,7 @@ impl HostGpuQueue for RuneRuntimeState {
                     aspect: destination.aspect.into(),
                 },
                 &data,
-                &ImageDataLayout {
+                &TexelCopyBufferLayout {
                     offset: data_layout.offset,
                     bytes_per_row: Some(data_layout.bytes_per_row),
                     rows_per_image: Some(data_layout.rows_per_image),
@@ -1239,15 +1239,15 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
         let source_buffer_id = self.table.get(&source.buffer).unwrap();
         let destination_texture_id = self.table.get(&destination.texture).unwrap();
 
-        let source = wgpu_core::command::ImageCopyBuffer {
+        let source = wgpu_core::command::TexelCopyBufferInfo {
             buffer: *source_buffer_id,
-            layout: wgpu_types::ImageDataLayout {
+            layout: wgpu_types::TexelCopyBufferLayout {
                 offset: source.layout.offset,
                 bytes_per_row: Some(source.layout.bytes_per_row),
                 rows_per_image: Some(source.layout.rows_per_image),
             },
         };
-        let destination = wgpu_core::command::ImageCopyTexture {
+        let destination = wgpu_core::command::TexelCopyTextureInfo {
             texture: *destination_texture_id,
             mip_level: destination.mip_level,
             origin: Origin3d {
@@ -1280,7 +1280,7 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
         let source_texture_id = self.table.get(&source.texture).unwrap();
         let destination_texture_id = self.table.get(&destination.buffer).unwrap();
 
-        let source = wgpu_core::command::ImageCopyTexture {
+        let source = wgpu_core::command::TexelCopyTextureInfo {
             texture: *source_texture_id,
             mip_level: source.mip_level,
             origin: Origin3d {
@@ -1290,9 +1290,9 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
             },
             aspect: source.aspect.into(),
         };
-        let destination = wgpu_core::command::ImageCopyBuffer {
+        let destination = wgpu_core::command::TexelCopyBufferInfo {
             buffer: *destination_texture_id,
-            layout: wgpu_types::ImageDataLayout {
+            layout: wgpu_types::TexelCopyBufferLayout {
                 offset: destination.layout.offset,
                 bytes_per_row: Some(destination.layout.bytes_per_row),
                 rows_per_image: Some(destination.layout.rows_per_image),
@@ -1321,7 +1321,7 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
         let source_texture_id = self.table.get(&source.texture).unwrap();
         let destination_texture_id = self.table.get(&destination.texture).unwrap();
 
-        let source = wgpu_core::command::ImageCopyTexture {
+        let source = wgpu_core::command::TexelCopyTextureInfo {
             texture: *source_texture_id,
             mip_level: source.mip_level,
             origin: Origin3d {
@@ -1331,7 +1331,7 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
             },
             aspect: source.aspect.into(),
         };
-        let destination = wgpu_core::command::ImageCopyTexture {
+        let destination = wgpu_core::command::TexelCopyTextureInfo {
             texture: *destination_texture_id,
             mip_level: destination.mip_level,
             origin: Origin3d {
