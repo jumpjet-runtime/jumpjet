@@ -16,7 +16,8 @@ pub use crate::runtime::RuneRuntimeState;
 #[derive(Clone)]
 pub struct RuneDebugHandler {
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
-    pub dap_connection: Arc<Mutex<Option<TcpStream>>>,
+    pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
+    pub binary: Arc<Vec<u8>>,
 }
 
 impl DebugHandler for RuneDebugHandler {
@@ -29,12 +30,17 @@ impl DebugHandler for RuneDebugHandler {
     ) -> impl std::future::Future<Output = ()> + Send {
         let conn_clone = self.gdb_connection.clone();
         let dap_conn_clone = self.dap_connection.clone();
+        let binary_clone = self.binary.clone();
         async move {
             {
                 let mut conn_lock = dap_conn_clone.lock().unwrap();
                 if let Some(conn) = conn_lock.as_mut() {
-                    if let Err(e) = crate::debug::dap::handle_dap_event(store, conn, Some(event)) {
-                        log::error!("DAP handler error: {:?}", e);
+                    // Map DebugEvent to StoppedEventReason
+                    // For now, assume it's a Breakpoint since we are in debug handler
+                    let reason = dapts::StoppedEventReason::Breakpoint;
+                    
+                    if let Err(e) = crate::debug::dap::handle_dap_event(store, conn, Some(reason), None, binary_clone) {
+                        eprintln!("DAP handler error: {:?}", e);
                     }
                     return;
                 }
@@ -50,8 +56,6 @@ impl DebugHandler for RuneDebugHandler {
     }
 }
 
-/// Game is used to run wasm component
-
 pub struct Game {
     pub path: String,
     pub engine: Engine,
@@ -60,7 +64,8 @@ pub struct Game {
     pub store: Option<Store<RuneRuntimeState>>,
     pub debug: bool,
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
-    pub dap_connection: Arc<Mutex<Option<TcpStream>>>,
+    pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
+    pub binary: Arc<Vec<u8>>,
 }
 
 impl std::fmt::Debug for Game {
@@ -72,36 +77,30 @@ impl std::fmt::Debug for Game {
 impl Game {
     pub fn from_binary(bytes: &[u8], debug: bool) -> Result<Game> {
         let mut config = Config::new();
-        // config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
         config.wasm_component_model(true);
         config.guest_debug(debug);
 
-        println!("Test 1");
         let engine = Engine::new(&config)?;
-
-        println!("Test 2");
-        let component = Component::from_binary(&engine, &bytes)?;
-
-        println!("Test 3");
+        let component = Component::from_binary(&engine, bytes)?;
         let mut linker = Linker::new(&engine);
 
-        wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
-
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+        
         type Data = wasmtime::component::HasSelf<RuneRuntimeState>;
-
         Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut RuneRuntimeState| state)?;
 
-        println!("Test 4");
-
+        let instance_pre = RuntimePre::new(linker.instantiate_pre(&component)?)?;
+        
         Ok(Self {
             path: "bytes".to_owned(),
             engine,
-            instance_pre: RuntimePre::new(linker.instantiate_pre(&component)?)?,
+            instance_pre,
             runtime: None,
             store: None,
             debug,
             gdb_connection: Arc::new(Mutex::new(None)),
             dap_connection: Arc::new(Mutex::new(None)),
+            binary: Arc::new(bytes.to_vec()),
         })
     }
 
@@ -138,13 +137,12 @@ impl Game {
             let handler = RuneDebugHandler {
                 gdb_connection: self.gdb_connection.clone(),
                 dap_connection: self.dap_connection.clone(),
+                binary: self.binary.clone(),
             };
             store.set_debug_handler(handler);
         }
 
         let runtime = self.instance_pre.instantiate_async(&mut store).await?;
-
-        println!("Instantiated runtime");
 
         if let Err(msg) = runtime.rune_runtime_guest().call_init(&mut store).await {
             panic!("{}", msg);
@@ -202,17 +200,18 @@ impl Game {
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        let store = self.store.as_mut().unwrap();
-        let ctx = store.data_mut();
-        let surface_id = ctx.surface;
-        let device_id = ctx.device;
+        if let Some(store) = self.store.as_mut() {
+            let ctx = store.data_mut();
+            let surface_id = ctx.surface;
+            let device_id = ctx.device;
 
-        let surface_config = &mut ctx.surface_config;
+            let surface_config = &mut ctx.surface_config;
 
-        surface_config.width = size.width;
-        surface_config.height = size.height;
+            surface_config.width = size.width;
+            surface_config.height = size.height;
 
-        ctx.instance
-            .surface_configure(surface_id, device_id, &surface_config);
+            ctx.instance
+                .surface_configure(surface_id, device_id, &surface_config);
+        }
     }
 }

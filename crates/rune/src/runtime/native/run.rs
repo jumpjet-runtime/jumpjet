@@ -206,7 +206,7 @@ impl ApplicationHandler<GameEvent> for App {
                 eprintln!("Accepted new DAP connection from {}", addr);
                 stream.set_nonblocking(true).ok();
                 let mut conn = game.dap_connection.lock().unwrap();
-                *conn = Some(stream);
+                *conn = Some(crate::debug::dap::DapConnection::new(stream));
             }
         }
 
@@ -216,7 +216,7 @@ impl ApplicationHandler<GameEvent> for App {
             let lock = game.dap_connection.lock().unwrap();
             if let Some(conn) = lock.as_ref() {
                 let mut buf = [0u8; 1];
-                match conn.peek(&mut buf) {
+                match conn.stream.peek(&mut buf) {
                     Ok(n) if n > 0 => dap_needs_handling = true,
                     _ => {}
                 }
@@ -227,7 +227,7 @@ impl ApplicationHandler<GameEvent> for App {
             let mut lock = game.dap_connection.lock().unwrap();
             if let Some(conn) = lock.as_mut() {
                 let store = game.store.as_mut().unwrap();
-                if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None) {
+                if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None, None, game.binary.clone()) {
                     eprintln!("DAP handler error: {:?}", e);
                 }
             }
@@ -285,7 +285,40 @@ impl ApplicationHandler<GameEvent> for App {
             // For now, epoch can be wall clock, but strictly it should be logic time.
             let epoch_time = now - self.start_time.unwrap(); 
 
-            pollster::block_on(game.update(epoch_time, fixed_time_step)).unwrap();
+            let update_result = pollster::block_on(game.update(epoch_time, fixed_time_step));
+            
+            if let Err(e) = update_result {
+                let mut handled_by_dap = false;
+                {
+                    let mut lock = game.dap_connection.lock().unwrap();
+                    if let Some(conn) = lock.as_mut() {
+                        eprintln!("Game update error (trapped): {:?}. Entering Debugger Loop.", e);
+                        let store = game.store.as_mut().unwrap();
+                        
+                        // We use Breakpoint reason if it looks like a breakpoint? 
+                        // Or just Exception.
+                        // For now use Exception.
+                        let reason = dapts::StoppedEventReason::Exception;
+                        
+                        let bt = e.downcast_ref::<wasmtime::WasmBacktrace>();
+                        
+                        if let Err(dap_err) = crate::debug::dap::handle_dap_event(
+                            store.as_context_mut(), 
+                            conn, 
+                            Some(reason),
+                            bt,
+                            game.binary.clone()
+                        ) {
+                            eprintln!("Failed to handle DAP event during trap: {:?}", dap_err);
+                        }
+                        handled_by_dap = true;
+                    }
+                }
+                if !handled_by_dap {
+                    panic!("Game update failed: {:?}", e);
+                }
+            }
+
         }
 
         // Logic to cap render rate at 60Hz

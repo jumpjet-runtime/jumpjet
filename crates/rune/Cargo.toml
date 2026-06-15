@@ -34,6 +34,10 @@ url = "2.5.4"
 winit = "0.30.11"
 log = "0.4"
 cpal = { version = "0.15.2", features = ["wasm-bindgen"] }
+gimli = "0.32.3"
+addr2line = "0.25.1"
+object = { version = "0.38.1", features = ["read", "std", "elf", "wasm", "pe", "macho"] }
+wasmparser = { version = "0.245.0", features = ["component-model"] }
 # web-transport = "0.9.4"
 
 [target.'cfg(any(target_arch = "wasm32", target_arch = "wasm64"))'.dependencies]
