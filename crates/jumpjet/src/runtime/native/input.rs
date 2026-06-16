@@ -39,11 +39,12 @@ impl HostGamepadDevice for JumpjetRuntimeState {
     }
 
     async fn is_pressed(&mut self, gamepad: Resource<GamepadDevice>, btn: GamepadButton) -> bool {
-        let gamepad_id = self.table.get(&gamepad).unwrap();
+        let gamepad_id = *self.table.get(&gamepad).unwrap();
+        let btn_code: Button = btn.into();
         self.gamepad_state
             .active_buttons
             .iter()
-            .any(|k| k.1 == *gamepad_id && k.2 == <GamepadButton as Into<Button>>::into(btn.clone()))
+            .any(|k| k.1 == gamepad_id && k.2 == btn_code)
     }
 
     async fn value(&mut self, _gamepad: Resource<GamepadDevice>, _axis: GamepadAxis) -> f32 {
@@ -59,13 +60,13 @@ impl HostGamepadDevice for JumpjetRuntimeState {
         gamepad: Resource<GamepadDevice>,
         btn: GamepadButton,
     ) -> Option<GamepadButtonData> {
-        let gamepad_id = self.table.get(&gamepad).unwrap();
-        let btn_code = <GamepadButton as Into<Button>>::into(btn.clone());
-        
+        let gamepad_id = *self.table.get(&gamepad).unwrap();
+        let btn_code: Button = btn.into();
+
         let button_state = self.gamepad_state
             .active_buttons
             .iter()
-            .find(|k| k.1 == *gamepad_id && k.2 == btn_code);
+            .find(|k| k.1 == gamepad_id && k.2 == btn_code);
 
         if let Some((_, _, _, is_repeating)) = button_state {
             Some(GamepadButtonData {
@@ -105,22 +106,20 @@ impl HostGamepadDevice for JumpjetRuntimeState {
 
 impl HostKeyboardDevice for JumpjetRuntimeState {
     async fn is_pressed(&mut self, _device: Resource<KeyboardDevice>, key: KeyboardKey) -> bool {
-        self.keyboard_state.active_keys.iter().any(|k| {
-            (k.1.clone(), k.2.clone()).eq(&<KeyboardKey as Into<(
-                Key,
-                winit::keyboard::KeyLocation,
-            )>>::into(key.clone()))
-        })
+        let (target_key, target_location): (Key, winit::keyboard::KeyLocation) = key.into();
+        self.keyboard_state
+            .active_keys
+            .iter()
+            .any(|k| k.1 == target_key && k.2 == target_location)
     }
 
     async fn just_pressed(&mut self, _device: Resource<KeyboardDevice>, key: KeyboardKey) -> bool {
-        self.keyboard_state.active_keys.iter().any(|k| {
-            k.0 == self.generation
-                && (k.1.clone(), k.2.clone()).eq(&<KeyboardKey as Into<(
-                    Key,
-                    winit::keyboard::KeyLocation,
-                )>>::into(key.clone()))
-        })
+        let (target_key, target_location): (Key, winit::keyboard::KeyLocation) = key.into();
+        let generation = self.generation;
+        self.keyboard_state
+            .active_keys
+            .iter()
+            .any(|k| k.0 == generation && k.1 == target_key && k.2 == target_location)
     }
 
     async fn active_keys(&mut self, _device: Resource<KeyboardDevice>) -> Vec<KeyboardKey> {

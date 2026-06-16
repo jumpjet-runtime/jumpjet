@@ -192,43 +192,47 @@ impl ApplicationHandler<GameEvent> for App {
         let window = self.window.as_ref().unwrap();
         let game = self.game.as_mut().unwrap();
 
-        // Check for new GDB connections
-        if let Some(server) = &self.gdb_server {
-            if let Ok((stream, _)) = server.accept() {
-                let mut conn = game.gdb_connection.lock().unwrap();
-                *conn = Some(stream);
-            }
-        }
-
-        // Check for new DAP connections
-        if let Some(server) = &self.dap_server {
-            if let Ok((stream, addr)) = server.accept() {
-                eprintln!("Accepted new DAP connection from {}", addr);
-                stream.set_nonblocking(true).ok();
-                let mut conn = game.dap_connection.lock().unwrap();
-                *conn = Some(crate::debug::dap::DapConnection::new(stream));
-            }
-        }
-
-        // Check for incoming DAP data
-        let mut dap_needs_handling = false;
-        {
-            let lock = game.dap_connection.lock().unwrap();
-            if let Some(conn) = lock.as_ref() {
-                let mut buf = [0u8; 1];
-                match conn.stream.peek(&mut buf) {
-                    Ok(n) if n > 0 => dap_needs_handling = true,
-                    _ => {}
+        // Debugger connection polling only matters when debugging; skip the
+        // socket accepts and mutex/peek entirely on the hot path otherwise.
+        if self.debug {
+            // Check for new GDB connections
+            if let Some(server) = &self.gdb_server {
+                if let Ok((stream, _)) = server.accept() {
+                    let mut conn = game.gdb_connection.lock().unwrap();
+                    *conn = Some(stream);
                 }
             }
-        }
 
-        if dap_needs_handling {
-            let mut lock = game.dap_connection.lock().unwrap();
-            if let Some(conn) = lock.as_mut() {
-                let store = game.store.as_mut().unwrap();
-                if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None, None, game.binary.clone()) {
-                    eprintln!("DAP handler error: {:?}", e);
+            // Check for new DAP connections
+            if let Some(server) = &self.dap_server {
+                if let Ok((stream, addr)) = server.accept() {
+                    eprintln!("Accepted new DAP connection from {}", addr);
+                    stream.set_nonblocking(true).ok();
+                    let mut conn = game.dap_connection.lock().unwrap();
+                    *conn = Some(crate::debug::dap::DapConnection::new(stream));
+                }
+            }
+
+            // Check for incoming DAP data
+            let mut dap_needs_handling = false;
+            {
+                let lock = game.dap_connection.lock().unwrap();
+                if let Some(conn) = lock.as_ref() {
+                    let mut buf = [0u8; 1];
+                    match conn.stream.peek(&mut buf) {
+                        Ok(n) if n > 0 => dap_needs_handling = true,
+                        _ => {}
+                    }
+                }
+            }
+
+            if dap_needs_handling {
+                let mut lock = game.dap_connection.lock().unwrap();
+                if let Some(conn) = lock.as_mut() {
+                    let store = game.store.as_mut().unwrap();
+                    if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None, None, game.binary.clone()) {
+                        eprintln!("DAP handler error: {:?}", e);
+                    }
                 }
             }
         }
@@ -254,10 +258,9 @@ impl ApplicationHandler<GameEvent> for App {
             // start gamepad handling
             let generation = game.store.as_ref().unwrap().data().generation;
             let game_store = game.store.as_mut().unwrap();
-            let gilrs_event = { game_store.data_mut().gilrs.next_event() };
-            let gamepad_state = &mut game_store.data_mut().gamepad_state;
 
-            while let Some(gilrs::Event { id, event, .. }) = gilrs_event {
+            while let Some(gilrs::Event { id, event, .. }) = game_store.data_mut().gilrs.next_event() {
+                let gamepad_state = &mut game_store.data_mut().gamepad_state;
                 match event {
                     gilrs::EventType::ButtonPressed(button, _) => {
                          if !gamepad_state.active_buttons.iter().any(|b| b.1 == id && b.2 == button) {
@@ -321,20 +324,25 @@ impl ApplicationHandler<GameEvent> for App {
 
         }
 
-        // Logic to cap render rate at 60Hz
+        // Cap render rate at 60Hz.
         let render_frame_time = std::time::Duration::from_millis(1000 / 60);
         let last_render_update = self.last_render_update.unwrap();
-        
-        if now - last_render_update >= render_frame_time {
+
+        let mut next_render = last_render_update + render_frame_time;
+        if now >= next_render {
             window.request_redraw();
-            // Note: last_render_update is updated in processing RedrawRequested
+            self.last_render_update = Some(now);
+            next_render = now + render_frame_time;
         }
 
-        // Don't wait, run as fast as possible (vsync will handle partial throttling if enabled, or we burn CPU)
-        // event_loop.set_control_flow(ControlFlow::Poll); 
-        // Or wait a tiny bit to be nice to CPU if vsync is off? 
-        // ControlFlow::Poll is standard for games.
-        event_loop.set_control_flow(ControlFlow::Poll);
+        // Instead of busy-spinning with ControlFlow::Poll (which burns a full
+        // core between the 30Hz logic step and 60Hz render), sleep until the
+        // next deadline: whichever of the next logic tick or next render is due
+        // first.
+        let until_next_logic = fixed_time_step.saturating_sub(self.accumulator);
+        let next_logic = now + until_next_logic;
+        let next_deadline = next_logic.min(next_render);
+        event_loop.set_control_flow(ControlFlow::WaitUntil(next_deadline));
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: GameEvent) {

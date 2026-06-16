@@ -9,7 +9,7 @@ use wgpu_core::{
 };
 use wgpu_types::{
     BindGroupLayoutEntry, Color, ColorTargetState, ColorWrites, DepthBiasState, DepthStencilState,
-    DynamicOffset, Face, FrontFace, ImageSubresourceRange, MultisampleState, Origin3d, PolygonMode,
+    Face, FrontFace, ImageSubresourceRange, MultisampleState, Origin3d, PolygonMode,
     PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState, TexelCopyBufferLayout,
     TexelCopyTextureInfo, TextureDimension, TextureUsages, VertexAttribute,
 };
@@ -1916,21 +1916,14 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
         let bind_group_id = *self.table.get(&bind_group.unwrap()).unwrap();
         let render_pass = self.table.get_mut(&render_pass).unwrap();
 
-        let dynamic_offsets = if let Some(dynamic_offsets) = dynamic_offsets {
-            dynamic_offsets
-                .into_iter()
-                .map(|o| o as DynamicOffset)
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let dynamic_offsets = dynamic_offsets.as_deref().unwrap_or(&[]);
 
         self.instance
             .render_pass_set_bind_group(
                 render_pass,
                 index,
                 Some(bind_group_id),
-                &dynamic_offsets,
+                dynamic_offsets,
             )
             .unwrap();
 
