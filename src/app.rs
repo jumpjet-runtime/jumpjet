@@ -65,9 +65,13 @@ impl App {
             Some(CliCommand::Run { release }) => {
                 crate::commands::run::run(release).await?;
             }
-            Some(CliCommand::Build { release }) => {
-                crate::commands::build::build(release).await?;
-            }
+            Some(CliCommand::Build { release, target }) => match target.as_deref() {
+                Some("web") => crate::commands::build::build_web(release).await?,
+                Some(other) => {
+                    return Err(color_eyre::eyre::eyre!("unknown build target: {other}"))
+                }
+                None | Some("native") => crate::commands::build::build(release).await?,
+            },
             Some(CliCommand::Bundle { target, release }) => {
                 crate::commands::build::build(release).await?;
                 crate::commands::bundle::bundle(target, release).await?;

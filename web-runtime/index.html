@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Rune</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "@bytecodealliance/preview2-shim": "./shim/lib/browser/index.js"
+        }
+      }
+    </script>
+    <style>
+      body { margin: 0; background: #111; color: #ddd; font: 13px monospace; }
+      #log { padding: 8px; white-space: pre-wrap; }
+      #rune-canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <pre id="log"></pre>
+    <script type="module" src="./run.js"></script>
+  </body>
+</html>

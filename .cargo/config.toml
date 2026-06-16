@@ -2,4 +2,5 @@
 # target = "wasm32-unknown-unknown"
 
 [target.wasm32-unknown-unknown]
-rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+# web_sys_unstable_apis enables the WebGPU bindings in web-sys (navigator.gpu, etc.)
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"', '--cfg', 'web_sys_unstable_apis']

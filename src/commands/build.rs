@@ -19,6 +19,13 @@ use crate::Result;
 #[folder = "wasi"]
 struct WasiWasm;
 
+/// Prebuilt web runtime artifacts emitted alongside a `--target web` build:
+/// the wasm-bindgen host (`web.js` + `web_bg.wasm`), the HTML/JS harness, and the
+/// preview2 WASI browser shim. Regenerate with `scripts/build-web-runtime.sh`.
+#[derive(Embed)]
+#[folder = "web-runtime"]
+struct WebRuntime;
+
 pub async fn build(release: &bool) -> Result<()> {
     let current_dir = env::current_dir()?;
     let config = std::fs::read_to_string("rune.toml")
@@ -66,6 +73,89 @@ pub async fn build(release: &bool) -> Result<()> {
     // TODO: Concatenate rune dependencies read from config to wasm binary
     
     componentize_wasm(output_entrypoint_path);
+
+    Ok(())
+}
+
+/// Builds the project, then emits a runnable web bundle next to the native
+/// output (`<output>/web`). The guest component is transpiled to JS via jco and
+/// combined with the embedded host runtime + harness + WASI shim.
+pub async fn build_web(release: &bool) -> Result<()> {
+    build(release).await?;
+
+    let current_dir = env::current_dir()?;
+    let config = std::fs::read_to_string("rune.toml")
+        .unwrap()
+        .parse::<Table>()
+        .unwrap();
+
+    let entrypoint = config["build"]["entrypoint"]
+        .as_str()
+        .expect("No build entrypoint provided in config!");
+    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
+    let component_path = current_dir.join(output_path).join(entrypoint);
+    let web_out = current_dir.join(output_path).join("web");
+
+    emit_web_bundle(&component_path, &web_out)?;
+
+    println!("Web build emitted to {}", web_out.display());
+    println!("Serve it over HTTP (e.g. `python3 -m http.server` from that dir) and open in a WebGPU-capable browser.");
+    Ok(())
+}
+
+/// Transpiles the guest component with jco and writes the embedded web runtime
+/// artifacts into `web_out`.
+fn emit_web_bundle(component_path: &Path, web_out: &Path) -> Result<()> {
+    let guest_dir = web_out.join("guest");
+    std::fs::create_dir_all(&guest_dir)?;
+
+    // jco transpile (instantiation mode) -> guest/guest.js + core wasm.
+    let capture = Exec::cmd("jco")
+        .arg("transpile")
+        .arg(component_path)
+        .args(&["--instantiation", "async", "--name", "guest", "-o"])
+        .arg(&guest_dir)
+        .stdout(Redirection::Pipe)
+        .stderr(Redirection::Merge)
+        .capture();
+
+    let capture = match capture {
+        Ok(c) => c,
+        Err(_) => {
+            return Err(eyre::eyre!(
+                "`jco` was not found on your PATH. Install it with `npm i -g @bytecodealliance/jco`."
+            ))
+        }
+    };
+    if !capture.success() {
+        return Err(eyre::eyre!(
+            "jco transpile failed:\n{}",
+            capture.stdout_str()
+        ));
+    }
+
+    // Workaround for a jco 1.23 code-gen bug: resource-method trampolines
+    // reference an undeclared `currentSubtask` inside (no-op) debug-log calls,
+    // which throws a ReferenceError that masks real errors. A module-scope
+    // declaration makes those resolve to `undefined` harmlessly.
+    let guest_js = guest_dir.join("guest.js");
+    if let Ok(src) = std::fs::read_to_string(&guest_js) {
+        if !src.starts_with("var currentSubtask;") {
+            std::fs::write(&guest_js, format!("var currentSubtask;\n{src}"))?;
+        }
+    }
+
+    // Emit the embedded host runtime, harness, and WASI shim.
+    for file in WebRuntime::iter() {
+        let rel = file.as_ref();
+        let data = WebRuntime::get(rel)
+            .ok_or_else(|| eyre::eyre!("missing embedded web-runtime file: {rel}"))?;
+        let dest = web_out.join(rel);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(dest, data.data)?;
+    }
 
     Ok(())
 }

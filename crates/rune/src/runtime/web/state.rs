@@ -1,60 +1,29 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use winit::dpi::PhysicalSize;
+
+/// Shared, interior-mutable handle to the web runtime state.
+///
+/// The frame loop (`runtime/web/run.rs`) and the `debug`/`window` host-import
+/// closures hold a clone of this `Rc`. Because the browser is single-threaded and
+/// host calls are synchronous and non-overlapping, `RefCell` borrows are always
+/// short-lived: the frame loop must never hold a borrow across a call into guest
+/// code (which re-enters the host closures), and each closure borrows only for the
+/// duration of its call.
+pub type SharedState = Rc<RefCell<RuneRuntimeState>>;
+
+/// Web runtime state. Unlike native (`runtime/native/state.rs`), the web build does
+/// not own a wasmtime `ResourceTable`/`WasiCtx` or wgpu_core ids — the guest runs in
+/// the browser via jco and resource interfaces (gpu/audio/input/storage) are
+/// self-contained `#[wasm_bindgen]` classes. This holds only the canvas size read
+/// by the `window` interface.
 pub struct RuneRuntimeState {
-    pub id: Uuid,
-    pub generation: u64,
-    pub input_path: PathBuf,
     pub window_size: PhysicalSize<u32>,
-    pub gpu_state: GpuState,
-    pub audio_state: AudioState,
-    pub gamepad_state: GamepadState,
-    pub keyboard_state: KeyboardState,
-    pub paths: Slab<VfsPath>,
-    pub storages: Slab<Storage>,
-    pub wasi_ctx: WasiCtx,
-    pub table: ResourceTable,
 }
 
 impl RuneRuntimeState {
-    pub fn new(
-        id: Uuid,
-        input_path: PathBuf,
-        window_size: PhysicalSize<u32>
-    ) -> Self {
-        let mut table = ResourceTable::new();
-
-        let swapchain_capabilities = instance
-            .surface_get_capabilities(surface, adapter)
-            .unwrap();
-        let swapchain_format = swapchain_capabilities.formats[0];
-
-        let surface_config = wgpu_types::SurfaceConfiguration {
-            usage: wgpu_types::TextureUsages::RENDER_ATTACHMENT,
-            format: swapchain_format,
-            width: window_size.width,
-            height: window_size.height,
-            present_mode: swapchain_capabilities.present_modes[0],
-            alpha_mode: swapchain_capabilities.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 1,
-        };
-
-        instance.surface_configure(surface, device, &surface_config);
-
-        RuneRuntimeState {
-            id,
-            generation: 0,
-            input_path,
-            window_size,
-            audio_state: AudioState::new(audio_device),
-            gpu_state: GpuState::new(),
-            gamepad_state: GamepadState::new(),
-            keyboard_state: KeyboardState::new(),
-            paths: Slab::new(),
-            storages: Slab::new(),
-            wasi_ctx: WasiCtxBuilder::new()
-                .inherit_stderr()
-                .inherit_stdout()
-                .build(),
-            table,
-        }
+    pub fn new(window_size: PhysicalSize<u32>) -> Self {
+        Self { window_size }
     }
 }

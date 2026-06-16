@@ -31,6 +31,9 @@ pub enum CliCommand {
     Build {
         #[clap(long, default_value_t = false)]
         release: bool,
+        /// Build target: "native" (default) or "web"
+        #[clap(long, value_name = "TARGET")]
+        target: Option<String>,
     },
     /// Bundle the project for the target platform
     Bundle {

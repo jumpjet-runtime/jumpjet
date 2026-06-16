@@ -1,22 +1,26 @@
-use std::path::PathBuf;
-
+#[cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
-use slab::Slab;
-use vfs::VfsPath;
-use wgpu_types::TextureFormat;
+// Input tracking types are native-only; the web build tracks input in
+// `runtime/web/input.rs` (DOM events + navigator.getGamepads).
+#[cfg(not(target_arch = "wasm32"))]
 use winit::keyboard::{Key, KeyLocation};
 
 pub mod host;
 pub mod runtime;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tests;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod debug;
 
 // needed for wasmtime::component::bindgen! as it only looks in the current crate.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) use gilrs;
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) use wgpu_core;
 
 pub type BufferSource = Vec<u8>;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn wgpu_id<I: wgpu_core::id::Marker, E>(
     (id, error): (wgpu_core::id::Id<I>, Option<E>),
 ) -> Result<wgpu_core::id::Id<I>, E> {
@@ -98,10 +102,10 @@ wasmtime::component::bindgen!({
 //     }
 // });
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use exports::rune::runtime::guest;
-use gilrs::{Button, Gilrs};
+#[cfg(not(target_arch = "wasm32"))]
 pub use rune::runtime::*;
-use uuid::Uuid;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmtime_wasi::{
     ResourceTable,
@@ -111,6 +115,7 @@ use wasmtime_wasi::{
 
 pub use runtime::RuneRuntimeState;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl WasiView for RuneRuntimeState {
     fn ctx(&mut self) -> WasiCtxView<'_> {
         WasiCtxView{
@@ -120,10 +125,12 @@ impl WasiView for RuneRuntimeState {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct KeyboardState {
     pub active_keys: Vec<(u64, Key, KeyLocation)>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl KeyboardState {
     pub fn new() -> KeyboardState {
         Self {
@@ -132,10 +139,12 @@ impl KeyboardState {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct GamepadState {
-    pub active_buttons: Vec<(u64, gilrs::GamepadId, Button, bool)>,
+    pub active_buttons: Vec<(u64, gilrs::GamepadId, gilrs::Button, bool)>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl GamepadState {
     pub fn new() -> GamepadState {
         Self {
