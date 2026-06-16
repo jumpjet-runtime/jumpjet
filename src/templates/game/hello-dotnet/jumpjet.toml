@@ -8,8 +8,8 @@ author = ""
 version = "{{ runtime_version }}"
 
 [build]
-pre = "cargo build --target wasm32-wasip1"
-input = "./target/wasm32-wasip1/debug" # Your guest code build output, the files you want to package
+pre = "cargo build --target wasm32-wasip2"
+input = "./target/wasm32-wasip2/debug" # Your guest code build output, the files you want to package
 entrypoint = "{{ identifier_underscored }}.wasm" # The path to your wasm binary relative to the "input" directory
 output = "./bin" # Jumpjet's build output
 

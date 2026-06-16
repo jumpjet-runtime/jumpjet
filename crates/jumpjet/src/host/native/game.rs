@@ -78,13 +78,19 @@ impl Game {
     pub fn from_binary(bytes: &[u8], debug: bool) -> Result<Game> {
         let mut config = Config::new();
         config.wasm_component_model(true);
+        // WASI 0.3 (p3) is built on the component-model async ABI.
+        config.wasm_component_model_async(true);
         config.guest_debug(debug);
 
         let engine = Engine::new(&config)?;
         let component = Component::from_binary(&engine, bytes)?;
         let mut linker = Linker::new(&engine);
 
-        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+        // Link both WASI 0.3 (p3) and 0.2 (p2). The host now supports 0.3, but the
+        // Rust guest toolchain still emits wasi@0.2 imports, so p2 keeps current
+        // guests running; the component links against whichever version it imports.
+        wasmtime_wasi::p3::add_to_linker(&mut linker)?;
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         
         type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
         Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;

@@ -7,6 +7,6 @@ type = "game"
 version = "0.1.0"
 
 [build]
-input = "./target/wasm32-wasip1/debug"
+input = "./target/wasm32-wasip2/debug"
 entrypoint = "runtime_tests.wasm"
 output = "./bin"

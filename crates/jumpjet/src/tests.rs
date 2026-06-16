@@ -33,6 +33,8 @@ impl Tests {
         let mut config = Config::new();
         config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
         config.wasm_component_model(true);
+        // WASI 0.3 (p3) is built on the component-model async ABI.
+        config.wasm_component_model_async(true);
         let engine = Engine::new(&config)?;
         let component = Component::from_binary(&engine, &bytes)?;
 
@@ -40,7 +42,9 @@ impl Tests {
 
         type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
 
-        wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
+        // Support both WASI 0.3 (p3) and 0.2 (p2); see host/native/game.rs.
+        wasmtime_wasi::p3::add_to_linker(&mut linker).expect("add wasmtime_wasi::p3 failed");
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker).expect("add wasmtime_wasi::p2 failed");
 
         Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
 
