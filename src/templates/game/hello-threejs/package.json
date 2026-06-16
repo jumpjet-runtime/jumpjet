@@ -15,10 +15,10 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "rollup": "^4.12.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
-    "@rune-runtime/rollup-plugin-rune": "^0.1.11"
+    "@jumpjet-runtime/rollup-plugin-jumpjet": "^0.1.11"
   },
   "dependencies": {
-    "rune-threejs": "0.1.0",
+    "jumpjet-threejs": "0.1.0",
     "three": "^0.162.0"
   }
 }

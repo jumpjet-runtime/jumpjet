@@ -1,11 +1,11 @@
 use wit_bindgen::generate;
 
-use crate::exports::rune::runtime::guest::Guest;
-use crate::rune::runtime::debug::log;
+use crate::exports::jumpjet::runtime::guest::Guest;
+use crate::jumpjet::runtime::debug::log;
 
 generate!({
     world: "runtime",
-    path: ".rune/wit/runtime"
+    path: ".jumpjet/wit/runtime"
 });
 export!(Game);
 

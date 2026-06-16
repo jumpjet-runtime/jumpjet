@@ -23,14 +23,14 @@ use crate::settings::Settings;
 use crate::Result;
 
 pub async fn bundle(target: &String, release: &bool) -> Result<()> {
-    let config = std::fs::read_to_string("rune.toml")
+    let config = std::fs::read_to_string("jumpjet.toml")
         .unwrap()
         .parse::<Table>()
         .unwrap();
 
     let current_dir = env::current_dir()?;
-    let rune_dir = current_dir.join(".rune");
-    let rune_bin_dir = rune_dir.join("bin");
+    let jumpjet_dir = current_dir.join(".jumpjet");
+    let jumpjet_bin_dir = jumpjet_dir.join("bin");
 
     let build = if *release { "release" } else { "debug" }.to_owned();
     let target = target.to_owned();
@@ -47,8 +47,8 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
 
     let settings = Settings {
         current_dir: current_dir.clone(),
-        rune_dir,
-        rune_bin_dir,
+        jumpjet_dir,
+        jumpjet_bin_dir,
         metadata_id: config["package"]["identifier"].as_str().unwrap().to_owned(),
         metadata_author: config["package"]["author"].as_str().unwrap().to_owned(),
         metadata_version: Version::parse(config["package"]["version"].as_str().unwrap()).unwrap(),
@@ -71,7 +71,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
 
     super::build::build(release).await?;
 
-    // TODO: Create a rust project that imports the wasm binary and runs it in the rune runtime
+    // TODO: Create a rust project that imports the wasm binary and runs it in the jumpjet runtime
     // println!("Creating project...");
     init_rust_project(&settings).await?;
 
@@ -109,7 +109,7 @@ async fn init_rust_project(settings: &Settings) -> Result<()> {
     let metadata_id = &settings.metadata_id;
     let runtime_version = settings.runtime_version.to_string();
 
-    let project_dir = settings.rune_dir.join("project");
+    let project_dir = settings.jumpjet_dir.join("project");
     let src_dir = project_dir.join("src");
     if fs::metadata(&project_dir).is_ok() {
         return Ok(());
@@ -128,7 +128,7 @@ async fn init_rust_project(settings: &Settings) -> Result<()> {
     publish = false
 
     [dependencies]
-    rune = {{ path = "../../../rune/crates/rune", version = "{runtime_version}" }}
+    jumpjet = {{ path = "../../../jumpjet/crates/jumpjet", version = "{runtime_version}" }}
 
     [[bin]]
     name = "{}"
@@ -147,10 +147,10 @@ async fn init_rust_project(settings: &Settings) -> Result<()> {
     main.write_all(format!(r#"
     use std::env;
     use std::fs;
-    use rune::runtime;
+    use jumpjet::runtime;
 
     fn main() {{
-        let input_path = env::current_exe().unwrap().parent().unwrap().join(".rune/input/");
+        let input_path = env::current_exe().unwrap().parent().unwrap().join(".jumpjet/input/");
         let binary = fs::read(input_path.join("{entrypoint_path_str}")).expect("Failed to read the WASM file");
         runtime::run(input_path, binary);
     }}
@@ -160,7 +160,7 @@ async fn init_rust_project(settings: &Settings) -> Result<()> {
 }
 
 async fn install_rustup(settings: &Settings) -> Result<()> {
-    let rustup_dir = settings.rune_bin_dir.join("rustup");
+    let rustup_dir = settings.jumpjet_bin_dir.join("rustup");
     if fs::metadata(&rustup_dir).is_ok() {
         return Ok(());
     }
@@ -195,7 +195,7 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
 
     let mut cmd = Command::new(&rustup_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
         .env("RUSTUP_HOME", &rustup_dir)
         .arg("-y")
         .arg("-q")
@@ -209,7 +209,7 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
 
     let mut cmd = Command::new(rustup_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
         .env("RUSTUP_HOME", &rustup_dir)
         .arg("-y")
         .arg("-q")
@@ -222,10 +222,10 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
         .output()?;
 
     // Configure Rust
-    let rustup_path = settings.rune_bin_dir.join("cargo/bin/rustup");
+    let rustup_path = settings.jumpjet_bin_dir.join("cargo/bin/rustup");
     let mut cmd = Command::new(&rustup_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
         .env("RUSTUP_HOME", &rustup_dir)
         .args(["default", "stable"]);
 
@@ -236,7 +236,7 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
 
     let mut cmd = Command::new(&rustup_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
         .env("RUSTUP_HOME", &rustup_dir)
         .args(["target", "add", "wasm32-wasip1"]);
 
@@ -249,7 +249,7 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
 }
 
 async fn install_zig(settings: &Settings) -> Result<()> {
-    let zig_dir = settings.rune_bin_dir.join("zig");
+    let zig_dir = settings.jumpjet_bin_dir.join("zig");
     if zig_dir.exists() {
         return Ok(());
     }
@@ -274,7 +274,7 @@ async fn install_zig(settings: &Settings) -> Result<()> {
     let resp = reqwest::get(url).await?;
     let content = resp.bytes().await?;
 
-    let tarball_path = settings.rune_bin_dir.join(&filename);
+    let tarball_path = settings.jumpjet_bin_dir.join(&filename);
     let mut file = File::create(&tarball_path)?;
     file.write_all(&content)?;
 
@@ -282,17 +282,17 @@ async fn install_zig(settings: &Settings) -> Result<()> {
     let file = File::open(&tarball_path)?;
     if ext == "zip" {
         let mut archive = ZipArchive::new(file)?;
-        archive.extract(&settings.rune_bin_dir)?;
+        archive.extract(&settings.jumpjet_bin_dir)?;
     } else {
         let decoder = XzDecoder::new(file);
         let mut archive = tar::Archive::new(decoder);
-        archive.unpack(&settings.rune_bin_dir)?;
+        archive.unpack(&settings.jumpjet_bin_dir)?;
     }
 
     // Rename extracted folder to "zig"
     // The folder name inside the archive is usually "zig-{os}-{arch}-{version}"
     let extracted_folder_name = filename.replace(&format!(".{}", ext), ""); 
-    let extracted_path = settings.rune_bin_dir.join(extracted_folder_name);
+    let extracted_path = settings.jumpjet_bin_dir.join(extracted_folder_name);
     
     if extracted_path.exists() {
         fs::rename(extracted_path, &zig_dir)?;
@@ -308,9 +308,9 @@ async fn install_zig(settings: &Settings) -> Result<()> {
 
 async fn install_cargo_zigbuild(settings: &Settings) -> Result<()> {
     // Check if cargo-zigbuild is installed
-    let cargo_path = settings.rune_bin_dir.join("cargo/bin/cargo");
+    let cargo_path = settings.jumpjet_bin_dir.join("cargo/bin/cargo");
     let zigbuild_check = Command::new(&cargo_path)
-        .env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
+        .env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
         .arg("zigbuild")
         .arg("--version")
         .stdout(Stdio::null())
@@ -325,7 +325,7 @@ async fn install_cargo_zigbuild(settings: &Settings) -> Result<()> {
 
     println!("Installing cargo-zigbuild...");
     let mut cmd = Command::new(&cargo_path);
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"));
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"));
     cmd.args(["install", "cargo-zigbuild"]);
 
     let status = cmd.status()?;
@@ -337,11 +337,11 @@ async fn install_cargo_zigbuild(settings: &Settings) -> Result<()> {
 }
 
 async fn add_rust_target(settings: &Settings) -> Result<()> {
-    let rustup_path = settings.rune_bin_dir.join("cargo/bin/rustup");
+    let rustup_path = settings.jumpjet_bin_dir.join("cargo/bin/rustup");
     let mut cmd = Command::new(&rustup_path);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
-        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
+        .env("RUSTUP_HOME", settings.jumpjet_bin_dir.join("rustup"))
         .args(["target", "add", &settings.target_triplet]);
 
     let output = cmd
@@ -357,20 +357,20 @@ async fn add_rust_target(settings: &Settings) -> Result<()> {
 }
 
 async fn build_target(settings: &Settings) -> Result<()> {
-    let rust_project_path = settings.rune_dir.join("project/.");
+    let rust_project_path = settings.jumpjet_dir.join("project/.");
 
-    let cargo_bin_path = settings.rune_bin_dir.join("cargo/bin");
+    let cargo_bin_path = settings.jumpjet_bin_dir.join("cargo/bin");
 
     let mut cmd = Command::new(cargo_bin_path.join("cargo"));
     cmd.current_dir(rust_project_path);
 
     // Add Zig to PATH
-    let zig_bin = settings.rune_bin_dir.join("zig");
+    let zig_bin = settings.jumpjet_bin_dir.join("zig");
     let path_env = env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{}", zig_bin.to_str().unwrap(), path_env);
 
-    cmd.env("CARGO_HOME", settings.rune_bin_dir.join("cargo"))
-        .env("RUSTUP_HOME", settings.rune_bin_dir.join("rustup"))
+    cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"))
+        .env("RUSTUP_HOME", settings.jumpjet_bin_dir.join("rustup"))
         .env("PATH", new_path);
 
     cmd.args(["zigbuild", "--locked", "--target", &settings.target_triplet, "--release"]);
@@ -389,7 +389,7 @@ async fn build_target(settings: &Settings) -> Result<()> {
 async fn copy_output_to_input(settings: &Settings) -> Result<()> {
     crate::fs::copy_dir_all(
         &settings.build_output_dir,
-        settings.rune_dir.join("input"),
+        settings.jumpjet_dir.join("input"),
     )?;
     Ok(())
 }

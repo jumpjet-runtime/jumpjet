@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 interface network {
   client: func(config: network-client-config) -> network-client;

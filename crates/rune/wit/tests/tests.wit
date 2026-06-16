@@ -1,16 +1,16 @@
-package rune:tests;
+package jumpjet:tests;
 
 interface guest {
   register: func() -> list<string>;
 }
 
 world tests {
-  import rune:runtime/debug;
-  import rune:runtime/audio;
-  import rune:runtime/input;
-  import rune:runtime/gpu;
-  import rune:runtime/storage;
-  import rune:runtime/window;
+  import jumpjet:runtime/debug;
+  import jumpjet:runtime/audio;
+  import jumpjet:runtime/input;
+  import jumpjet:runtime/gpu;
+  import jumpjet:runtime/storage;
+  import jumpjet:runtime/window;
 
   export guest;
 }

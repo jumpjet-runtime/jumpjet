@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 /// APIs for accessing user input via gamepad, keyboard, mouse, touch, etc.
 interface input {

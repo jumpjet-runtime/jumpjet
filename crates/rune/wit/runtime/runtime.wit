@@ -1,12 +1,12 @@
-package rune:runtime;
+package jumpjet:runtime;
 
-/// How Rune interfaces with your game :)
+/// How Jumpjet interfaces with your game :)
 interface guest {
-  /// Rune runs this when your game starts up
+  /// Jumpjet runs this when your game starts up
   init: func() -> result<_, string>;
-  /// Rune runs this update loop at a fixed frequency per second. Use this for game logic.
+  /// Jumpjet runs this update loop at a fixed frequency per second. Use this for game logic.
   update: func(time: f64, delta-time: f64);
-  /// Rune runs this render loop at a variable frequency depending on various performance constraints. Use this for render logic.
+  /// Jumpjet runs this render loop at a variable frequency depending on various performance constraints. Use this for render logic.
   render: func(time: f64, alpha: f64);
 }
 

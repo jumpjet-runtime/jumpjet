@@ -9,7 +9,7 @@ use crossterm::event::KeyEvent;
 
 use current_platform::CURRENT_PLATFORM;
 use ratatui::prelude::Rect;
-use rune::input;
+use jumpjet::input;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -58,9 +58,9 @@ impl App {
         match &self.command {
             Some(CliCommand::New(new)) => crate::commands::new::new(new).await?,
             Some(CliCommand::Test) => {
-                let input_path = Path::new("../test-game/dist/.rune/input/");
+                let input_path = Path::new("../test-game/dist/.jumpjet/input/");
                 let binary = std::fs::read(input_path.join("test-game.wasm")).unwrap();
-                rune::runtime::test(input_path.to_path_buf(), binary).await;
+                jumpjet::runtime::test(input_path.to_path_buf(), binary).await;
             }
             Some(CliCommand::Run { release }) => {
                 crate::commands::run::run(release).await?;

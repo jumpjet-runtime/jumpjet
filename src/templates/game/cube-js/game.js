@@ -1,6 +1,6 @@
-import { log } from 'rune:runtime/debug'
-import * as gpu from 'rune:runtime/gpu'
-import * as window from 'rune:runtime/window'
+import { log } from 'jumpjet:runtime/debug'
+import * as gpu from 'jumpjet:runtime/gpu'
+import * as window from 'jumpjet:runtime/window'
 
 const disposeSymbol = Symbol.dispose || Symbol.for('dispose')
 

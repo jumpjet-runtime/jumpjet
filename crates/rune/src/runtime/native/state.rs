@@ -10,7 +10,7 @@ use winit::dpi::PhysicalSize;
 
 use crate::{runtime::{audio::AudioState, gpu::GpuState, storage::Storage}, GamepadState, KeyboardState};
 
-pub struct RuneRuntimeState {
+pub struct JumpjetRuntimeState {
     pub id: Uuid,
     pub generation: u64,
     pub input_path: PathBuf,
@@ -36,7 +36,7 @@ pub struct RuneRuntimeState {
     pub table: ResourceTable,
 }
 
-impl RuneRuntimeState {
+impl JumpjetRuntimeState {
     pub fn new(
         id: Uuid,
         input_path: PathBuf,
@@ -69,7 +69,7 @@ impl RuneRuntimeState {
 
         instance.surface_configure(surface, device, &surface_config);
 
-        RuneRuntimeState {
+        JumpjetRuntimeState {
             id,
             generation: 0,
             input_path,

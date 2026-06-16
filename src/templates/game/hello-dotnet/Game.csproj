@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="rune bindings dotnet" />
+    <Exec Command="jumpjet bindings dotnet" />
   </Target>
 
   <ItemGroup>

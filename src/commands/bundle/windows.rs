@@ -111,7 +111,7 @@ fn set_summary_info(package: &mut Package, package_guid: Uuid, settings: &Settin
     summary_info.set_subject(settings.bundle_name);
     summary_info.set_uuid(package_guid);
     summary_info.set_author(settings.metadata_author);
-    summary_info.set_creating_application(format!("rune v{}", settings.runtime_version));
+    summary_info.set_creating_application(format!("jumpjet v{}", settings.runtime_version));
     summary_info.set_word_count(2);
 }
 
@@ -177,7 +177,7 @@ fn create_property_table(
 
 fn copy_build_output_to_bundle(bundle_directory: &Path, settings: &Settings) -> crate::Result<()> {
     let dest_dir = bundle_directory.join("MacOS");
-    crate::fs::copy_dir_all(&settings.build_output_dir, dest_dir.join(".rune/input"))?;
+    crate::fs::copy_dir_all(&settings.build_output_dir, dest_dir.join(".jumpjet/input"))?;
     crate::fs::copy_file(
         settings.target_binary_path(),
         dest_dir.join(settings.binary_name()),

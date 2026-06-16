@@ -1,7 +1,7 @@
 import math
 import struct
-from rune.runtime import gpu
-from rune.runtime import window
+from jumpjet.runtime import gpu
+from jumpjet.runtime import window
 
 class Mat4:
     @staticmethod

@@ -1,4 +1,4 @@
-Business Source License for Rune
+Business Source License for Jumpjet
 
 “Business Source License” is a trademark of MariaDB Corporation Ab.
 
@@ -6,7 +6,7 @@ Effective Date: October 2024
 
 1. Definitions
 
-1.1 “Licensed Work” refers to the software known as “Rune”, specifically the Rune runtime and its APIs, excluding other tools or auxiliary software.
+1.1 “Licensed Work” refers to the software known as “Jumpjet”, specifically the Jumpjet runtime and its APIs, excluding other tools or auxiliary software.
 
 1.2 “Change Date” means three years from the Effective Date of this License.
 
@@ -24,17 +24,17 @@ The Licensor grants You a non-exclusive, worldwide, royalty-free right to use, r
 
 3.1 Distribution of Modifications
 
-	•	You may not distribute, publish, or make available any modified versions of the Rune runtime that alter the behavior of its runtime APIs.
+	•	You may not distribute, publish, or make available any modified versions of the Jumpjet runtime that alter the behavior of its runtime APIs.
 
 3.2 Prohibition of Competing Products
 
-	•	You are prohibited from using the Licensed Work to create, distribute, or offer a product or service that competes with Rune by providing a modified version of the Rune runtime, whether under the same name or a different name.
+	•	You are prohibited from using the Licensed Work to create, distribute, or offer a product or service that competes with Jumpjet by providing a modified version of the Jumpjet runtime, whether under the same name or a different name.
 
 3.3 Permitted Uses
 
-	•	You may develop applications, libraries, or game engines that build upon the Rune runtime.
-	•	You may offer services that utilize Rune as a foundational component, such as providing services compatible with Rune applications.
-    •	You may provide novel runtime behavior via a Rune library in order to support novel Rune services.
+	•	You may develop applications, libraries, or game engines that build upon the Jumpjet runtime.
+	•	You may offer services that utilize Jumpjet as a foundational component, such as providing services compatible with Jumpjet applications.
+    •	You may provide novel runtime behavior via a Jumpjet library in order to support novel Jumpjet services.
 
 4. Contributions
 

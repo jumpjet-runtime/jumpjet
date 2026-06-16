@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 /// An audio API based on the Web Audio API
 interface audio {

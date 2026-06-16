@@ -22,7 +22,7 @@ jobs:
             target: x86_64-apple-darwin
             architecture: x86_64
             binary-postfix: ""
-            binary-name: rune-host
+            binary-name: jumpjet-host
             use-cross: false
           - os: macos-latest
             os-name: macos
@@ -30,35 +30,35 @@ jobs:
             architecture: aarch64
             binary-postfix: ""
             use-cross: false
-            binary-name: rune-host
+            binary-name: jumpjet-host
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: x86_64-unknown-linux-gnu
           #   architecture: x86_64
           #   binary-postfix: ""
           #   use-cross: false
-          #   binary-name: rune-host
+          #   binary-name: jumpjet-host
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
             architecture: x86_64
             binary-postfix: ".exe"
             use-cross: false
-            binary-name: rune-host
+            binary-name: jumpjet-host
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: aarch64-unknown-linux-gnu
           #   architecture: aarch64
           #   binary-postfix: ""
           #   use-cross: true
-          #   binary-name: rune-host
+          #   binary-name: jumpjet-host
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: i686-unknown-linux-gnu
           #   architecture: i686
           #   binary-postfix: ""
           #   use-cross: true
-          #   binary-name: rune-host
+          #   binary-name: jumpjet-host
 
     steps:
       - name: Checkout repository
@@ -75,7 +75,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Cargo build
         uses: actions-rs/cargo@v1
-        working-directory: crates/rune-host
+        working-directory: crates/jumpjet-host
         with:
           command: build
 
@@ -96,7 +96,7 @@ jobs:
               sudo apt-get install -y binutils-aarch64-linux-gnu
           fi
       - name: Packaging final host binary
-        working-directory: crates/rune-host
+        working-directory: crates/jumpjet-host
         shell: bash
         run: |
 
@@ -130,7 +130,7 @@ jobs:
           fi
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
-        working-directory: crates/rune-host
+        working-directory: crates/jumpjet-host
         with:
           files: |
 
@@ -153,7 +153,7 @@ jobs:
             target: x86_64-apple-darwin
             architecture: x86_64
             binary-postfix: ""
-            binary-name: rune-cli
+            binary-name: jumpjet-cli
             use-cross: false
           - os: macos-latest
             os-name: macos
@@ -161,35 +161,35 @@ jobs:
             architecture: aarch64
             binary-postfix: ""
             use-cross: false
-            binary-name: rune-cli
+            binary-name: jumpjet-cli
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: x86_64-unknown-linux-gnu
           #   architecture: x86_64
           #   binary-postfix: ""
           #   use-cross: false
-          #   binary-name: rune-cli
+          #   binary-name: jumpjet-cli
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
             architecture: x86_64
             binary-postfix: ".exe"
             use-cross: false
-            binary-name: rune-cli
+            binary-name: jumpjet-cli
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: aarch64-unknown-linux-gnu
           #   architecture: aarch64
           #   binary-postfix: ""
           #   use-cross: true
-          #   binary-name: rune-cli
+          #   binary-name: jumpjet-cli
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: i686-unknown-linux-gnu
           #   architecture: i686
           #   binary-postfix: ""
           #   use-cross: true
-          #   binary-name: rune-cli
+          #   binary-name: jumpjet-cli
 
     steps:
       - name: Checkout repository

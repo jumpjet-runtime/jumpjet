@@ -1,4 +1,4 @@
-import { log } from 'rune:runtime/debug'
+import { log } from 'jumpjet:runtime/debug'
 
 export const guest = {
   init() {

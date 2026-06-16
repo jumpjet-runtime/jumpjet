@@ -1,5 +1,5 @@
 __pycache__/
 *.wasm
-.rune/
+.jumpjet/
 dist/
 bin/

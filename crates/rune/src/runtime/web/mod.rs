@@ -1,6 +1,6 @@
 //! Web (wasm32) runtime. The guest component is instantiated in the browser via
 //! jco; each host interface is exposed to the guest as a JS import object built
-//! by the per-interface `export()` functions below. The Rune runtime itself is
+//! by the per-interface `export()` functions below. The Jumpjet runtime itself is
 //! compiled to wasm and drives the frame loop.
 
 // Pure-data interfaces provided by the Rust host. The resource-bearing
@@ -21,4 +21,4 @@ pub mod run;
 pub mod state;
 
 pub use run::run;
-pub use state::RuneRuntimeState;
+pub use state::JumpjetRuntimeState;

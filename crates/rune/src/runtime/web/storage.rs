@@ -1,4 +1,4 @@
-//! `rune:runtime/storage` host import as Rust `#[wasm_bindgen]` classes.
+//! `jumpjet:runtime/storage` host import as Rust `#[wasm_bindgen]` classes.
 //!
 //! OPFS is async on the main thread (its sync access handles are worker-only),
 //! so this backs the storage VFS with synchronous `localStorage` — which fits the
@@ -230,7 +230,7 @@ fn path_str(p: &JsValue) -> String {
 
 #[wasm_bindgen(js_name = storageLocal)]
 pub fn local() -> StorageDevice {
-    StorageDevice { prefix: "rune:local:".to_owned() }
+    StorageDevice { prefix: "jumpjet:local:".to_owned() }
 }
 #[wasm_bindgen(js_name = storageCloud)]
 pub fn cloud() -> Option<StorageDevice> {

@@ -13,9 +13,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum CliCommand {
-    /// View Rune API documentation
+    /// View Jumpjet API documentation
     Docs,
-    /// Create a new Rune project, specifying a template
+    /// Create a new Jumpjet project, specifying a template
     #[command(subcommand)]
     New(NewSubcommand),
     // /// Pushes a new release candidate for an unreleased version. Will NOT publish
@@ -42,19 +42,19 @@ pub enum CliCommand {
         #[clap(long, value_name = "TARGET")]
         target: String,
     },
-    // /// Authorizes the Rune CLI with the provided account token (useful for CI)
+    // /// Authorizes the Jumpjet CLI with the provided account token (useful for CI)
     // Auth {
     //     #[clap(long, short = 't', value_name = "TOKEN")]
     //     token: Option<String>,
     // },
-    // /// Deathorizes the Rune CLI
+    // /// Deathorizes the Jumpjet CLI
     // Deauth,
     // /// Publishes the specified release version, making it publicly available
     // Publish {
     //     #[clap(long, short = 'v', value_name = "VERSION")]
     //     version: Option<String>,
     // },
-    /// Upgrade the Rune CLI to the latest version
+    /// Upgrade the Jumpjet CLI to the latest version
     Upgrade,
 }
 

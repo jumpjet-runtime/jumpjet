@@ -15,5 +15,5 @@ pub use web::*;
 pub use native::{
     run::run,
     run::test,
-    state::RuneRuntimeState
+    state::JumpjetRuntimeState
 };

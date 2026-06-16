@@ -1,4 +1,4 @@
-//! `rune:runtime/audio` host import as Rust `#[wasm_bindgen]` classes wrapping the
+//! `jumpjet:runtime/audio` host import as Rust `#[wasm_bindgen]` classes wrapping the
 //! browser's WebAudio objects. The WIT API mirrors WebAudio, so methods forward
 //! directly; the adaptations are a few enum-string remaps and the `audio-node`
 //! `connect` variant (`{tag,val}` -> the borrowed node's handle).
@@ -385,7 +385,7 @@ impl AudioContext {
     pub fn decode_audio_data(&self, _data: Vec<u8>) -> AudioBuffer {
         // decodeAudioData is async; the sync WIT can't await it. Return a silent
         // placeholder so the guest gets a valid buffer (known limitation).
-        web_sys::console::warn_1(&JsValue::from_str("rune: audio decode-audio-data is not supported on web (async); returning a silent buffer"));
+        web_sys::console::warn_1(&JsValue::from_str("jumpjet: audio decode-audio-data is not supported on web (async); returning a silent buffer"));
         let sr = getf(&self.inner, "sampleRate");
         AudioBuffer { inner: call(&self.inner, "createBuffer", &[JsValue::from_f64(2.0), JsValue::from_f64(1.0), f32v(sr)]) }
     }

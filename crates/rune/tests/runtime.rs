@@ -1,6 +1,6 @@
-extern crate rune;
+extern crate jumpjet;
 
-use rune::runtime;
+use jumpjet::runtime;
 use std::process::Command;
 
 #[cfg(test)]
@@ -21,19 +21,19 @@ fn main() {
         panic!("cargo build failed!");
     }
 
-    // let output = Command::new("rune")
-    let output = Command::new(current_dir.join("../rune-cli/target/debug/rune-cli"))
+    // let output = Command::new("jumpjet")
+    let output = Command::new(current_dir.join("../jumpjet-cli/target/debug/jumpjet-cli"))
         .arg("build")
         .current_dir(&runtime_tests_dir)
         .output()
-        .expect("Failed to execute Rune build");
+        .expect("Failed to execute Jumpjet build");
 
     if !output.status.success() {
         println!("{:?}", output.stderr);
-        panic!("Rune build failed!");
+        panic!("Jumpjet build failed!");
     }
 
     let input_path = runtime_tests_dir.join("bin");
     let binary = std::fs::read(input_path.join("runtime_tests.wasm")).unwrap();
-    pollster::block_on(rune::runtime::test(input_path.to_path_buf(), binary));
+    pollster::block_on(jumpjet::runtime::test(input_path.to_path_buf(), binary));
 }

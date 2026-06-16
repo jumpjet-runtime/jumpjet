@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 /// Tools for debugging, like logging
 interface debug {

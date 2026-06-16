@@ -10,7 +10,7 @@ use crate::host::Game;
 pub use crate::runtime::common::*;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub use super::state::RuneRuntimeState;
+pub use super::state::JumpjetRuntimeState;
 
 use winit::{
     application::ApplicationHandler,
@@ -394,9 +394,9 @@ pub async fn test(_input_path: PathBuf, _binary: Vec<u8>) {
         Trial::test("failing_test", move || Err("Woops".into())),
     ];
 
-    // TODO: Setup Rune host in test mode
+    // TODO: Setup Jumpjet host in test mode
 
-    // TODO: Guest implements Rune "test guest", which has a setup_tests() function
+    // TODO: Guest implements Jumpjet "test guest", which has a setup_tests() function
 
     // TODO: Guest calls add-test method which registers the test
 

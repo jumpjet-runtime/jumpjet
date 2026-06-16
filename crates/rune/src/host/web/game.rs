@@ -7,7 +7,7 @@
 //!   - `window.jco.instantiate(imports) -> Promise<instance>` — the harness binds
 //!     jco's `instantiate(getCoreModule, imports)`, providing `getCoreModule` to
 //!     fetch/compile the emitted `*.core*.wasm` files.
-//!   - `instance["rune:runtime/guest"]` exposes `init`/`update`/`render`.
+//!   - `instance["jumpjet:runtime/guest"]` exposes `init`/`update`/`render`.
 //! The guest is transpiled at build time, so there is no runtime wasm binary.
 
 use std::time::Duration;
@@ -59,10 +59,10 @@ impl Game {
         )
         .await?;
 
-        // instance["rune:runtime/guest"] -> { init, update, render }
-        let guest: Object = Reflect::get(&instance, &JsValue::from_str("rune:runtime/guest"))?
+        // instance["jumpjet:runtime/guest"] -> { init, update, render }
+        let guest: Object = Reflect::get(&instance, &JsValue::from_str("jumpjet:runtime/guest"))?
             .dyn_into()
-            .map_err(|_| JsValue::from_str("guest export `rune:runtime/guest` missing"))?;
+            .map_err(|_| JsValue::from_str("guest export `jumpjet:runtime/guest` missing"))?;
 
         let init_fn = Reflect::get(&guest, &JsValue::from_str("init"))?.dyn_into::<Function>()?;
         let update_fn =
@@ -111,7 +111,7 @@ impl Game {
 /// these and the WASI shim before calling jco's `instantiate` (see `web-runtime/`).
 fn build_imports(state: &SharedState) -> Result<Object, JsValue> {
     let imports = Object::new();
-    Reflect::set(&imports, &JsValue::from_str("rune:runtime/debug"), &debug::export(state.clone()))?;
-    Reflect::set(&imports, &JsValue::from_str("rune:runtime/window"), &window::export(state.clone()))?;
+    Reflect::set(&imports, &JsValue::from_str("jumpjet:runtime/debug"), &debug::export(state.clone()))?;
+    Reflect::set(&imports, &JsValue::from_str("jumpjet:runtime/window"), &window::export(state.clone()))?;
     Ok(imports)
 }

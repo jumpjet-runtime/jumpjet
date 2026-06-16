@@ -1,4 +1,4 @@
-//! `rune:runtime/window` host import for the web (jco) build.
+//! `jumpjet:runtime/window` host import for the web (jco) build.
 //!
 //! jco import shape (validated): `{ dimensions: () => [width, height] }`.
 
@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::runtime::web::state::SharedState;
 
-/// Builds the JS import object for the `rune:runtime/window` interface.
+/// Builds the JS import object for the `jumpjet:runtime/window` interface.
 pub fn export(state: SharedState) -> JsValue {
     let obj = Object::new();
 

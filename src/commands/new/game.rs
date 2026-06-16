@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{assets::{RuneWits, Templates}, Result};
+use crate::{assets::{JumpjetWits, Templates}, Result};
 
 use liquid::Object;
 
@@ -85,10 +85,10 @@ pub fn template_files(
 pub fn copy_wits(
     project_root: &Path,
 ) -> crate::Result<()> {
-    for wit_path in RuneWits::iter() {
-        let contents = RuneWits::get(wit_path.as_ref()).unwrap();
+    for wit_path in JumpjetWits::iter() {
+        let contents = JumpjetWits::get(wit_path.as_ref()).unwrap();
         let destination_path = project_root
-            .join(".rune/wit")
+            .join(".jumpjet/wit")
             .join(PathBuf::from(wit_path.as_ref()));
 
         let destination_parent = destination_path.as_path().parent().unwrap();

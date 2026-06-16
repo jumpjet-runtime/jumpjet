@@ -2,12 +2,12 @@ use glam::{Mat4, Vec3};
 use once_cell::sync::OnceCell;
 use wit_bindgen::generate;
 
-use crate::exports::rune::runtime::guest::Guest;
-use crate::rune::runtime::gpu::*;
+use crate::exports::jumpjet::runtime::guest::Guest;
+use crate::jumpjet::runtime::gpu::*;
 
 generate!({
     world: "runtime",
-    path: ".rune/wit/runtime"
+    path: ".jumpjet/wit/runtime"
 });
 export!(Game);
 
@@ -62,9 +62,9 @@ fn get_transform_matrix(projection_matrix: Mat4, time: f64) -> Mat4 {
 
 impl Guest for Game {
     fn init() -> Result<(), String> {
-        let adapter = crate::rune::runtime::gpu::request_adapter();
+        let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
-        let (window_width, window_height) = crate::rune::runtime::window::dimensions();
+        let (window_width, window_height) = crate::jumpjet::runtime::window::dimensions();
 
         let cube_vertices_buffer = bytemuck::cast_slice(&cube_vertices).to_vec();
 
@@ -241,10 +241,10 @@ impl Guest for Game {
     fn update(time: f64, delta_time: f64) { }
 
     fn render(time: f64, delta_time: f64) {
-        let adapter = crate::rune::runtime::gpu::request_adapter();
+        let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
         let queue = device.queue();
-        let view = crate::rune::runtime::gpu::surface()
+        let view = crate::jumpjet::runtime::gpu::surface()
             .current_texture()
             .create_view();
 

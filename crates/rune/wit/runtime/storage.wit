@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 /// Virtual filesystem APIs for local and cloud based storage
 interface storage {

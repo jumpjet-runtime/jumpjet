@@ -9,14 +9,14 @@ use web_time::Instant;
 use winit::dpi::PhysicalSize;
 
 use crate::host::Game;
-use crate::runtime::web::state::{RuneRuntimeState, SharedState};
+use crate::runtime::web::state::{JumpjetRuntimeState, SharedState};
 
 /// Fixed logic timestep (~30 Hz), matching the native run loop.
 const FIXED_TIMESTEP: Duration = Duration::from_millis(33);
 /// Cap on accumulated time to avoid the "spiral of death" after a stall.
 const MAX_ACCUMULATOR: Duration = Duration::from_millis(200);
 
-/// Entry point for the web runtime, invoked by the `rune-host` `web` cdylib after
+/// Entry point for the web runtime, invoked by the `jumpjet-host` `web` cdylib after
 /// the harness has installed `window.jco`.
 ///
 /// The browser main thread cannot block, so unlike native (`pollster::block_on`
@@ -44,7 +44,7 @@ async fn bootstrap() -> Result<(), JsValue> {
     let canvas = document
         .create_element("canvas")?
         .dyn_into::<web_sys::HtmlCanvasElement>()?;
-    canvas.set_id("rune-canvas");
+    canvas.set_id("jumpjet-canvas");
     // Size the canvas to the window's drawable area.
     let width = window.inner_width()?.as_f64().unwrap_or(800.0) as u32;
     let height = window.inner_height()?.as_f64().unwrap_or(600.0) as u32;
@@ -53,7 +53,7 @@ async fn bootstrap() -> Result<(), JsValue> {
     body.append_child(&canvas)?;
     let size = PhysicalSize::new(width, height);
 
-    let state: SharedState = Rc::new(RefCell::new(RuneRuntimeState::new(size)));
+    let state: SharedState = Rc::new(RefCell::new(JumpjetRuntimeState::new(size)));
 
     // Install keyboard/mouse DOM listeners before the guest runs.
     crate::runtime::web::input::input_install();

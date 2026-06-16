@@ -4,8 +4,8 @@ use semver::Version;
 
 pub struct Settings {
     pub current_dir: PathBuf,
-    pub rune_dir: PathBuf,
-    pub rune_bin_dir: PathBuf,
+    pub jumpjet_dir: PathBuf,
+    pub jumpjet_bin_dir: PathBuf,
 
     pub metadata_id: String,
     pub metadata_version: Version,
@@ -36,7 +36,7 @@ impl Settings {
     }
 
     pub fn project_dir(&self) -> PathBuf {
-        self.rune_dir.join("project/.")
+        self.jumpjet_dir.join("project/.")
     }
 
     pub fn target_dir(&self) -> PathBuf {

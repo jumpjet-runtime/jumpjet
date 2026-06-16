@@ -1,6 +1,6 @@
-// Rune web harness. Wires the wasm-bindgen host runtime (`web.js`) to the
+// Jumpjet web harness. Wires the wasm-bindgen host runtime (`web.js`) to the
 // jco-transpiled guest (`guest/guest.js`) and the WASI shim, then starts the
-// runtime. Emitted verbatim by `rune build --target web`.
+// runtime. Emitted verbatim by `jumpjet build --target web`.
 //
 // Resource interfaces (gpu, input, …) are Rust #[wasm_bindgen] classes exported
 // from web.js; this harness only references those constructors into the jco
@@ -86,9 +86,9 @@ async function main() {
 
   window.jco = {
     // The Rust host (host/web/game.rs) creates the canvas, then calls
-    // window.jco.instantiate(runeImports) with the debug+window imports.
-    instantiate: async (runeImports) => {
-      const canvas = document.getElementById('rune-canvas');
+    // window.jco.instantiate(jumpjetImports) with the debug+window imports.
+    instantiate: async (jumpjetImports) => {
+      const canvas = document.getElementById('jumpjet-canvas');
 
       // request-adapter/request-device are sync in WIT but async in the browser,
       // so pre-resolve here and hand the device + configured context to Rust.
@@ -108,12 +108,12 @@ async function main() {
         {},
         wasi,
         {
-          'rune:runtime/gpu': gpuImports,
-          'rune:runtime/input': inputImports,
-          'rune:runtime/audio': audioImports,
-          'rune:runtime/storage': storageImports,
+          'jumpjet:runtime/gpu': gpuImports,
+          'jumpjet:runtime/input': inputImports,
+          'jumpjet:runtime/audio': audioImports,
+          'jumpjet:runtime/storage': storageImports,
         },
-        runeImports,
+        jumpjetImports,
       );
 
       return instantiate(getCoreModule, imports);

@@ -11,18 +11,18 @@ use winit::dpi::PhysicalSize;
 /// short-lived: the frame loop must never hold a borrow across a call into guest
 /// code (which re-enters the host closures), and each closure borrows only for the
 /// duration of its call.
-pub type SharedState = Rc<RefCell<RuneRuntimeState>>;
+pub type SharedState = Rc<RefCell<JumpjetRuntimeState>>;
 
 /// Web runtime state. Unlike native (`runtime/native/state.rs`), the web build does
 /// not own a wasmtime `ResourceTable`/`WasiCtx` or wgpu_core ids — the guest runs in
 /// the browser via jco and resource interfaces (gpu/audio/input/storage) are
 /// self-contained `#[wasm_bindgen]` classes. This holds only the canvas size read
 /// by the `window` interface.
-pub struct RuneRuntimeState {
+pub struct JumpjetRuntimeState {
     pub window_size: PhysicalSize<u32>,
 }
 
-impl RuneRuntimeState {
+impl JumpjetRuntimeState {
     pub fn new(window_size: PhysicalSize<u32>) -> Self {
         Self { window_size }
     }

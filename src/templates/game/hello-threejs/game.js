@@ -1,9 +1,9 @@
-import { log } from 'rune:runtime/debug'
-import * as gpu from 'rune:runtime/gpu'
-import * as window from 'rune:runtime/window'
+import { log } from 'jumpjet:runtime/debug'
+import * as gpu from 'jumpjet:runtime/gpu'
+import * as window from 'jumpjet:runtime/window'
 
 import * as THREE from 'three'
-import { RuneRenderer } from '@rune-runtime/threejs-renderer'
+import { JumpjetRenderer } from '@jumpjet-runtime/threejs-renderer'
 
 let camera, renderer, scene, mesh
 
@@ -22,7 +22,7 @@ export const guest = {
     mesh = new THREE.Mesh(geometry, material)
     scene.add(mesh)
 
-    renderer = new RuneRenderer(gpu)
+    renderer = new JumpjetRenderer(gpu)
     renderer.setSize(width, height)
   },
   update(time, deltaTime) {

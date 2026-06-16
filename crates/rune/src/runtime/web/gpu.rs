@@ -1,4 +1,4 @@
-//! `rune:runtime/gpu` host import as Rust `#[wasm_bindgen]` classes wrapping the
+//! `jumpjet:runtime/gpu` host import as Rust `#[wasm_bindgen]` classes wrapping the
 //! browser's WebGPU objects. jco requires imported resources to be real classes
 //! (instanceof-checked); these are, and methods dispatch on `&self`.
 //!

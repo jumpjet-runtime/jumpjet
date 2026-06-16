@@ -37,7 +37,7 @@ pub fn bundle_project(settings: &Settings) -> crate::Result<()> {
 
 fn copy_build_output_to_bundle(bundle_directory: &Path, settings: &Settings) -> crate::Result<()> {
     let dest_dir = bundle_directory.join("MacOS");
-    crate::fs::copy_dir_all(&settings.build_output_dir, dest_dir.join(".rune/input"))?;
+    crate::fs::copy_dir_all(&settings.build_output_dir, dest_dir.join(".jumpjet/input"))?;
     crate::fs::copy_file(
         settings.target_binary_path(),
         dest_dir.join(settings.binary_name()),

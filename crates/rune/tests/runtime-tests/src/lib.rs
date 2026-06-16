@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 wit_bindgen::generate!({
-    world: "rune:tests/tests",
+    world: "jumpjet:tests/tests",
     path: [
         "../../wit/runtime",
         "../../wit/tests",
@@ -9,9 +9,9 @@ wit_bindgen::generate!({
     generate_all
 });
 
-use crate::exports::rune::tests::guest::Guest;
-use crate::rune::runtime::debug::log;
-// use crate::exports::rune::tests::guest::
+use crate::exports::jumpjet::tests::guest::Guest;
+use crate::jumpjet::runtime::debug::log;
+// use crate::exports::jumpjet::tests::guest::
 
 struct RuntimeTests;
 

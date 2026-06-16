@@ -15,10 +15,10 @@ pub async fn upgrade() -> Result<()> {
         let client = Client::new();
 
         let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static("Rune CLI (https://rune.sh)"));
+        headers.insert(USER_AGENT, HeaderValue::from_static("Jumpjet CLI (https://jumpjet.dev)"));
 
         let response = client
-            .get("https://api.github.com/repos/rune-runtime/rune/tags")
+            .get("https://api.github.com/repos/jumpjet-runtime/jumpjet/tags")
             .headers(headers)
             .send()
             .await?;
@@ -28,8 +28,8 @@ pub async fn upgrade() -> Result<()> {
         value[0]["name"].as_str().unwrap().to_string()
     };
     let platform = format!("{}-{}", env::consts::OS, env::consts::ARCH);
-    let tarball_name = format!("rune-cli-{latest_version}-{platform}.tar.gz");
-    let tarball_url = format!("https://github.com/rune-runtime/rune/releases/download/{latest_version}/{tarball_name}");
+    let tarball_name = format!("jumpjet-cli-{latest_version}-{platform}.tar.gz");
+    let tarball_url = format!("https://github.com/jumpjet-runtime/jumpjet/releases/download/{latest_version}/{tarball_name}");
 
     let tmp_dir = tempfile::Builder::new()
         .prefix(&format!(".update-{latest_version}"))
@@ -42,7 +42,7 @@ pub async fn upgrade() -> Result<()> {
         &tmp_path
     ).await?;
 
-    let new_bin = tmp_path.join("rune-cli");
+    let new_bin = tmp_path.join("jumpjet-cli");
 
     self_replace::self_replace(new_bin)?;
 
@@ -53,7 +53,7 @@ pub async fn upgrade() -> Result<()> {
 
 async fn download_tarball(url: &str, tmp_path: &PathBuf) -> Result<()> {
     let response = reqwest::get(url).await?;
-    let tmp_tarball = tmp_path.join("rune.tar.gz");
+    let tmp_tarball = tmp_path.join("jumpjet.tar.gz");
     let targz_bytes = response.bytes().await?;
 
     let mut gz = GzDecoder::new(&targz_bytes[..]);

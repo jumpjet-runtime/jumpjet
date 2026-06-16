@@ -32,59 +32,59 @@ pub fn wgpu_id<I: wgpu_core::id::Marker, E>(
 
 #[cfg(not(target_arch = "wasm32"))]
 wasmtime::component::bindgen!({
-    world: "rune:runtime/runtime",
+    world: "jumpjet:runtime/runtime",
     path: "wit/runtime",
     with: {
-        "rune:runtime/audio.audio-buffer": web_audio_api::AudioBuffer,
-        "rune:runtime/audio.audio-context": web_audio_api::context::AudioContext,
-        "rune:runtime/audio.audio-param": web_audio_api::AudioParam,
-        "rune:runtime/audio.analyzer-node": web_audio_api::node::AnalyserNode,
-        "rune:runtime/audio.audio-buffer-source-node": web_audio_api::node::AudioBufferSourceNode,
-        "rune:runtime/audio.audio-destination-node": web_audio_api::node::AudioDestinationNode,
-        "rune:runtime/audio.biquad-filter-node": web_audio_api::node::BiquadFilterNode,
-        "rune:runtime/audio.constant-source-node": web_audio_api::node::ConstantSourceNode,
-        "rune:runtime/audio.convolver-node": web_audio_api::node::ConvolverNode,
-        "rune:runtime/audio.channel-merger-node": web_audio_api::node::ChannelMergerNode,
-        "rune:runtime/audio.channel-splitter-node": web_audio_api::node::ChannelSplitterNode,
-        "rune:runtime/audio.delay-node": web_audio_api::node::DelayNode,
-        "rune:runtime/audio.dynamics-compressor-node": web_audio_api::node::DynamicsCompressorNode,
-        "rune:runtime/audio.gain-node": web_audio_api::node::GainNode,
-        "rune:runtime/audio.iir-filter-node": web_audio_api::node::IIRFilterNode,
-        "rune:runtime/audio.oscillator-node": web_audio_api::node::OscillatorNode,
-        "rune:runtime/audio.panner-node": web_audio_api::node::PannerNode,
-        "rune:runtime/audio.audio-render-capacity": web_audio_api::AudioRenderCapacity,
-        "rune:runtime/audio.stereo-panner-node": web_audio_api::node::StereoPannerNode,
-        "rune:runtime/audio.wave-shaper-node": web_audio_api::node::WaveShaperNode,
-        "rune:runtime/audio.audio-listener": web_audio_api::AudioListener,
+        "jumpjet:runtime/audio.audio-buffer": web_audio_api::AudioBuffer,
+        "jumpjet:runtime/audio.audio-context": web_audio_api::context::AudioContext,
+        "jumpjet:runtime/audio.audio-param": web_audio_api::AudioParam,
+        "jumpjet:runtime/audio.analyzer-node": web_audio_api::node::AnalyserNode,
+        "jumpjet:runtime/audio.audio-buffer-source-node": web_audio_api::node::AudioBufferSourceNode,
+        "jumpjet:runtime/audio.audio-destination-node": web_audio_api::node::AudioDestinationNode,
+        "jumpjet:runtime/audio.biquad-filter-node": web_audio_api::node::BiquadFilterNode,
+        "jumpjet:runtime/audio.constant-source-node": web_audio_api::node::ConstantSourceNode,
+        "jumpjet:runtime/audio.convolver-node": web_audio_api::node::ConvolverNode,
+        "jumpjet:runtime/audio.channel-merger-node": web_audio_api::node::ChannelMergerNode,
+        "jumpjet:runtime/audio.channel-splitter-node": web_audio_api::node::ChannelSplitterNode,
+        "jumpjet:runtime/audio.delay-node": web_audio_api::node::DelayNode,
+        "jumpjet:runtime/audio.dynamics-compressor-node": web_audio_api::node::DynamicsCompressorNode,
+        "jumpjet:runtime/audio.gain-node": web_audio_api::node::GainNode,
+        "jumpjet:runtime/audio.iir-filter-node": web_audio_api::node::IIRFilterNode,
+        "jumpjet:runtime/audio.oscillator-node": web_audio_api::node::OscillatorNode,
+        "jumpjet:runtime/audio.panner-node": web_audio_api::node::PannerNode,
+        "jumpjet:runtime/audio.audio-render-capacity": web_audio_api::AudioRenderCapacity,
+        "jumpjet:runtime/audio.stereo-panner-node": web_audio_api::node::StereoPannerNode,
+        "jumpjet:runtime/audio.wave-shaper-node": web_audio_api::node::WaveShaperNode,
+        "jumpjet:runtime/audio.audio-listener": web_audio_api::AudioListener,
 
-        "rune:runtime/gpu.gpu-adapter": wgpu_core::id::AdapterId,
-        "rune:runtime/gpu.gpu-device": wgpu_core::id::DeviceId,
-        "rune:runtime/gpu.gpu-queue": wgpu_core::id::QueueId,
-        "rune:runtime/gpu.gpu-buffer": wgpu_core::id::BufferId,
-        "rune:runtime/gpu.gpu-command-encoder": wgpu_core::id::CommandEncoderId,
-        "rune:runtime/gpu.gpu-compute-pass-encoder": wgpu_core::command::ComputePass,
-        "rune:runtime/gpu.gpu-render-pass-encoder": wgpu_core::command::RenderPass,
-        "rune:runtime/gpu.gpu-render-bundle": wgpu_core::id::RenderBundleId,
-        "rune:runtime/gpu.gpu-render-bundle-encoder": wgpu_core::command::RenderBundleEncoder,
-        "rune:runtime/gpu.gpu-shader-module": wgpu_core::id::ShaderModuleId,
-        "rune:runtime/gpu.gpu-bind-group": wgpu_core::id::BindGroupId,
-        "rune:runtime/gpu.gpu-bind-group-layout": wgpu_core::id::BindGroupLayoutId,
-        "rune:runtime/gpu.gpu-pipeline-layout": wgpu_core::id::PipelineLayoutId,
-        "rune:runtime/gpu.gpu-compute-pipeline": wgpu_core::id::ComputePipelineId,
-        "rune:runtime/gpu.gpu-render-pipeline": wgpu_core::id::RenderPipelineId,
-        "rune:runtime/gpu.gpu-command-buffer": wgpu_core::id::CommandBufferId,
-        "rune:runtime/gpu.gpu-sampler": wgpu_core::id::SamplerId,
-        "rune:runtime/gpu.gpu-texture": wgpu_core::id::TextureId,
-        "rune:runtime/gpu.gpu-texture-view": wgpu_core::id::TextureViewId,
-        "rune:runtime/gpu.gpu-query-set": wgpu_core::id::QuerySetId,
-        // "rune:runtime/gpu.buffer-source": BufferSource,
+        "jumpjet:runtime/gpu.gpu-adapter": wgpu_core::id::AdapterId,
+        "jumpjet:runtime/gpu.gpu-device": wgpu_core::id::DeviceId,
+        "jumpjet:runtime/gpu.gpu-queue": wgpu_core::id::QueueId,
+        "jumpjet:runtime/gpu.gpu-buffer": wgpu_core::id::BufferId,
+        "jumpjet:runtime/gpu.gpu-command-encoder": wgpu_core::id::CommandEncoderId,
+        "jumpjet:runtime/gpu.gpu-compute-pass-encoder": wgpu_core::command::ComputePass,
+        "jumpjet:runtime/gpu.gpu-render-pass-encoder": wgpu_core::command::RenderPass,
+        "jumpjet:runtime/gpu.gpu-render-bundle": wgpu_core::id::RenderBundleId,
+        "jumpjet:runtime/gpu.gpu-render-bundle-encoder": wgpu_core::command::RenderBundleEncoder,
+        "jumpjet:runtime/gpu.gpu-shader-module": wgpu_core::id::ShaderModuleId,
+        "jumpjet:runtime/gpu.gpu-bind-group": wgpu_core::id::BindGroupId,
+        "jumpjet:runtime/gpu.gpu-bind-group-layout": wgpu_core::id::BindGroupLayoutId,
+        "jumpjet:runtime/gpu.gpu-pipeline-layout": wgpu_core::id::PipelineLayoutId,
+        "jumpjet:runtime/gpu.gpu-compute-pipeline": wgpu_core::id::ComputePipelineId,
+        "jumpjet:runtime/gpu.gpu-render-pipeline": wgpu_core::id::RenderPipelineId,
+        "jumpjet:runtime/gpu.gpu-command-buffer": wgpu_core::id::CommandBufferId,
+        "jumpjet:runtime/gpu.gpu-sampler": wgpu_core::id::SamplerId,
+        "jumpjet:runtime/gpu.gpu-texture": wgpu_core::id::TextureId,
+        "jumpjet:runtime/gpu.gpu-texture-view": wgpu_core::id::TextureViewId,
+        "jumpjet:runtime/gpu.gpu-query-set": wgpu_core::id::QuerySetId,
+        // "jumpjet:runtime/gpu.buffer-source": BufferSource,
 
-        "rune:runtime/input.gamepad-device": gilrs::GamepadId,
+        "jumpjet:runtime/input.gamepad-device": gilrs::GamepadId,
 
-        // "rune:runtime/network.network-client": crate::runtime::network::NetworkClient,
-        // "rune:runtime/network.network-server": crate::runtime::network::NetworkServer,
-        // "rune:runtime/network.network-connection": crate::runtime::network::NetworkConnection,
-        // "rune:runtime/network.network-http-client": crate::runtime::network::NetworkHttpClient,
+        // "jumpjet:runtime/network.network-client": crate::runtime::network::NetworkClient,
+        // "jumpjet:runtime/network.network-server": crate::runtime::network::NetworkServer,
+        // "jumpjet:runtime/network.network-connection": crate::runtime::network::NetworkConnection,
+        // "jumpjet:runtime/network.network-http-client": crate::runtime::network::NetworkHttpClient,
     },
     imports: {
         default: async
@@ -95,17 +95,17 @@ wasmtime::component::bindgen!({
 });
 
 // wasmtime::component::bindgen!({
-//     world: "rune:tests/tests",
+//     world: "jumpjet:tests/tests",
 //     path: "wit/tests",
 //     with: {
-//         "rune:runtime/debug": rune::runtime::debug
+//         "jumpjet:runtime/debug": jumpjet::runtime::debug
 //     }
 // });
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use exports::rune::runtime::guest;
+pub use exports::jumpjet::runtime::guest;
 #[cfg(not(target_arch = "wasm32"))]
-pub use rune::runtime::*;
+pub use jumpjet::runtime::*;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmtime_wasi::{
     ResourceTable,
@@ -113,10 +113,10 @@ use wasmtime_wasi::{
     WasiView
 };
 
-pub use runtime::RuneRuntimeState;
+pub use runtime::JumpjetRuntimeState;
 
 #[cfg(not(target_arch = "wasm32"))]
-impl WasiView for RuneRuntimeState {
+impl WasiView for JumpjetRuntimeState {
     fn ctx(&mut self) -> WasiCtxView<'_> {
         WasiCtxView{
             ctx: &mut self.wasi_ctx,

@@ -11,7 +11,7 @@ version = "{{ runtime_version }}"
 pre = "cargo build --target wasm32-wasip1"
 input = "./target/wasm32-wasip1/debug" # Your guest code build output, the files you want to package
 entrypoint = "{{ identifier_underscored }}.wasm" # The path to your wasm binary relative to the "input" directory
-output = "./bin" # Rune's build output
+output = "./bin" # Jumpjet's build output
 
 [bundle]
 name = "{{ name }}"

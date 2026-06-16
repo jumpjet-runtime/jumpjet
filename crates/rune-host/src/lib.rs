@@ -1,6 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
-use rune::runtime;
+use jumpjet::runtime;
 use wasm_bindgen::prelude::*;
 
 /// Web entry point, called by the HTML harness after it has installed

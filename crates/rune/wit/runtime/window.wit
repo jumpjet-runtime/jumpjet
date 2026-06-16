@@ -1,4 +1,4 @@
-package rune:runtime;
+package jumpjet:runtime;
 
 /// APIs for accessing information about the window
 interface window {

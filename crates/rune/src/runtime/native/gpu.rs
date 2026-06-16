@@ -15,18 +15,18 @@ use wgpu_types::{
 };
 
 use crate::{
-    rune::runtime::gpu::*,
+    jumpjet::runtime::gpu::*,
     runtime::gpu::{Buffer, QuerySet, Texture},
     wgpu_id,
 };
 
-use super::state::RuneRuntimeState;
+use super::state::JumpjetRuntimeState;
 
 use super::utilities::{convert_bind_group_entry, vec_to_color};
 
-impl RuneRuntimeState {}
+impl JumpjetRuntimeState {}
 
-impl Host for RuneRuntimeState {
+impl Host for JumpjetRuntimeState {
     async fn surface(&mut self) -> Resource<GpuSurface> {
         Resource::new_own(self.surface_resource_id)
     }
@@ -45,7 +45,7 @@ impl Host for RuneRuntimeState {
     }
 }
 
-impl HostGpuSurface for RuneRuntimeState {
+impl HostGpuSurface for JumpjetRuntimeState {
     async fn current_texture(&mut self, _surface: Resource<GpuSurface>) -> Resource<GpuTexture> {
         let texture_id = if let Some(texture_id) = self.gpu_state.current_surface_texture {
             texture_id
@@ -87,7 +87,7 @@ impl HostGpuSurface for RuneRuntimeState {
     }
 }
 
-impl HostGpuQuerySet for RuneRuntimeState {
+impl HostGpuQuerySet for JumpjetRuntimeState {
     async fn type_(&mut self, query_set: Resource<GpuQuerySet>) -> GpuQueryType {
         let query_set_id = self.table.get(&query_set).unwrap();
         let query_set = self.gpu_state.query_sets.get(&query_set_id).unwrap();
@@ -109,7 +109,7 @@ impl HostGpuQuerySet for RuneRuntimeState {
     }
 }
 
-impl HostGpuAdapter for RuneRuntimeState {
+impl HostGpuAdapter for JumpjetRuntimeState {
     async fn request_device(&mut self, _adapter: Resource<GpuAdapter>) -> Resource<GpuDevice> {
         // let adapter_id = self.table.get(&adapter).unwrap();
         // let (device_id, queue_id) = self.instance.adapter_request_device(
@@ -135,7 +135,7 @@ impl HostGpuAdapter for RuneRuntimeState {
     }
 }
 
-impl HostGpuDevice for RuneRuntimeState {
+impl HostGpuDevice for JumpjetRuntimeState {
     async fn create_buffer(
         &mut self,
         device: Resource<GpuDevice>,
@@ -730,7 +730,7 @@ impl HostGpuDevice for RuneRuntimeState {
     }
 }
 
-impl HostGpuQueue for RuneRuntimeState {
+impl HostGpuQueue for JumpjetRuntimeState {
     async fn submit(
         &mut self,
         queue: Resource<GpuQueue>,
@@ -810,7 +810,7 @@ impl HostGpuQueue for RuneRuntimeState {
     }
 }
 
-impl HostGpuBuffer for RuneRuntimeState {
+impl HostGpuBuffer for JumpjetRuntimeState {
     async fn size(&mut self, buffer: Resource<GpuBuffer>) -> GpuSizeU64 {
         let buffer_id = self.table.get(&buffer).unwrap();
         let buffer = self.gpu_state.buffers.get(&buffer_id).unwrap();
@@ -902,7 +902,7 @@ impl HostGpuBuffer for RuneRuntimeState {
     }
 }
 
-impl HostGpuTexture for RuneRuntimeState {
+impl HostGpuTexture for JumpjetRuntimeState {
     async fn width(&mut self, texture: Resource<GpuTexture>) -> GpuIntegerCoordinate {
         let texture_id = self.table.get(&texture).unwrap();
         let texture = self.gpu_state.textures.get(&texture_id).unwrap();
@@ -999,7 +999,7 @@ impl HostGpuTexture for RuneRuntimeState {
     }
 }
 
-impl HostGpuTextureView for RuneRuntimeState {
+impl HostGpuTextureView for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuTextureView>) -> Result<()> {
         let texture_view_id = self.table.delete(rep).ok();
         if let Some(texture_view_id) = texture_view_id {
@@ -1011,7 +1011,7 @@ impl HostGpuTextureView for RuneRuntimeState {
     }
 }
 
-impl HostGpuSampler for RuneRuntimeState {
+impl HostGpuSampler for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuSampler>) -> Result<()> {
         let sampler_id = self.table.delete(rep).unwrap();
         self.instance.sampler_drop(sampler_id);
@@ -1019,7 +1019,7 @@ impl HostGpuSampler for RuneRuntimeState {
     }
 }
 
-impl HostGpuBindGroupLayout for RuneRuntimeState {
+impl HostGpuBindGroupLayout for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuBindGroupLayout>) -> Result<()> {
         let bind_group_layout_id = self.table.delete(rep).unwrap();
         self.instance
@@ -1028,7 +1028,7 @@ impl HostGpuBindGroupLayout for RuneRuntimeState {
     }
 }
 
-impl HostGpuBindGroup for RuneRuntimeState {
+impl HostGpuBindGroup for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuBindGroup>) -> Result<()> {
         let bind_group_id = self.table.delete(rep).unwrap();
         self.instance
@@ -1037,7 +1037,7 @@ impl HostGpuBindGroup for RuneRuntimeState {
     }
 }
 
-impl HostGpuPipelineLayout for RuneRuntimeState {
+impl HostGpuPipelineLayout for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuPipelineLayout>) -> Result<()> {
         let pipeline_layout_id = self.table.delete(rep).unwrap();
         self.instance
@@ -1046,7 +1046,7 @@ impl HostGpuPipelineLayout for RuneRuntimeState {
     }
 }
 
-impl HostGpuShaderModule for RuneRuntimeState {
+impl HostGpuShaderModule for JumpjetRuntimeState {
     async fn get_compilation_info(
         &mut self,
         _self_: Resource<GpuShaderModule>,
@@ -1062,7 +1062,7 @@ impl HostGpuShaderModule for RuneRuntimeState {
     }
 }
 
-impl HostGpuComputePipeline for RuneRuntimeState {
+impl HostGpuComputePipeline for JumpjetRuntimeState {
     async fn get_bind_group_layout(
         &mut self,
         pipeline: Resource<GpuComputePipeline>,
@@ -1091,7 +1091,7 @@ impl HostGpuComputePipeline for RuneRuntimeState {
     }
 }
 
-impl HostGpuRenderPipeline for RuneRuntimeState {
+impl HostGpuRenderPipeline for JumpjetRuntimeState {
     async fn get_bind_group_layout(
         &mut self,
         pipeline: Resource<GpuRenderPipeline>,
@@ -1116,13 +1116,13 @@ impl HostGpuRenderPipeline for RuneRuntimeState {
     }
 }
 
-impl HostGpuCommandBuffer for RuneRuntimeState {
+impl HostGpuCommandBuffer for JumpjetRuntimeState {
     async fn drop(&mut self, _: Resource<GpuCommandBuffer>) -> Result<()> {
         Ok(())
     }
 }
 
-impl HostGpuCommandEncoder for RuneRuntimeState {
+impl HostGpuCommandEncoder for JumpjetRuntimeState {
     async fn begin_render_pass(
         &mut self,
         command_encoder: Resource<GpuCommandEncoder>,
@@ -1451,7 +1451,7 @@ impl HostGpuCommandEncoder for RuneRuntimeState {
     }
 }
 
-impl HostGpuComputePassEncoder for RuneRuntimeState {
+impl HostGpuComputePassEncoder for JumpjetRuntimeState {
     async fn set_pipeline(
         &mut self,
         compute_pass_encoder: Resource<GpuComputePassEncoder>,
@@ -1614,7 +1614,7 @@ impl HostGpuComputePassEncoder for RuneRuntimeState {
     }
 }
 
-impl HostGpuRenderPassEncoder for RuneRuntimeState {
+impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
     async fn set_pipeline(
         &mut self,
         render_pass_encoder: Resource<GpuRenderPassEncoder>,
@@ -2015,7 +2015,7 @@ impl HostGpuRenderPassEncoder for RuneRuntimeState {
     }
 }
 
-impl HostGpuRenderBundle for RuneRuntimeState {
+impl HostGpuRenderBundle for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuRenderBundle>) -> Result<()> {
         let render_bundle_id = self.table.delete(rep).unwrap();
         self.instance
@@ -2024,7 +2024,7 @@ impl HostGpuRenderBundle for RuneRuntimeState {
     }
 }
 
-impl HostGpuRenderBundleEncoder for RuneRuntimeState {
+impl HostGpuRenderBundleEncoder for JumpjetRuntimeState {
     async fn finish(
         &mut self,
         render_bundle_encoder_resource: Resource<GpuRenderBundleEncoder>,

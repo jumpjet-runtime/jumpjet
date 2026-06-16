@@ -8,7 +8,7 @@ author = ""
 version = "{{ runtime_version }}"
 
 [build]
-pre = "componentize-py -d .rune/wit/runtime -w runtime componentize game -o game.wasm"
+pre = "componentize-py -d .jumpjet/wit/runtime -w runtime componentize game -o game.wasm"
 input = "." 
 entrypoint = "game.wasm" 
 output = "./bin"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates the embedded web runtime artifacts in `web-runtime/`, which
-# `rune build --target web` emits into a project's web bundle.
+# `jumpjet build --target web` emits into a project's web bundle.
 #
 # Prerequisites:
 #   - rustup target add wasm32-unknown-unknown
@@ -12,8 +12,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> Building rune-host web cdylib (release)"
-cargo build --target wasm32-unknown-unknown -p rune-host --lib --release
+echo "==> Building jumpjet-host web cdylib (release)"
+cargo build --target wasm32-unknown-unknown -p jumpjet-host --lib --release
 
 echo "==> wasm-bindgen -> web-runtime/"
 wasm-bindgen target/wasm32-unknown-unknown/release/web.wasm \

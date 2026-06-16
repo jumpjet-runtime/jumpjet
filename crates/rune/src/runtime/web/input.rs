@@ -1,4 +1,4 @@
-//! `rune:runtime/input` host import as Rust `#[wasm_bindgen]` classes.
+//! `jumpjet:runtime/input` host import as Rust `#[wasm_bindgen]` classes.
 //!
 //! Keyboard and mouse state is tracked via DOM event listeners installed by
 //! `input_install` (called from the run loop bootstrap); `input_end_frame` clears

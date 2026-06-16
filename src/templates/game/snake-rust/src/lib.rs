@@ -5,14 +5,14 @@ use once_cell::sync::{Lazy, OnceCell};
 use wit_bindgen::generate;
 use glam::{Mat4};
 
-use crate::exports::rune::runtime::guest::Guest;
-use crate::rune::runtime::gpu::*;
-use crate::rune::runtime::window;
-use crate::rune::runtime::input::{keyboard, KeyboardKey};
+use crate::exports::jumpjet::runtime::guest::Guest;
+use crate::jumpjet::runtime::gpu::*;
+use crate::jumpjet::runtime::window;
+use crate::jumpjet::runtime::input::{keyboard, KeyboardKey};
 
 generate!({
     world: "runtime",
-    path: ".rune/wit/runtime"
+    path: ".jumpjet/wit/runtime"
 });
 export!(Game);
 
@@ -56,7 +56,7 @@ static UNIFORM_BUFFER: OnceCell<GpuBuffer> = OnceCell::new();
 static DYNAMIC_VERTEX_BUFFER: OnceCell<GpuBuffer> = OnceCell::new();
 
 struct AudioState {
-    context: Option<crate::rune::runtime::audio::AudioContext>,
+    context: Option<crate::jumpjet::runtime::audio::AudioContext>,
 }
 
 
@@ -78,10 +78,10 @@ const MOVE_INTERVAL: f64 = 0.15;
 
 impl Guest for Game {
     fn init() -> Result<(), String> {
-        let adapter = crate::rune::runtime::gpu::request_adapter();
+        let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
         let queue = device.queue();
-        let surface = crate::rune::runtime::gpu::surface();
+        let surface = crate::jumpjet::runtime::gpu::surface();
 
         // Initialize grid size based on window
         let (window_width, window_height) = window::dimensions();
@@ -91,7 +91,7 @@ impl Guest for Game {
         drop(state);
 
         // Initialize audio
-        let audio_device = crate::rune::runtime::audio::output();
+        let audio_device = crate::jumpjet::runtime::audio::output();
         if let Some(dev) = audio_device {
             let context = dev.create_context();
             let mut audio_state = AUDIO.lock().unwrap();
@@ -463,11 +463,11 @@ fn play_sound(freq: f32, duration: f32) {
         }
         
         let channel_data = vec![samples];
-        let audio_buffer = crate::rune::runtime::audio::AudioBuffer::new(&channel_data, sample_rate);
+        let audio_buffer = crate::jumpjet::runtime::audio::AudioBuffer::new(&channel_data, sample_rate);
         
         let source = ctx.create_buffer_source();
         source.set_buffer(audio_buffer);
-        source.connect(&crate::rune::runtime::audio::AudioNode::Destination(&ctx.destination()));
+        source.connect(&crate::jumpjet::runtime::audio::AudioNode::Destination(&ctx.destination()));
         source.start();
     }
 }

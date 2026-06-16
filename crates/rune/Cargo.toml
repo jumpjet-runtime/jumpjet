@@ -1,5 +1,5 @@
 [package]
-name = "rune"
+name = "jumpjet"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

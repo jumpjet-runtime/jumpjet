@@ -11,7 +11,7 @@ version = "{{ runtime_version }}"
 pre = "npm run build"
 input = "./dist" # Your guest code build output, the files you want to package
 entrypoint = "game.wasm" # The path to your wasm binary relative to the "input" directory
-output = "./bin" # Rune's build output
+output = "./bin" # Jumpjet's build output
 
 [bundle]
 name = "{{ name }}"

@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use super::state::RuneRuntimeState;
+use super::state::JumpjetRuntimeState;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-impl crate::rune::runtime::debug::Host for RuneRuntimeState {
+impl crate::jumpjet::runtime::debug::Host for JumpjetRuntimeState {
     async fn log(&mut self, msg: String) {
         let mut stdout = StandardStream::stdout(ColorChoice::Always);
         stdout

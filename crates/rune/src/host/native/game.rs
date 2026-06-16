@@ -11,17 +11,17 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{Runtime, RuntimePre};
 
-pub use crate::runtime::RuneRuntimeState;
+pub use crate::runtime::JumpjetRuntimeState;
 
 #[derive(Clone)]
-pub struct RuneDebugHandler {
+pub struct JumpjetDebugHandler {
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
     pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
     pub binary: Arc<Vec<u8>>,
 }
 
-impl DebugHandler for RuneDebugHandler {
-    type Data = RuneRuntimeState;
+impl DebugHandler for JumpjetDebugHandler {
+    type Data = JumpjetRuntimeState;
 
     fn handle(
         &self,
@@ -59,9 +59,9 @@ impl DebugHandler for RuneDebugHandler {
 pub struct Game {
     pub path: String,
     pub engine: Engine,
-    pub instance_pre: RuntimePre<RuneRuntimeState>,
+    pub instance_pre: RuntimePre<JumpjetRuntimeState>,
     pub runtime: Option<Runtime>,
-    pub store: Option<Store<RuneRuntimeState>>,
+    pub store: Option<Store<JumpjetRuntimeState>>,
     pub debug: bool,
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
     pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
@@ -86,8 +86,8 @@ impl Game {
 
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
         
-        type Data = wasmtime::component::HasSelf<RuneRuntimeState>;
-        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut RuneRuntimeState| state)?;
+        type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
+        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
 
         let instance_pre = RuntimePre::new(linker.instantiate_pre(&component)?)?;
         
@@ -118,7 +118,7 @@ impl Game {
     ) -> Result<(), anyhow::Error> {
         let window_size = window.inner_size();
 
-        let runtime_state = RuneRuntimeState::new(
+        let runtime_state = JumpjetRuntimeState::new(
             Uuid::new_v4(),
             input_path,
             window_size,
@@ -134,7 +134,7 @@ impl Game {
         let mut store = Store::new(&self.engine, runtime_state);
         
         if self.debug {
-            let handler = RuneDebugHandler {
+            let handler = JumpjetDebugHandler {
                 gdb_connection: self.gdb_connection.clone(),
                 dap_connection: self.dap_connection.clone(),
                 binary: self.binary.clone(),
@@ -144,7 +144,7 @@ impl Game {
 
         let runtime = self.instance_pre.instantiate_async(&mut store).await?;
 
-        if let Err(msg) = runtime.rune_runtime_guest().call_init(&mut store).await {
+        if let Err(msg) = runtime.jumpjet_runtime_guest().call_init(&mut store).await {
             panic!("{}", msg);
         }
 
@@ -163,7 +163,7 @@ impl Game {
         self.runtime
             .as_ref()
             .unwrap()
-            .rune_runtime_guest()
+            .jumpjet_runtime_guest()
             .call_update(store, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
             .await?;
 
@@ -178,7 +178,7 @@ impl Game {
         self.runtime
             .as_ref()
             .expect("Runtime must be initialized")
-            .rune_runtime_guest()
+            .jumpjet_runtime_guest()
             .call_render(
                 self.store.as_mut().expect("Store must be initialized"),
                 epoch_time.as_secs_f64(),

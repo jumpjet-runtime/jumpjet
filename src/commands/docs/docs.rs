@@ -16,7 +16,7 @@ use wit_parser::{
 };
 
 use crate::{
-    action::Action, assets::RuneRuntimeWits, components::Component, config::{Config, KeyBindings}, tui::Event
+    action::Action, assets::JumpjetRuntimeWits, components::Component, config::{Config, KeyBindings}, tui::Event
 };
 
 #[derive(Clone)]
@@ -649,8 +649,8 @@ impl Docs {
 impl Default for Docs {
     fn default() -> Self {
         let mut source_map = SourceMap::new();
-        for wit_name in RuneRuntimeWits::iter() {
-            let wit = RuneRuntimeWits::get(&wit_name).unwrap();
+        for wit_name in JumpjetRuntimeWits::iter() {
+            let wit = JumpjetRuntimeWits::get(&wit_name).unwrap();
             source_map.push(
                 Path::new(wit_name.as_ref()),
                 std::str::from_utf8(&wit.data).unwrap(),

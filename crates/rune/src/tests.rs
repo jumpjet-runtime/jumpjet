@@ -9,16 +9,16 @@ use wasmtime::{
 };
 use winit::window::Window;
 
-use crate::{RuneRuntimeState, Runtime, RuntimePre};
+use crate::{JumpjetRuntimeState, Runtime, RuntimePre};
 
 /// Test is used to run wasm component
 
 pub struct Tests {
     pub path: String,
     pub engine: Engine,
-    pub instance_pre: RuntimePre<RuneRuntimeState>,
+    pub instance_pre: RuntimePre<JumpjetRuntimeState>,
     pub runtime: Option<Runtime>,
-    pub store: Option<Store<RuneRuntimeState>>,
+    pub store: Option<Store<JumpjetRuntimeState>>,
 }
 
 impl std::fmt::Debug for Tests {
@@ -38,11 +38,11 @@ impl Tests {
 
         let mut linker = Linker::new(&engine);
 
-        type Data = wasmtime::component::HasSelf<RuneRuntimeState>;
+        type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
 
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker).expect("add wasmtime_wasi::preview2 failed");
 
-        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut RuneRuntimeState| state)?;
+        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
 
         Ok(Self {
             path: "bytes".to_owned(),
@@ -67,7 +67,7 @@ impl Tests {
     ) -> Result<(), anyhow::Error> {
         let window_size = window.inner_size();
 
-        let runtime_state = RuneRuntimeState::new(
+        let runtime_state = JumpjetRuntimeState::new(
             Uuid::new_v4(),
             input_path,
             window_size,

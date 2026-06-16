@@ -4,10 +4,10 @@ use wasmtime::component::Resource;
 use wasmtime::Result;
 use web_transport::{Client, ClientBuilder, Server, quinn::ServerBuilder};
 
-use crate::rune::runtime::network::*;
-use super::state::RuneRuntimeState;
+use crate::jumpjet::runtime::network::*;
+use super::state::JumpjetRuntimeState;
 
-impl Host for RuneRuntimeState {
+impl Host for JumpjetRuntimeState {
     async fn client(&mut self, config: NetworkClientConfig,) -> Resource<NetworkClient> {
         let client = ClientBuilder::new().with_system_roots().unwrap();
         self.table.push(client).unwrap()
@@ -25,7 +25,7 @@ impl Host for RuneRuntimeState {
     }
 }
 
-impl HostNetworkClient for RuneRuntimeState {
+impl HostNetworkClient for JumpjetRuntimeState {
     async fn connect(&mut self, client: Resource<NetworkClient>, endpoint: String) -> Resource<NetworkConnection> {
         let client = self.table.get(&client).unwrap();
         self.table.push(client.connect(endpoint).await.unwrap()).unwrap()
@@ -37,7 +37,7 @@ impl HostNetworkClient for RuneRuntimeState {
     }
 }
 
-impl HostNetworkServer for RuneRuntimeState {
+impl HostNetworkServer for JumpjetRuntimeState {
     async fn accept(&mut self, server: Resource<NetworkServer>) -> Resource<NetworkConnection> {
         let server = self.table.get(&server).unwrap();
         let incoming_session = server.accept().await;
@@ -52,7 +52,7 @@ impl HostNetworkServer for RuneRuntimeState {
     }
 }
 
-impl HostNetworkHttpClient for RuneRuntimeState {
+impl HostNetworkHttpClient for JumpjetRuntimeState {
     async fn request(&mut self, client: Resource<NetworkHttpClient>, req: HttpRequest) -> Result<HttpResponse, NetError> {
         let client = self.table.get(&client).unwrap();
         let mut request = client.request(req.method.into(), req.url);
@@ -77,7 +77,7 @@ impl HostNetworkHttpClient for RuneRuntimeState {
     }
 }
 
-impl HostNetworkConnection for RuneRuntimeState {
+impl HostNetworkConnection for JumpjetRuntimeState {
     async fn send(&mut self, connection: Resource<NetworkConnection>, data: Vec<u8>) -> Result<(), NetError> {
         let connection = self.table.get(&connection).unwrap();
         connection.send_datagram(data).unwrap();

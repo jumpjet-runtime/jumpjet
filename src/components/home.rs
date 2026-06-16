@@ -67,7 +67,7 @@
 
 //         let logo = Paragraph::new(
 //             Line::from(vec![
-//                 Span::styled(" rune ", Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD))
+//                 Span::styled(" jumpjet ", Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD))
 //             ])
 //         );
 

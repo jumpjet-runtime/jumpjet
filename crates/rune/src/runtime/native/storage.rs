@@ -6,12 +6,12 @@ use vfs::{AltrootFS, FileSystem, PhysicalFS, VfsPath};
 use wasmtime::component::Resource;
 use wasmtime::Result;
 
-use crate::rune::runtime::storage::*;
+use crate::jumpjet::runtime::storage::*;
 use crate::runtime::storage::Storage;
 
-use super::state::RuneRuntimeState;
+use super::state::JumpjetRuntimeState;
 
-impl Host for RuneRuntimeState {
+impl Host for JumpjetRuntimeState {
     async fn local(&mut self) -> Resource<StorageDevice> {
         let app_root_path = &self.input_path;
         if !app_root_path.exists() {
@@ -30,7 +30,7 @@ impl Host for RuneRuntimeState {
     }
 }
 
-impl HostStorageDevice for RuneRuntimeState {
+impl HostStorageDevice for JumpjetRuntimeState {
     async fn create_dir(&mut self, storage: Resource<StorageDevice>, path: Resource<Path>) {
         let storage = self.storages.get(storage.rep() as usize).unwrap();
 
@@ -182,7 +182,7 @@ impl HostStorageDevice for RuneRuntimeState {
     }
 }
 
-impl HostPath for RuneRuntimeState {
+impl HostPath for JumpjetRuntimeState {
     async fn new(&mut self, storage: Resource<StorageDevice>, path: String) -> Resource<Path> {
         let storage = self.storages.get(storage.rep() as usize).unwrap();
 

@@ -1,6 +1,6 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
-import rune from '@rune-runtime/rollup-plugin-rune'
+import jumpjet from '@jumpjet-runtime/rollup-plugin-jumpjet'
 
 export default {
 	input: 'game.js',
@@ -11,6 +11,6 @@ export default {
 	plugins: [
 		commonjs(), 
 		nodeResolve(),
-		rune()
+		jumpjet()
 	]
 }

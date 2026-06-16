@@ -1,32 +1,32 @@
-# 🚧 Rune 🚧
+# 🚧 Jumpjet 🚧
 
-[rune.sh](https://rune.sh)
+[jumpjet.dev](https://jumpjet.dev)
 
 A runtime for cross-language, cross-platform game development. A chassis without an engine.
 
-🚧 Rune is not production ready.
+🚧 Jumpjet is not production ready.
 
 ## Get Started
 
-A quick install script is available [on the website](https://rune.sh).
+A quick install script is available [on the website](https://jumpjet.dev).
 
-## What is Rune?
-Rune provides a host environment for guest WebAssembly applications (ie. your game.)
+## What is Jumpjet?
+Jumpjet provides a host environment for guest WebAssembly applications (ie. your game.)
 
-Guest applications have access to the Rune Runtime API, which includes access to features like GPU, audio, storage, input, networking, UI, window management and more. Think of it like SDL for WebAssembly. Rune _is not_ a web environment - method invocations from your application are executed against "native" APIs.
+Guest applications have access to the Jumpjet Runtime API, which includes access to features like GPU, audio, storage, input, networking, UI, window management and more. Think of it like SDL for WebAssembly. Jumpjet _is not_ a web environment - method invocations from your application are executed against "native" APIs.
 
-Rune models much of its APIs heavily on the Web platform because of its familiarity and foundational design principles; for example the GPU API is basically WebGPU and the audio API is basically WebAudio.
+Jumpjet models much of its APIs heavily on the Web platform because of its familiarity and foundational design principles; for example the GPU API is basically WebGPU and the audio API is basically WebAudio.
 
 ## How does it work
-Guest applications implement the simple Rune Guest protocol, which includes `init`, `update`, `render` methods to be implemented. The protocol is provided as a collection of `.wit` files, which can be compiled to a library in the language of your choice. (We may release official packages for various languges in the future.) Once you've implemented the protocol, you build your application targetting WebAssembly, with WASI support. You can then run your application in the Rune CLI. When you're ready to publish your game, Rune CLI can bundle your application into various platform outputs such as `.app` for Mac, `.msi` for Windows, etc.
+Guest applications implement the simple Jumpjet Guest protocol, which includes `init`, `update`, `render` methods to be implemented. The protocol is provided as a collection of `.wit` files, which can be compiled to a library in the language of your choice. (We may release official packages for various languges in the future.) Once you've implemented the protocol, you build your application targetting WebAssembly, with WASI support. You can then run your application in the Jumpjet CLI. When you're ready to publish your game, Jumpjet CLI can bundle your application into various platform outputs such as `.app` for Mac, `.msi` for Windows, etc.
 
 ## What platforms are supported?
-Rune is built on Wasmtime with Rust, and will be able to theoretically support any platform and any language in the future. For now we're limiting the scope of our support to Windows, Mac, and Linux, with support for iOS and Android coming later.
+Jumpjet is built on Wasmtime with Rust, and will be able to theoretically support any platform and any language in the future. For now we're limiting the scope of our support to Windows, Mac, and Linux, with support for iOS and Android coming later.
 
 ## Example Guest Application (Javascript)
 
 ```js
-import { log } from 'rune:runtime/debug'
+import { log } from 'jumpjet:runtime/debug'
 import {
     requestAdapter,
     GpuTextureFormat,
@@ -37,8 +37,8 @@ import {
     GpuCullMode,
     GpuLoadOp,
     GpuStoreOp
-} from 'rune:runtime/gpu'
-import { requestAdapter } from 'rune:runtime/gpu'
+} from 'jumpjet:runtime/gpu'
+import { requestAdapter } from 'jumpjet:runtime/gpu'
 
 export const guest = {
   init() {
@@ -140,10 +140,10 @@ export const guest = {
 ```
 
 ## Future Plans
-Rune is a commercial endeavour, as such commercial features are planned to be integrated into the Runtime API. The core runtime will remain free and will be continually improved. You will always be able to publish games on the Rune runtime without a licensing fee. Some future functionality will be incorporated into the Rune commercial platform. More information will be made available later on the commercial platform and its features, but our intent is to provide fair pricing that scales with your game's success.
+Jumpjet is a commercial endeavour, as such commercial features are planned to be integrated into the Runtime API. The core runtime will remain free and will be continually improved. You will always be able to publish games on the Jumpjet runtime without a licensing fee. Some future functionality will be incorporated into the Jumpjet commercial platform. More information will be made available later on the commercial platform and its features, but our intent is to provide fair pricing that scales with your game's success.
 
 ## Libraries in use
-Rune would not be possible without the dedicated efforts of the people behind these incredible projects. Please consider supporting them if you're enjoying Rune.
+Jumpjet would not be possible without the dedicated efforts of the people behind these incredible projects. Please consider supporting them if you're enjoying Jumpjet.
 
 - [wasmtime](https://github.com/bytecodealliance/wasmtime)
 - [wgpu](https://github.com/gfx-rs/wgpu)

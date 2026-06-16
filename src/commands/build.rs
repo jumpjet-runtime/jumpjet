@@ -28,7 +28,7 @@ struct WebRuntime;
 
 pub async fn build(release: &bool) -> Result<()> {
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string("rune.toml")
+    let config = std::fs::read_to_string("jumpjet.toml")
         .unwrap()
         .parse::<Table>()
         .unwrap();
@@ -70,7 +70,7 @@ pub async fn build(release: &bool) -> Result<()> {
 
     let output_entrypoint_path = current_dir.join(&output_path).join(&entrypoint);
 
-    // TODO: Concatenate rune dependencies read from config to wasm binary
+    // TODO: Concatenate jumpjet dependencies read from config to wasm binary
     
     componentize_wasm(output_entrypoint_path);
 
@@ -84,7 +84,7 @@ pub async fn build_web(release: &bool) -> Result<()> {
     build(release).await?;
 
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string("rune.toml")
+    let config = std::fs::read_to_string("jumpjet.toml")
         .unwrap()
         .parse::<Table>()
         .unwrap();
