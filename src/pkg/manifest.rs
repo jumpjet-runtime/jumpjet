@@ -150,9 +150,6 @@ pub enum Dependency {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct DetailedDependency {
     pub version: Option<VersionReq>,
-    /// Registry override (namespace→registry mappings otherwise come from the
-    /// shared `~/.config/wasm-pkg/config.toml`).
-    pub registry: Option<String>,
     pub path: Option<PathBuf>,
     pub git: Option<String>,
     pub branch: Option<String>,

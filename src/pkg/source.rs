@@ -33,18 +33,51 @@ pub enum DepSource {
     Http(String),
     Registry {
         req: VersionReq,
-        registry: Option<String>,
     },
+}
+
+/// The one registry Jumpjet packages are published to and fetched from. Locked to
+/// this host so a project, a dependency, or a wasm-pkg config can't redirect
+/// resolution elsewhere. Overridable only via the `JUMPJET_REGISTRY` environment
+/// variable, for local development and self-hosting.
+pub const DEFAULT_REGISTRY_HOST: &str = "packages.jumpjet.dev";
+
+pub fn registry_host() -> String {
+    std::env::var("JUMPJET_REGISTRY").unwrap_or_else(|_| DEFAULT_REGISTRY_HOST.to_string())
+}
+
+/// A `wasm-pkg-client` config pinned to [`registry_host`], built from scratch (the
+/// user's `~/.config/wasm-pkg/config.toml` is intentionally not consulted, so its
+/// namespace mappings can't point packages at a different server).
+pub fn registry_config() -> Result<wasm_pkg_client::Config> {
+    use wasm_pkg_client::{Config, Registry};
+
+    let host = registry_host();
+    let registry = Registry::try_from(host.clone())
+        .map_err(|e| eyre!("invalid registry host `{host}`: {e}"))?;
+
+    let mut config = Config::default();
+    config.set_default_registry(Some(registry.clone()));
+
+    // Local development/self-hosting over plain HTTP.
+    if host.starts_with("localhost") || host.starts_with("127.0.0.1") {
+        #[derive(serde::Serialize)]
+        struct OciProtocol {
+            protocol: &'static str,
+        }
+        config
+            .get_or_insert_registry_config_mut(&registry)
+            .set_backend_config("oci", OciProtocol { protocol: "http" })
+            .map_err(|e| eyre!("configuring local registry: {e}"))?;
+    }
+    Ok(config)
 }
 
 /// Picks the source for a `[dependencies]` entry. `base_dir` is the directory of
 /// the manifest the dependency was declared in (so relative paths resolve).
 pub fn resolve_source(dep: &Dependency, base_dir: &Path) -> Result<DepSource> {
     match dep {
-        Dependency::Version(req) => Ok(DepSource::Registry {
-            req: req.clone(),
-            registry: None,
-        }),
+        Dependency::Version(req) => Ok(DepSource::Registry { req: req.clone() }),
         Dependency::Detailed(d) => {
             if let Some(p) = &d.path {
                 return Ok(DepSource::Path(base_dir.join(p)));
@@ -63,10 +96,7 @@ pub fn resolve_source(dep: &Dependency, base_dir: &Path) -> Result<DepSource> {
                 .version
                 .clone()
                 .ok_or_else(|| eyre!("dependency needs one of: version, path, git, or url"))?;
-            Ok(DepSource::Registry {
-                req,
-                registry: d.registry.clone(),
-            })
+            Ok(DepSource::Registry { req })
         }
     }
 }
@@ -81,10 +111,7 @@ impl DepSource {
                 None => format!("git+{url}"),
             },
             DepSource::Http(url) => format!("url+{url}"),
-            DepSource::Registry { registry, .. } => match registry {
-                Some(r) => format!("registry+{r}"),
-                None => "registry".to_string(),
-            },
+            DepSource::Registry { .. } => "registry".to_string(),
         }
     }
 
@@ -93,39 +120,25 @@ impl DepSource {
             DepSource::Path(dir) => fetch_from_project(dir, name),
             DepSource::Git { url, reference } => fetch_from_git(url, reference.as_deref(), name),
             DepSource::Http(url) => fetch_from_http(url, name).await,
-            DepSource::Registry { req, registry } => {
-                fetch_from_registry(name, req, registry.as_deref()).await
-            }
+            DepSource::Registry { req } => fetch_from_registry(name, req).await,
         }
     }
 }
 
-/// Fetches a published package component from a registry using the
-/// `wasm-pkg-client` library, which resolves namespace→registry mappings from the
-/// shared `~/.config/wasm-pkg/config.toml`. The version requirement is resolved
-/// against the registry's published versions (highest non-yanked match wins).
-async fn fetch_from_registry(
-    name: &PackageName,
-    req: &VersionReq,
-    registry: Option<&str>,
-) -> Result<FetchedPackage> {
+/// Fetches a published package component from the Jumpjet registry (see
+/// [`registry_config`]) using the `wasm-pkg-client` library. The version
+/// requirement is resolved against the registry's published versions (highest
+/// non-yanked match wins).
+async fn fetch_from_registry(name: &PackageName, req: &VersionReq) -> Result<FetchedPackage> {
     use futures::TryStreamExt;
-    use wasm_pkg_client::{Client, Config, PackageRef, Registry, RegistryMapping};
+    use wasm_pkg_client::{Client, PackageRef};
 
     let package: PackageRef = name
         .to_string()
         .parse()
         .map_err(|e| eyre!("invalid registry package name `{name}`: {e}"))?;
 
-    let mut config = Config::global_defaults()
-        .await
-        .map_err(|e| eyre!("loading wasm-pkg config (~/.config/wasm-pkg/config.toml): {e}"))?;
-    if let Some(registry) = registry {
-        let registry = Registry::try_from(registry.to_string())
-            .map_err(|e| eyre!("invalid registry `{registry}`: {e}"))?;
-        config.set_package_registry_override(package.clone(), RegistryMapping::Registry(registry));
-    }
-    let client = Client::new(config);
+    let client = Client::new(registry_config()?);
 
     let version = client
         .list_all_versions(&package)

@@ -1,12 +1,12 @@
 use color_eyre::eyre::eyre;
-use wasm_pkg_client::{Client, Config, PackageRef, PublishOpts};
+use wasm_pkg_client::{Client, PackageRef, PublishOpts};
 
 use crate::pkg::manifest::Manifest;
+use crate::pkg::source::registry_config;
 use crate::Result;
 
-/// Builds this package and publishes its component to a registry using the
-/// `wasm-pkg-client` library, which resolves the target registry from the shared
-/// `~/.config/wasm-pkg/config.toml`.
+/// Builds this package and publishes its component to the Jumpjet registry
+/// (`packages.jumpjet.dev`) using the `wasm-pkg-client` library.
 pub async fn publish() -> Result<()> {
     let dir = std::env::current_dir()?;
     let manifest = Manifest::load_from(&dir)?;
@@ -37,10 +37,7 @@ pub async fn publish() -> Result<()> {
         .parse()
         .map_err(|e| eyre!("invalid package name `{name}`: {e}"))?;
 
-    let config = Config::global_defaults()
-        .await
-        .map_err(|e| eyre!("loading wasm-pkg config (~/.config/wasm-pkg/config.toml): {e}"))?;
-    let client = Client::new(config);
+    let client = Client::new(registry_config()?);
 
     let opts = PublishOpts {
         package: Some((package, version.clone())),
