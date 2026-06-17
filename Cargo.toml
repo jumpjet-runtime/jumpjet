@@ -62,8 +62,15 @@ uuid = "1.14.0"
 xz2 = "0.1.7"
 zip = "8"
 sha2 = "0.10.8"
-wac-graph = "0.10.1"
-toml_edit = "0.25.12"
+wac-graph = "0.10.1"           # programmatic component composition (package deps)
+toml_edit = "0.25.12"          # `jumpjet add` edits to jumpjet.toml, preserving comments
+wasm-pkg-client = "0.15.1"     # registry fetch/publish (wasm-pkg-tools)
+# Pin jobserver below 0.1.33: that release added a `getrandom` dep which, together
+# with wasm-pkg-client's tree, forms a cargo resolver cycle
+# (cc -> jobserver -> getrandom -> wasip2 -> wit-bindgen -> wasm-metadata -> flate2
+# -> libz-sys -> cc). 0.1.32 has no getrandom and still satisfies cc's `^0.1.30`.
+# Do not bump without re-checking that cycle.
+jobserver = "=0.1.32"
 
 [build-dependencies]
 vergen = { version = "8.2.6", features = [ "build", "git", "gitoxide", "cargo" ]}

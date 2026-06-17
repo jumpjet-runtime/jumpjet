@@ -1,11 +1,11 @@
 use color_eyre::eyre::eyre;
-use subprocess::{Exec, Redirection};
+use wasm_pkg_client::{Client, Config, PackageRef, PublishOpts};
 
 use crate::pkg::manifest::Manifest;
 use crate::Result;
 
-/// Builds this package and publishes its component to a registry via the `wkg`
-/// CLI (wasm-pkg-tools), which resolves the target registry from the shared
+/// Builds this package and publishes its component to a registry using the
+/// `wasm-pkg-client` library, which resolves the target registry from the shared
 /// `~/.config/wasm-pkg/config.toml`.
 pub async fn publish() -> Result<()> {
     let dir = std::env::current_dir()?;
@@ -32,25 +32,25 @@ pub async fn publish() -> Result<()> {
         .ok_or_else(|| eyre!("[build].entrypoint is required to publish"))?;
     let component = dir.join(&output).join(&entrypoint);
 
-    let cap = Exec::cmd("wkg")
-        .arg("publish")
-        .arg(&component)
-        .args(&["--package", &format!("{name}@{version}")])
-        .stdout(Redirection::Pipe)
-        .stderr(Redirection::Merge)
-        .capture();
-    let cap = match cap {
-        Ok(c) => c,
-        Err(_) => {
-            return Err(eyre!(
-                "`wkg` was not found on your PATH. Install wasm-pkg-tools to publish: https://github.com/bytecodealliance/wasm-pkg-tools"
-            ))
-        }
-    };
-    if !cap.success() {
-        return Err(eyre!("`wkg publish` failed:\n{}", cap.stdout_str()));
-    }
+    let package: PackageRef = name
+        .to_string()
+        .parse()
+        .map_err(|e| eyre!("invalid package name `{name}`: {e}"))?;
 
-    println!("Published {name}@{version}");
+    let config = Config::global_defaults()
+        .await
+        .map_err(|e| eyre!("loading wasm-pkg config (~/.config/wasm-pkg/config.toml): {e}"))?;
+    let client = Client::new(config);
+
+    let opts = PublishOpts {
+        package: Some((package, version.clone())),
+        ..Default::default()
+    };
+    let (published, version) = client
+        .publish_release_file(&component, opts)
+        .await
+        .map_err(|e| eyre!("publishing `{name}@{version}`: {e}"))?;
+
+    println!("Published {published}@{version}");
     Ok(())
 }

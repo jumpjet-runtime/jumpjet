@@ -94,56 +94,67 @@ impl DepSource {
             DepSource::Git { url, reference } => fetch_from_git(url, reference.as_deref(), name),
             DepSource::Http(url) => fetch_from_http(url, name).await,
             DepSource::Registry { req, registry } => {
-                fetch_from_registry(name, req, registry.as_deref())
+                fetch_from_registry(name, req, registry.as_deref()).await
             }
         }
     }
 }
 
-/// Fetches a published package component from a registry via the `wkg` CLI (the
-/// wasm-pkg-tools tool), which resolves namespace→registry mappings from the
-/// shared `~/.config/wasm-pkg/config.toml`.
-fn fetch_from_registry(
+/// Fetches a published package component from a registry using the
+/// `wasm-pkg-client` library, which resolves namespace→registry mappings from the
+/// shared `~/.config/wasm-pkg/config.toml`. The version requirement is resolved
+/// against the registry's published versions (highest non-yanked match wins).
+async fn fetch_from_registry(
     name: &PackageName,
     req: &VersionReq,
     registry: Option<&str>,
 ) -> Result<FetchedPackage> {
-    let version = exact_version(req).ok_or_else(|| {
-        eyre!(
-            "registry dependency `{name}` needs an exact version (e.g. `0.2.0`), found `{req}`"
-        )
-    })?;
+    use futures::TryStreamExt;
+    use wasm_pkg_client::{Client, Config, PackageRef, Registry, RegistryMapping};
 
-    let tmp = tempfile::tempdir()?;
-    let out = tmp.path().join("component.wasm");
+    let package: PackageRef = name
+        .to_string()
+        .parse()
+        .map_err(|e| eyre!("invalid registry package name `{name}`: {e}"))?;
 
-    let mut cmd = Exec::cmd("wkg")
-        .arg("get")
-        .arg(format!("{name}@{version}"))
-        .arg("--output")
-        .arg(&out);
+    let mut config = Config::global_defaults()
+        .await
+        .map_err(|e| eyre!("loading wasm-pkg config (~/.config/wasm-pkg/config.toml): {e}"))?;
     if let Some(registry) = registry {
-        cmd = cmd.args(&["--registry", registry]);
+        let registry = Registry::try_from(registry.to_string())
+            .map_err(|e| eyre!("invalid registry `{registry}`: {e}"))?;
+        config.set_package_registry_override(package.clone(), RegistryMapping::Registry(registry));
+    }
+    let client = Client::new(config);
+
+    let version = client
+        .list_all_versions(&package)
+        .await
+        .map_err(|e| eyre!("listing versions of `{name}`: {e}"))?
+        .into_iter()
+        .filter(|v| !v.yanked && req.matches(&v.version))
+        .map(|v| v.version)
+        .max()
+        .ok_or_else(|| eyre!("no published version of `{name}` matches `{req}`"))?;
+
+    let release = client
+        .get_release(&package, &version)
+        .await
+        .map_err(|e| eyre!("resolving `{name}@{version}`: {e}"))?;
+    let mut stream = client
+        .stream_content(&package, &release)
+        .await
+        .map_err(|e| eyre!("downloading `{name}@{version}`: {e}"))?;
+
+    let mut component = Vec::new();
+    while let Some(chunk) = stream
+        .try_next()
+        .await
+        .map_err(|e| eyre!("downloading `{name}@{version}`: {e}"))?
+    {
+        component.extend_from_slice(&chunk);
     }
 
-    let cap = cmd
-        .stdout(Redirection::Pipe)
-        .stderr(Redirection::Merge)
-        .capture();
-    let cap = match cap {
-        Ok(c) => c,
-        Err(_) => {
-            return Err(eyre!(
-                "`wkg` was not found on your PATH. Install wasm-pkg-tools to use registry dependencies: https://github.com/bytecodealliance/wasm-pkg-tools"
-            ))
-        }
-    };
-    if !cap.success() {
-        return Err(eyre!("`wkg get {name}@{version}` failed:\n{}", cap.stdout_str()));
-    }
-
-    let component = std::fs::read(&out)
-        .map_err(|_| eyre!("`wkg get {name}@{version}` produced no component"))?;
     let resolved = component_export_version(&component, name)?;
     let wit_text = interface_wit(&component, name)?;
     let wit = vec![(PathBuf::from(format!("{}.wit", name.name)), wit_text.into_bytes())];
@@ -153,16 +164,6 @@ fn fetch_from_registry(
         component,
         wit,
     })
-}
-
-/// Extracts a single concrete version from a requirement like `0.2.0`/`=0.2.0`.
-/// Returns `None` for open ranges, which need registry version listing we don't do.
-fn exact_version(req: &VersionReq) -> Option<Version> {
-    if req.comparators.len() != 1 {
-        return None;
-    }
-    let c = &req.comparators[0];
-    Some(Version::new(c.major, c.minor?, c.patch?))
 }
 
 /// Prints the public WIT for `name`'s package as encoded in `component` — a
