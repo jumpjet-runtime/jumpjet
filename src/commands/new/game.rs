@@ -106,7 +106,7 @@ pub fn copy_wits(
     Ok(())
 }
 
-fn to_snake_case(input: &str) -> String {
+pub fn to_snake_case(input: &str) -> String {
     let mut snake_case = String::new();
     
     for (i, c) in input.chars().enumerate() {

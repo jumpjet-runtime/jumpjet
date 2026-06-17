@@ -1,7 +1,10 @@
+pub mod add;
 pub mod build;
 pub mod bundle;
 pub mod docs;
 pub mod new;
+pub mod publish;
 pub mod run;
 pub mod serve;
+pub mod update;
 pub mod upgrade;

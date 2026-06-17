@@ -1,0 +1,15 @@
+[package]
+name = "{{ name }}"
+version = "0.1.0"
+type = "lib"
+author = ""
+
+[runtime]
+version = "{{ runtime_version }}"
+
+[build]
+pre = "cargo build --target wasm32-wasip2"
+input = "./target/wasm32-wasip2/debug" # Your guest code build output
+entrypoint = "{{ package_snake }}.wasm" # The wasm binary, relative to "input"
+wit = "wit" # The package's exported WIT (its public API), relative to the project root
+output = "./bin" # Jumpjet's build output

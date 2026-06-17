@@ -11,6 +11,7 @@ pub mod components;
 pub mod config;
 pub mod fs;
 pub mod mode;
+pub mod pkg;
 pub mod settings;
 pub mod tui;
 pub mod utils;

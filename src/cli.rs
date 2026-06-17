@@ -22,6 +22,33 @@ pub enum CliCommand {
     // Push,
     /// Just for testin'
     Test,
+    /// Re-resolve dependencies and refresh jumpjet.lock
+    Update,
+    /// Add a package dependency to jumpjet.toml and resolve it
+    Add {
+        /// Package spec: `namespace:name[@version]`
+        spec: String,
+        /// Use a local path dependency
+        #[clap(long, value_name = "DIR")]
+        path: Option<String>,
+        /// Use a git dependency
+        #[clap(long, value_name = "URL")]
+        git: Option<String>,
+        /// Use an http(s) bundle dependency
+        #[clap(long, value_name = "URL")]
+        url: Option<String>,
+        /// Git tag (with --git)
+        #[clap(long)]
+        tag: Option<String>,
+        /// Git branch (with --git)
+        #[clap(long)]
+        branch: Option<String>,
+        /// Git revision (with --git)
+        #[clap(long)]
+        rev: Option<String>,
+    },
+    /// Publish this package (type = "lib") to a registry via `wkg`
+    Publish,
     /// Build and run the project
     Run {
         #[clap(long, default_value_t = false)]
@@ -73,6 +100,15 @@ pub enum NewSubcommand {
         #[clap(long, short = 'n', value_name = "NAME")]
         name: Option<String>,
         /// One of: hello-js, hello-rust, cube-rust
+        #[clap(long, short = 't', value_name = "TEMPLATE")]
+        template: String,
+    },
+    /// New package (library) that other games or packages can depend on
+    Package {
+        /// Package name in `namespace:name` form (e.g. `acme:physics`)
+        #[clap(long, short = 'n', value_name = "NAME")]
+        name: String,
+        /// One of: lib-rust
         #[clap(long, short = 't', value_name = "TEMPLATE")]
         template: String,
     },

@@ -61,6 +61,9 @@ cab = "0.4"
 uuid = "1.14.0"
 xz2 = "0.1.7"
 zip = "8"
+sha2 = "0.10.8"
+wac-graph = "0.10.1"
+toml_edit = "0.25.12"
 
 [build-dependencies]
 vergen = { version = "8.2.6", features = [ "build", "git", "gitoxide", "cargo" ]}

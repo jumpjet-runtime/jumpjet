@@ -1,0 +1,15 @@
+package {{ namespace }}:{{ package }}@0.1.0;
+
+/// The public interface games and other packages import from this package.
+interface api {
+  /// Returns a friendly greeting.
+  greet: func(name: string) -> string;
+}
+
+/// Build world: what this package imports from Jumpjet and exports to consumers.
+/// You can `import` any `jumpjet:runtime/*` interface you need here.
+world lib {
+  import jumpjet:runtime/debug;
+
+  export api;
+}

@@ -9,6 +9,9 @@ use toml::Table;
 
 use wit_component::ComponentEncoder;
 
+use crate::pkg::compose::ComposeDep;
+use crate::pkg::manifest::Manifest;
+use crate::pkg::resolve::Resolution;
 use crate::Result;
 
 #[derive(Embed)]
@@ -62,7 +65,7 @@ fn componentize_input(config: &Table) -> Result<PathBuf> {
 
     crate::fs::copy_dir_all(input_path, output_path)?;
 
-    // TODO: Concatenate jumpjet dependencies read from config to wasm binary
+    // Package dependencies are composed in afterwards by `compose_into`.
     let output_entrypoint_path = current_dir.join(output_path).join(entrypoint);
     componentize_wasm(output_entrypoint_path.clone());
 
@@ -89,10 +92,122 @@ pub fn input_entrypoint(config: &Table) -> Result<PathBuf> {
 }
 
 /// The native build: run the `pre` command, then componentize the guest into `bin/`.
+/// For `type = "lib"` packages, also emit the package's WIT alongside the component
+/// and validate that it only imports Jumpjet/WASI host APIs.
 pub async fn build(_release: &bool) -> Result<()> {
     let config = read_config()?;
+    // Resolve + stage dependency WIT *before* `pre`, so guest bindgen can see it.
+    let resolution = prepare_deps().await?;
     run_pre(&config)?;
-    componentize_input(&config)?;
+    let component_path = componentize_input(&config)?;
+    // Compose dependency components into the freshly built guest component.
+    compose_into(&component_path, &resolution)?;
+
+    if let Ok(manifest) = Manifest::load() {
+        if manifest.is_lib() {
+            finalize_lib(&manifest, &component_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Resolves the project's `[dependencies]` and stages their WIT into the source
+/// tree. Returns the resolution so the caller can compose the components in after
+/// the guest is componentized. A no-op for projects without dependencies.
+async fn prepare_deps() -> Result<Resolution> {
+    let dir = env::current_dir()?;
+    let manifest = Manifest::load_from(&dir)?;
+    let resolution = crate::pkg::resolve::resolve(&dir, false).await?;
+    crate::pkg::stage::stage_wit(&dir, &manifest, &resolution)?;
+    Ok(resolution)
+}
+
+/// Composes the resolved dependency components into the guest component at
+/// `component_path`, writing the result back in place. A no-op without deps.
+fn compose_into(component_path: &Path, resolution: &Resolution) -> Result<()> {
+    if resolution.packages.is_empty() {
+        return Ok(());
+    }
+    let consumer = std::fs::read(component_path)?;
+    let deps = resolution
+        .packages
+        .iter()
+        .map(|p| {
+            Ok(ComposeDep {
+                id: p.id.clone(),
+                component: p.stored.read_component()?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let composed = crate::pkg::compose::compose(consumer, &deps)?;
+    std::fs::write(component_path, composed)?;
+    Ok(())
+}
+
+/// Lib post-build: copy the package's exported WIT into `<output>/wit` so the
+/// component + WIT form a self-contained, consumable artifact, then validate the
+/// component's imports.
+fn finalize_lib(manifest: &Manifest, component_path: &Path) -> Result<()> {
+    let output = manifest.build.output.as_deref().unwrap_or("bin");
+    let wit_src = manifest.build.wit.as_deref().ok_or_else(|| {
+        eyre::eyre!("[build].wit is required for `type = \"lib\"` (path to the package's WIT)")
+    })?;
+
+    let wit_dest = Path::new(output).join("wit");
+    if wit_dest.exists() {
+        std::fs::remove_dir_all(&wit_dest)?;
+    }
+    crate::fs::copy_dir_all(Path::new(wit_src), &wit_dest)?;
+
+    validate_lib_component(component_path)?;
+
+    println!("Package component: {}", component_path.display());
+    println!("Package WIT:       {}", wit_dest.display());
+    Ok(())
+}
+
+/// Ensures a `lib` component only imports `jumpjet:`/`wasi:` interfaces (any other
+/// import would be unsatisfiable once composed into a game) and exports at least
+/// one interface for consumers to use.
+fn validate_lib_component(component_path: &Path) -> Result<()> {
+    let bytes = std::fs::read(component_path)?;
+    let decoded =
+        wit_component::decode(&bytes).map_err(|e| eyre::eyre!("decoding component: {e}"))?;
+    let (resolve, world_id) = match decoded {
+        wit_component::DecodedWasm::Component(resolve, world) => (resolve, world),
+        wit_component::DecodedWasm::WitPackage(..) => {
+            return Err(eyre::eyre!("expected a component, found a WIT package"))
+        }
+    };
+    let world = &resolve.worlds[world_id];
+
+    let mut foreign = Vec::new();
+    for key in world.imports.keys() {
+        if let wit_parser::WorldKey::Interface(id) = key {
+            if let Some(pkg_id) = resolve.interfaces[*id].package {
+                let ns = &resolve.packages[pkg_id].name.namespace;
+                if ns != "jumpjet" && ns != "wasi" {
+                    foreign.push(resolve.id_of(*id).unwrap_or_else(|| ns.clone()));
+                }
+            }
+        }
+    }
+    if !foreign.is_empty() {
+        return Err(eyre::eyre!(
+            "package imports interfaces outside `jumpjet:` and `wasi:` that cannot be satisfied: {}",
+            foreign.join(", ")
+        ));
+    }
+
+    let exports_iface = world
+        .exports
+        .keys()
+        .any(|k| matches!(k, wit_parser::WorldKey::Interface(_)));
+    if !exports_iface {
+        return Err(eyre::eyre!(
+            "package exports no interface; add `export <interface>` to its world"
+        ));
+    }
     Ok(())
 }
 
@@ -102,8 +217,9 @@ pub async fn build(_release: &bool) -> Result<()> {
 /// (see [`assemble_web_site`]).
 pub async fn build_web(release: &bool) -> Result<()> {
     let config = read_config()?;
+    let resolution = prepare_deps().await?;
     run_pre(&config)?;
-    build_web_compile(&config)?;
+    build_web_compile(&config, &resolution)?;
     println!("Web guest compiled to {}", web_guest_dir(&config)?.display());
     let _ = release;
     Ok(())
@@ -114,13 +230,16 @@ pub async fn build_web(release: &bool) -> Result<()> {
 /// invoking the guest compiler itself.
 pub async fn build_web_incremental(_release: &bool) -> Result<()> {
     let config = read_config()?;
-    build_web_compile(&config)?;
+    let resolution = prepare_deps().await?;
+    build_web_compile(&config, &resolution)?;
     Ok(())
 }
 
-/// Shared compile step: componentize the input + transpile the guest to JS.
-fn build_web_compile(config: &Table) -> Result<()> {
+/// Shared compile step: componentize the input, compose dependencies in, then
+/// transpile the guest to JS.
+fn build_web_compile(config: &Table, resolution: &Resolution) -> Result<()> {
     let component_path = componentize_input(config)?;
+    compose_into(&component_path, resolution)?;
     let guest_dir = web_guest_dir(config)?;
     transpile_guest(&component_path, &guest_dir)
 }
