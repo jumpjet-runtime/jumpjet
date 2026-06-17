@@ -322,6 +322,46 @@ pub struct AudioBuffer {
 }
 #[wasm_bindgen]
 impl AudioBuffer {
+    /// WIT `constructor(samples: list<list<f32>>, sample-rate: f32)`. jco passes
+    /// `samples` as a JS array of `Float32Array` (one per channel). Built via the
+    /// global `AudioBuffer` constructor (context-free), then filled per channel.
+    #[wasm_bindgen(constructor)]
+    pub fn new(samples: JsValue, sample_rate: f32) -> AudioBuffer {
+        let channels = Array::from(&samples);
+        let number_of_channels = channels.length().max(1);
+        let length = channels
+            .get(0)
+            .dyn_into::<Float32Array>()
+            .map(|a| a.length())
+            .unwrap_or(1)
+            .max(1);
+
+        let options = Object::new();
+        obj_set(&options, "numberOfChannels", JsValue::from_f64(number_of_channels as f64));
+        obj_set(&options, "length", JsValue::from_f64(length as f64));
+        obj_set(&options, "sampleRate", f32v(sample_rate));
+
+        let ctor = Reflect::get(&js_sys::global(), &JsValue::from_str("AudioBuffer"))
+            .ok()
+            .and_then(|c| c.dyn_into::<Function>().ok());
+        let inner = match ctor {
+            Some(ctor) => {
+                let args = Array::new();
+                args.push(&options.into());
+                Reflect::construct(&ctor, &args).unwrap_or(JsValue::UNDEFINED)
+            }
+            None => JsValue::UNDEFINED,
+        };
+
+        for ch in 0..number_of_channels {
+            if let Ok(arr) = channels.get(ch).dyn_into::<Float32Array>() {
+                call(&inner, "copyToChannel", &[arr.into(), JsValue::from_f64(ch as f64)]);
+            }
+        }
+
+        AudioBuffer { inner }
+    }
+
     #[wasm_bindgen(js_name = __h)]
     pub fn h(&self) -> JsValue { self.inner.clone() }
     #[wasm_bindgen(js_name = numberOfChannels)] pub fn number_of_channels(&self) -> u32 { get(&self.inner, "numberOfChannels").as_f64().unwrap_or(0.0) as u32 }
@@ -331,6 +371,80 @@ impl AudioBuffer {
     #[wasm_bindgen(js_name = getChannelData)] pub fn get_channel_data(&self, channel_number: u32) -> Vec<f32> {
         Float32Array::new(&call(&self.inner, "getChannelData", &[JsValue::from_f64(channel_number as f64)])).to_vec()
     }
+}
+
+// ---- WIT resource constructors ----
+//
+// Each audio node resource declares `constructor(context: borrow<audio-context>, ...)`
+// in the WIT. wasm-bindgen classes have no constructor unless one is declared, so
+// without these jco's `new XNode(context, ...)` would yield a pointer-less object
+// that traps ("index out of bounds") on first use. Each delegates to the matching
+// `AudioContext::create*` factory.
+
+#[wasm_bindgen]
+impl AudioBufferSourceNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> AudioBufferSourceNode { context.create_buffer_source() }
+}
+#[wasm_bindgen]
+impl AnalyzerNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> AnalyzerNode { context.create_analyzer() }
+}
+#[wasm_bindgen]
+impl BiquadFilterNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> BiquadFilterNode { context.create_biquad_filter() }
+}
+#[wasm_bindgen]
+impl ConstantSourceNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> ConstantSourceNode { context.create_constant_source() }
+}
+#[wasm_bindgen]
+impl ConvolverNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> ConvolverNode { context.create_convolver() }
+}
+#[wasm_bindgen]
+impl ChannelMergerNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext, number_of_inputs: u32) -> ChannelMergerNode { context.create_channel_merger(number_of_inputs) }
+}
+#[wasm_bindgen]
+impl ChannelSplitterNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext, number_of_outputs: u32) -> ChannelSplitterNode { context.create_channel_splitter(number_of_outputs) }
+}
+#[wasm_bindgen]
+impl DelayNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext, max_delay_time: f32) -> DelayNode { context.create_delay(max_delay_time) }
+}
+#[wasm_bindgen]
+impl DynamicsCompressorNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> DynamicsCompressorNode { context.create_dynamics_compressor() }
+}
+#[wasm_bindgen]
+impl GainNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> GainNode { context.create_gain() }
+}
+#[wasm_bindgen]
+impl IirFilterNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext, feedforward: JsValue, feedback: JsValue) -> IirFilterNode { context.create_iir_filter(feedforward, feedback) }
+}
+#[wasm_bindgen]
+impl OscillatorNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> OscillatorNode { context.create_oscillator() }
+}
+#[wasm_bindgen]
+impl PannerNode {
+    #[wasm_bindgen(constructor)]
+    pub fn new(context: &AudioContext) -> PannerNode { context.create_panner() }
 }
 
 // ---- audio-destination-node / audio-listener ----
