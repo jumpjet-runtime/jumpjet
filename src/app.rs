@@ -62,20 +62,32 @@ impl App {
                 let binary = std::fs::read(input_path.join("test-game.wasm")).unwrap();
                 jumpjet::runtime::test(input_path.to_path_buf(), binary).await;
             }
-            Some(CliCommand::Run { release }) => {
-                crate::commands::run::run(release).await?;
-            }
+            Some(CliCommand::Run { release, target, port }) => match target.as_deref() {
+                Some("web") => {
+                    crate::commands::run::run_web(release, port.unwrap_or(8731)).await?
+                }
+                Some(other) if other != "native" => {
+                    return Err(color_eyre::eyre::eyre!("unknown run target: {other}"))
+                }
+                None | Some(_) => crate::commands::run::run(release).await?,
+            },
             Some(CliCommand::Build { release, target }) => match target.as_deref() {
                 Some("web") => crate::commands::build::build_web(release).await?,
-                Some(other) => {
+                Some(other) if other != "native" => {
                     return Err(color_eyre::eyre::eyre!("unknown build target: {other}"))
                 }
-                None | Some("native") => crate::commands::build::build(release).await?,
+                None | Some(_) => crate::commands::build::build(release).await?,
             },
-            Some(CliCommand::Bundle { target, release }) => {
-                crate::commands::build::build(release).await?;
-                crate::commands::bundle::bundle(target, release).await?;
-            }
+            Some(CliCommand::Bundle { target, release }) => match target.as_str() {
+                "web" => {
+                    crate::commands::build::build_web(release).await?;
+                    crate::commands::bundle::web::bundle_project(release).await?;
+                }
+                _ => {
+                    crate::commands::build::build(release).await?;
+                    crate::commands::bundle::bundle(target, release).await?;
+                }
+            },
             Some(CliCommand::Upgrade) => crate::commands::upgrade::upgrade().await?,
             Some(CliCommand::Docs) => crate::commands::docs::docs(&self.config, &self.mode).await?,
             None => {}

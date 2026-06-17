@@ -1,17 +1,13 @@
 use color_eyre::eyre;
 use rust_embed::Embed;
-use subprocess::{Exec, ExitStatus, Redirection};
-use wasmparser::{Encoding, Payload};
+use subprocess::{Exec, Redirection};
+use wasmparser::Encoding;
 use std::env;
 use std::path::{Path, PathBuf};
 
 use toml::Table;
 
-use wit_component::{
-    ComponentEncoder, DecodedWasm, Linker, StringEncoding, WitPrinter,
-};
-
-use crate::cli::NewSubcommand;
+use wit_component::ComponentEncoder;
 
 use crate::Result;
 
@@ -19,102 +15,126 @@ use crate::Result;
 #[folder = "wasi"]
 struct WasiWasm;
 
-/// Prebuilt web runtime artifacts emitted alongside a `--target web` build:
+/// Prebuilt web runtime artifacts assembled into a `--target web` site:
 /// the wasm-bindgen host (`web.js` + `web_bg.wasm`), the HTML/JS harness, and the
 /// preview2 WASI browser shim. Regenerate with `scripts/build-web-runtime.sh`.
 #[derive(Embed)]
 #[folder = "web-runtime"]
 struct WebRuntime;
 
-pub async fn build(release: &bool) -> Result<()> {
-    let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string("jumpjet.toml")
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
+fn read_config() -> Result<Table> {
+    Ok(std::fs::read_to_string("jumpjet.toml")?.parse::<Table>()?)
+}
 
+/// Runs the `[build].pre` command from `jumpjet.toml` (e.g. `cargo build --target
+/// wasm32-wasip2`), if present.
+fn run_pre(config: &Table) -> Result<()> {
     let build = config.get("build").unwrap();
-
-    let pre_command = build.get("pre");
-    if let Some(command) = pre_command {
+    if let Some(command) = build.get("pre") {
         let result = Exec::shell(command.as_str().unwrap())
-            .stdout(Redirection::Pipe) 
+            .stdout(Redirection::Pipe)
             .stderr(Redirection::Merge)
             .capture()
             .expect("pre command execution failed");
 
-        let stdout = result.stdout_str();
-        println!("{}", stdout);
+        println!("{}", result.stdout_str());
 
         if !result.success() {
             return Err(eyre::eyre!("pre command execution failed"));
         }
     }
-
-    let entrypoint = match config["build"]["entrypoint"].as_str() {
-        Some(entrypoint) => entrypoint,
-        None => panic!("No build input provided in config!"),
-    };
-
-    let input_path = config["build"]["input"].as_str();
-    if input_path.is_none() {
-        panic!("No build input provided in config!")
-    }
-    let input_path = Path::new(input_path.unwrap());
-    let entrypoint_path = input_path.join(entrypoint);
-    let binary = std::fs::read(&entrypoint_path).unwrap();
-
-    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
-
-    crate::fs::copy_dir_all(input_path, output_path)?;
-
-    let output_entrypoint_path = current_dir.join(&output_path).join(&entrypoint);
-
-    // TODO: Concatenate jumpjet dependencies read from config to wasm binary
-    
-    componentize_wasm(output_entrypoint_path);
-
     Ok(())
 }
 
-/// Builds the project, then emits a runnable web bundle next to the native
-/// output (`<output>/web`). The guest component is transpiled to JS via jco and
-/// combined with the embedded host runtime + harness + WASI shim.
-pub async fn build_web(release: &bool) -> Result<()> {
-    build(release).await?;
-
+/// Copies the build `input` dir into the `output` dir (`bin/`) and componentizes the
+/// entrypoint in place, returning the path to the componentized wasm.
+fn componentize_input(config: &Table) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string("jumpjet.toml")
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
 
     let entrypoint = config["build"]["entrypoint"]
         .as_str()
         .expect("No build entrypoint provided in config!");
+    let input_path = config["build"]["input"]
+        .as_str()
+        .expect("No build input provided in config!");
+    let input_path = Path::new(input_path);
     let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
-    let component_path = current_dir.join(output_path).join(entrypoint);
-    let web_out = current_dir.join(output_path).join("web");
 
-    emit_web_bundle(&component_path, &web_out)?;
+    crate::fs::copy_dir_all(input_path, output_path)?;
 
-    println!("Web build emitted to {}", web_out.display());
-    println!("Serve it over HTTP (e.g. `python3 -m http.server` from that dir) and open in a WebGPU-capable browser.");
+    // TODO: Concatenate jumpjet dependencies read from config to wasm binary
+    let output_entrypoint_path = current_dir.join(output_path).join(entrypoint);
+    componentize_wasm(output_entrypoint_path.clone());
+
+    Ok(output_entrypoint_path)
+}
+
+/// The directory `build --target web` transpiles the guest into (`<output>/web/guest`).
+fn web_guest_dir(config: &Table) -> Result<PathBuf> {
+    let current_dir = env::current_dir()?;
+    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
+    Ok(current_dir.join(output_path).join("web").join("guest"))
+}
+
+/// The build input artifact `run --target web` watches: `<input>/<entrypoint>`.
+pub fn input_entrypoint(config: &Table) -> Result<PathBuf> {
+    let current_dir = env::current_dir()?;
+    let entrypoint = config["build"]["entrypoint"]
+        .as_str()
+        .expect("No build entrypoint provided in config!");
+    let input_path = config["build"]["input"]
+        .as_str()
+        .expect("No build input provided in config!");
+    Ok(current_dir.join(input_path).join(entrypoint))
+}
+
+/// The native build: run the `pre` command, then componentize the guest into `bin/`.
+pub async fn build(_release: &bool) -> Result<()> {
+    let config = read_config()?;
+    run_pre(&config)?;
+    componentize_input(&config)?;
     Ok(())
 }
 
-/// Transpiles the guest component with jco and writes the embedded web runtime
-/// artifacts into `web_out`.
-fn emit_web_bundle(component_path: &Path, web_out: &Path) -> Result<()> {
-    let guest_dir = web_out.join("guest");
-    std::fs::create_dir_all(&guest_dir)?;
+/// Compiles the guest for the web: `pre` + componentize + `jco transpile` into
+/// `<output>/web/guest`. Does NOT emit the host runtime / harness / page — that is
+/// the assembly step shared by `bundle --target web` and `run --target web`
+/// (see [`assemble_web_site`]).
+pub async fn build_web(release: &bool) -> Result<()> {
+    let config = read_config()?;
+    run_pre(&config)?;
+    build_web_compile(&config)?;
+    println!("Web guest compiled to {}", web_guest_dir(&config)?.display());
+    let _ = release;
+    Ok(())
+}
+
+/// Like [`build_web`] but skips the `pre` command. Used by the `run --target web`
+/// watch loop, which reacts to the developer's own compiler output rather than
+/// invoking the guest compiler itself.
+pub async fn build_web_incremental(_release: &bool) -> Result<()> {
+    let config = read_config()?;
+    build_web_compile(&config)?;
+    Ok(())
+}
+
+/// Shared compile step: componentize the input + transpile the guest to JS.
+fn build_web_compile(config: &Table) -> Result<()> {
+    let component_path = componentize_input(config)?;
+    let guest_dir = web_guest_dir(config)?;
+    transpile_guest(&component_path, &guest_dir)
+}
+
+/// Transpiles the componentized guest to JS via `jco` into `guest_dir`.
+fn transpile_guest(component_path: &Path, guest_dir: &Path) -> Result<()> {
+    std::fs::create_dir_all(guest_dir)?;
 
     // jco transpile (instantiation mode) -> guest/guest.js + core wasm.
     let capture = Exec::cmd("jco")
         .arg("transpile")
         .arg(component_path)
         .args(&["--instantiation", "async", "--name", "guest", "-o"])
-        .arg(&guest_dir)
+        .arg(guest_dir)
         .stdout(Redirection::Pipe)
         .stderr(Redirection::Merge)
         .capture();
@@ -128,10 +148,7 @@ fn emit_web_bundle(component_path: &Path, web_out: &Path) -> Result<()> {
         }
     };
     if !capture.success() {
-        return Err(eyre::eyre!(
-            "jco transpile failed:\n{}",
-            capture.stdout_str()
-        ));
+        return Err(eyre::eyre!("jco transpile failed:\n{}", capture.stdout_str()));
     }
 
     // Workaround for a jco 1.23 code-gen bug: resource-method trampolines
@@ -145,18 +162,35 @@ fn emit_web_bundle(component_path: &Path, web_out: &Path) -> Result<()> {
         }
     }
 
-    // Emit the embedded host runtime, harness, and WASI shim.
+    Ok(())
+}
+
+/// Writes the embedded host runtime + harness + page + WASI shim into `out_dir`.
+pub fn write_web_runtime(out_dir: &Path) -> Result<()> {
     for file in WebRuntime::iter() {
         let rel = file.as_ref();
         let data = WebRuntime::get(rel)
             .ok_or_else(|| eyre::eyre!("missing embedded web-runtime file: {rel}"))?;
-        let dest = web_out.join(rel);
+        let dest = out_dir.join(rel);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(dest, data.data)?;
     }
+    Ok(())
+}
 
+/// Assembles a complete, servable web site at `out_dir`: the transpiled guest
+/// (`guest_dir`, copied to `out_dir/guest` unless already there) plus the embedded
+/// host runtime / harness / page. Shared by `bundle --target web` and
+/// `run --target web`.
+pub fn assemble_web_site(guest_dir: &Path, out_dir: &Path) -> Result<()> {
+    std::fs::create_dir_all(out_dir)?;
+    let dest_guest = out_dir.join("guest");
+    if guest_dir != dest_guest {
+        crate::fs::copy_dir_all(guest_dir, &dest_guest)?;
+    }
+    write_web_runtime(out_dir)?;
     Ok(())
 }
 

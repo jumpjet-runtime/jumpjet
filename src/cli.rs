@@ -26,6 +26,12 @@ pub enum CliCommand {
     Run {
         #[clap(long, default_value_t = false)]
         release: bool,
+        /// Run target: "native" (default) or "web" (serve + open browser)
+        #[clap(long, value_name = "TARGET")]
+        target: Option<String>,
+        /// Port for the web dev server (only with `--target web`)
+        #[clap(long, value_name = "PORT")]
+        port: Option<u16>,
     },
     /// Build the project
     Build {
