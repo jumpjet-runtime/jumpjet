@@ -6,18 +6,6 @@
 // from web.js; this harness only references those constructors into the jco
 // import object and performs the async GPU pre-resolution the sync WIT can't.
 
-// Mirror console output into the DOM so it is visible (and headless-capturable).
-const logEl = document.getElementById('log');
-function mirror(kind, args) {
-  if (logEl) logEl.textContent += `[${kind}] ${args.join(' ')}\n`;
-}
-for (const kind of ['log', 'warn', 'error', 'info']) {
-  const orig = console[kind].bind(console);
-  console[kind] = (...args) => { orig(...args); mirror(kind, args); };
-}
-window.addEventListener('error', (e) => mirror('error', [e.message]));
-window.addEventListener('unhandledrejection', (e) => mirror('error', [String(e.reason)]));
-
 import initHost, * as host from './web.js';
 import { instantiate } from './guest/guest.js';
 import { cli, clocks, filesystem, io, random } from '@bytecodealliance/preview2-shim';
@@ -29,11 +17,17 @@ const wasi = {
   'wasi:cli/stderr': cli.stderr,
   'wasi:cli/stdin': cli.stdin,
   'wasi:cli/stdout': cli.stdout,
+  'wasi:cli/terminal-input': cli.terminalInput,
+  'wasi:cli/terminal-output': cli.terminalOutput,
+  'wasi:cli/terminal-stderr': cli.terminalStderr,
+  'wasi:cli/terminal-stdin': cli.terminalStdin,
+  'wasi:cli/terminal-stdout': cli.terminalStdout,
   'wasi:clocks/monotonic-clock': clocks.monotonicClock,
   'wasi:clocks/wall-clock': clocks.wallClock,
   'wasi:filesystem/preopens': filesystem.preopens,
   'wasi:filesystem/types': filesystem.types,
   'wasi:io/error': io.error,
+  'wasi:io/poll': io.poll,
   'wasi:io/streams': io.streams,
   'wasi:random/random': random.random,
 };

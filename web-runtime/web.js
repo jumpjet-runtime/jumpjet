@@ -94,6 +94,16 @@ export class AnalyzerNode {
         return ret;
     }
     /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.analyzernode_new(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        AnalyzerNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
      * @param {number} v
      */
     setFftSize(v) {
@@ -177,6 +187,19 @@ export class AudioBuffer {
         return ret >>> 0;
     }
     /**
+     * WIT `constructor(samples: list<list<f32>>, sample-rate: f32)`. jco passes
+     * `samples` as a JS array of `Float32Array` (one per channel). Built via the
+     * global `AudioBuffer` constructor (context-free), then filled per channel.
+     * @param {any} samples
+     * @param {number} sample_rate
+     */
+    constructor(samples, sample_rate) {
+        const ret = wasm.audiobuffer_new(samples, sample_rate);
+        this.__wbg_ptr = ret >>> 0;
+        AudioBufferFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
      * @returns {number}
      */
     numberOfChannels() {
@@ -258,6 +281,16 @@ export class AudioBufferSourceNode {
     loopStart() {
         const ret = wasm.audiobuffersourcenode_loopStart(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiobuffersourcenode_new(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        AudioBufferSourceNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
     /**
      * @returns {AudioParam}
@@ -358,7 +391,7 @@ export class AudioContext {
      * @returns {AnalyzerNode}
      */
     createAnalyzer() {
-        const ret = wasm.audiocontext_createAnalyzer(this.__wbg_ptr);
+        const ret = wasm.analyzernode_new(this.__wbg_ptr);
         return AnalyzerNode.__wrap(ret);
     }
     /**
@@ -382,7 +415,7 @@ export class AudioContext {
      * @returns {AudioBufferSourceNode}
      */
     createBufferSource() {
-        const ret = wasm.audiocontext_createBufferSource(this.__wbg_ptr);
+        const ret = wasm.audiobuffersourcenode_new(this.__wbg_ptr);
         return AudioBufferSourceNode.__wrap(ret);
     }
     /**
@@ -948,6 +981,16 @@ export class BiquadFilterNode {
         return AudioParam.__wrap(ret);
     }
     /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createBiquadFilter(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        BiquadFilterNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
      * @returns {AudioParam}
      */
     q() {
@@ -1001,6 +1044,17 @@ export class ChannelMergerNode {
     connect(destination) {
         wasm.channelmergernode_connect(this.__wbg_ptr, destination);
     }
+    /**
+     * @param {AudioContext} context
+     * @param {number} number_of_inputs
+     */
+    constructor(context, number_of_inputs) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createChannelMerger(context.__wbg_ptr, number_of_inputs);
+        this.__wbg_ptr = ret >>> 0;
+        ChannelMergerNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
 }
 if (Symbol.dispose) ChannelMergerNode.prototype[Symbol.dispose] = ChannelMergerNode.prototype.free;
 
@@ -1035,6 +1089,17 @@ export class ChannelSplitterNode {
     connect(destination) {
         wasm.channelsplitternode_connect(this.__wbg_ptr, destination);
     }
+    /**
+     * @param {AudioContext} context
+     * @param {number} number_of_outputs
+     */
+    constructor(context, number_of_outputs) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createChannelSplitter(context.__wbg_ptr, number_of_outputs);
+        this.__wbg_ptr = ret >>> 0;
+        ChannelSplitterNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
 }
 if (Symbol.dispose) ChannelSplitterNode.prototype[Symbol.dispose] = ChannelSplitterNode.prototype.free;
 
@@ -1068,6 +1133,16 @@ export class ConstantSourceNode {
      */
     connect(destination) {
         wasm.constantsourcenode_connect(this.__wbg_ptr, destination);
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createConstantSource(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        ConstantSourceNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
     /**
      * @returns {AudioParam}
@@ -1116,6 +1191,16 @@ export class ConvolverNode {
      */
     connect(destination) {
         wasm.convolvernode_connect(this.__wbg_ptr, destination);
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createConvolver(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        ConvolverNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
     /**
      * @returns {boolean}
@@ -1178,6 +1263,17 @@ export class DelayNode {
         const ret = wasm.delaynode_delayTime(this.__wbg_ptr);
         return AudioParam.__wrap(ret);
     }
+    /**
+     * @param {AudioContext} context
+     * @param {number} max_delay_time
+     */
+    constructor(context, max_delay_time) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createDelay(context.__wbg_ptr, max_delay_time);
+        this.__wbg_ptr = ret >>> 0;
+        DelayNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
 }
 if (Symbol.dispose) DelayNode.prototype[Symbol.dispose] = DelayNode.prototype.free;
 
@@ -1225,6 +1321,16 @@ export class DynamicsCompressorNode {
     knee() {
         const ret = wasm.dynamicscompressornode_knee(this.__wbg_ptr);
         return AudioParam.__wrap(ret);
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createDynamicsCompressor(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        DynamicsCompressorNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
     /**
      * @returns {AudioParam}
@@ -1294,6 +1400,16 @@ export class GainNode {
     gain() {
         const ret = wasm.gainnode_gain(this.__wbg_ptr);
         return AudioParam.__wrap(ret);
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createGain(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        GainNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
 }
 if (Symbol.dispose) GainNode.prototype[Symbol.dispose] = GainNode.prototype.free;
@@ -2536,6 +2652,18 @@ export class IirFilterNode {
     connect(destination) {
         wasm.iirfilternode_connect(this.__wbg_ptr, destination);
     }
+    /**
+     * @param {AudioContext} context
+     * @param {any} feedforward
+     * @param {any} feedback
+     */
+    constructor(context, feedforward, feedback) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.iirfilternode_new(context.__wbg_ptr, feedforward, feedback);
+        this.__wbg_ptr = ret >>> 0;
+        IirFilterNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
 }
 if (Symbol.dispose) IirFilterNode.prototype[Symbol.dispose] = IirFilterNode.prototype.free;
 
@@ -2658,6 +2786,16 @@ export class OscillatorNode {
         return AudioParam.__wrap(ret);
     }
     /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createOscillator(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        OscillatorNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
      * @param {PeriodicWave} wave
      */
     setPeriodicWave(wave) {
@@ -2753,6 +2891,16 @@ export class PannerNode {
     maxDistance() {
         const ret = wasm.pannernode_maxDistance(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @param {AudioContext} context
+     */
+    constructor(context) {
+        _assertClass(context, AudioContext);
+        const ret = wasm.audiocontext_createPanner(context.__wbg_ptr);
+        this.__wbg_ptr = ret >>> 0;
+        PannerNodeFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
     /**
      * @returns {AudioParam}
@@ -3468,6 +3616,10 @@ function __wbg_get_imports() {
         __wbg_debug_a4099fa12db6cd61: function(arg0) {
             console.debug(arg0);
         },
+        __wbg_devicePixelRatio_5c458affc89fc209: function(arg0) {
+            const ret = arg0.devicePixelRatio;
+            return ret;
+        },
         __wbg_document_ee35a3d3ae34ef6c: function(arg0) {
             const ret = arg0.document;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -3497,7 +3649,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return wasm_bindgen__convert__closures_____invoke__h0290bba2f1b34125(a, state0.b, arg0, arg1, arg2);
+                        return wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue__wasm_bindgen_942aa1b67ce6ba0a___JsValue__js_sys_a05094b4bd4c8726___Set_____(a, state0.b, arg0, arg1, arg2);
                     } finally {
                         state0.a = a;
                     }
@@ -3556,6 +3708,16 @@ function __wbg_get_imports() {
             let result;
             try {
                 result = arg0 instanceof DOMException;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
+        __wbg_instanceof_Float32Array_c882a172bf41d92a: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof Float32Array;
             } catch (_) {
                 result = false;
             }
@@ -3810,22 +3972,22 @@ function __wbg_get_imports() {
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 1, function: Function { arguments: [String], shim_idx: 2, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-            const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h33a5546fc03b2b5d, wasm_bindgen__convert__closures_____invoke__he69e426f0ba9ccc1);
+            const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen_942aa1b67ce6ba0a___closure__destroy___dyn_core_4777b9c83c0d5d57___ops__function__Fn__alloc_ba1363f49e95c7f2___string__String____Output_______, wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___alloc_ba1363f49e95c7f2___string__String_____);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 1, function: Function { arguments: [], shim_idx: 4, ret: NamedExternref("Array<any>"), inner_ret: Some(NamedExternref("Array<any>")) }, mutable: false }) -> Externref`.
-            const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h33a5546fc03b2b5d, wasm_bindgen__convert__closures_____invoke__h8da7a51cc3bd88ed);
+            const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen_942aa1b67ce6ba0a___closure__destroy___dyn_core_4777b9c83c0d5d57___ops__function__Fn__alloc_ba1363f49e95c7f2___string__String____Output_______, wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___js_sys_a05094b4bd4c8726___Array_);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 109, function: Function { arguments: [Externref], shim_idx: 110, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__hcd63e17a90533cb3, wasm_bindgen__convert__closures_____invoke__hbe92ee3833e73935);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 103, function: Function { arguments: [Externref], shim_idx: 104, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_942aa1b67ce6ba0a___closure__destroy___dyn_core_4777b9c83c0d5d57___ops__function__FnMut__wasm_bindgen_942aa1b67ce6ba0a___JsValue____Output_______, wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue_____);
             return ret;
         },
         __wbindgen_cast_0000000000000004: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 70, function: Function { arguments: [], shim_idx: 71, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h30f6cf29577ebb80, wasm_bindgen__convert__closures_____invoke__haae2ef939e6667ec);
+            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_942aa1b67ce6ba0a___closure__destroy___dyn_core_4777b9c83c0d5d57___ops__function__FnMut__core_4777b9c83c0d5d57___option__Option_web_sys_98350932e927b18f___features__gen_Blob__Blob_____Output_______, wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke______);
             return ret;
         },
         __wbindgen_cast_0000000000000005: function(arg0) {
@@ -3854,27 +4016,27 @@ function __wbg_get_imports() {
     };
 }
 
-function wasm_bindgen__convert__closures_____invoke__haae2ef939e6667ec(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__haae2ef939e6667ec(arg0, arg1);
+function wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke______(arg0, arg1) {
+    wasm.wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke______(arg0, arg1);
 }
 
-function wasm_bindgen__convert__closures_____invoke__h8da7a51cc3bd88ed(arg0, arg1) {
-    const ret = wasm.wasm_bindgen__convert__closures_____invoke__h8da7a51cc3bd88ed(arg0, arg1);
+function wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___js_sys_a05094b4bd4c8726___Array_(arg0, arg1) {
+    const ret = wasm.wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___js_sys_a05094b4bd4c8726___Array_(arg0, arg1);
     return ret;
 }
 
-function wasm_bindgen__convert__closures_____invoke__hbe92ee3833e73935(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__hbe92ee3833e73935(arg0, arg1, arg2);
+function wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue_____(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue_____(arg0, arg1, arg2);
 }
 
-function wasm_bindgen__convert__closures_____invoke__h0290bba2f1b34125(arg0, arg1, arg2, arg3, arg4) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h0290bba2f1b34125(arg0, arg1, arg2, arg3, arg4);
+function wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue__wasm_bindgen_942aa1b67ce6ba0a___JsValue__js_sys_a05094b4bd4c8726___Set_____(arg0, arg1, arg2, arg3, arg4) {
+    wasm.wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___wasm_bindgen_942aa1b67ce6ba0a___JsValue__wasm_bindgen_942aa1b67ce6ba0a___JsValue__js_sys_a05094b4bd4c8726___Set_____(arg0, arg1, arg2, arg3, arg4);
 }
 
-function wasm_bindgen__convert__closures_____invoke__he69e426f0ba9ccc1(arg0, arg1, arg2) {
+function wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___alloc_ba1363f49e95c7f2___string__String_____(arg0, arg1, arg2) {
     const ptr0 = passStringToWasm0(arg2, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    wasm.wasm_bindgen__convert__closures_____invoke__he69e426f0ba9ccc1(arg0, arg1, ptr0, len0);
+    wasm.wasm_bindgen_942aa1b67ce6ba0a___convert__closures_____invoke___alloc_ba1363f49e95c7f2___string__String_____(arg0, arg1, ptr0, len0);
 }
 
 

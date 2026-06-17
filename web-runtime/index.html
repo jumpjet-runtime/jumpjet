@@ -11,13 +11,26 @@
       }
     </script>
     <style>
-      body { margin: 0; background: #111; color: #ddd; font: 13px monospace; }
-      #log { padding: 8px; white-space: pre-wrap; }
-      #jumpjet-canvas { display: block; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+        color: #ddd;
+        font: 13px monospace;
+      }
+      /* The host creates this canvas and sizes its drawing buffer to the viewport
+         (in physical pixels); CSS stretches it to fill the viewport. */
+      #jumpjet-canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
     </style>
   </head>
   <body>
-    <pre id="log"></pre>
     <script type="module" src="./run.js"></script>
   </body>
 </html>

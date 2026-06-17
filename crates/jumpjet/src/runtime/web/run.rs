@@ -45,9 +45,16 @@ async fn bootstrap() -> Result<(), JsValue> {
         .create_element("canvas")?
         .dyn_into::<web_sys::HtmlCanvasElement>()?;
     canvas.set_id("jumpjet-canvas");
-    // Size the canvas to the window's drawable area.
-    let width = window.inner_width()?.as_f64().unwrap_or(800.0) as u32;
-    let height = window.inner_height()?.as_f64().unwrap_or(600.0) as u32;
+    // Back the canvas with the full viewport at device resolution: the drawing
+    // buffer is sized in physical pixels (CSS pixels * devicePixelRatio) for crisp
+    // rendering on HiDPI displays, while CSS (see the embedded index.html) stretches
+    // the element across the viewport. The guest sees this physical size via
+    // `window::dimensions()`, so its projection fills the surface exactly.
+    let dpr = window.device_pixel_ratio().max(1.0);
+    let css_width = window.inner_width()?.as_f64().unwrap_or(800.0);
+    let css_height = window.inner_height()?.as_f64().unwrap_or(600.0);
+    let width = (css_width * dpr).max(1.0) as u32;
+    let height = (css_height * dpr).max(1.0) as u32;
     canvas.set_width(width);
     canvas.set_height(height);
     body.append_child(&canvas)?;
