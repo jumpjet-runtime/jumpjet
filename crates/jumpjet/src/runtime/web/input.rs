@@ -20,6 +20,12 @@ struct InputState {
     keys_down: HashSet<String>,
     keys_just: HashSet<String>,
     mouse_buttons: u32,
+    /// Cursor position in physical pixels relative to the canvas, top-left origin.
+    mouse_x: f32,
+    mouse_y: f32,
+    /// Accumulated movement since the last `input_end_frame`.
+    mouse_dx: f32,
+    mouse_dy: f32,
 }
 
 thread_local! {
@@ -84,6 +90,28 @@ fn key_query_matches(key: &JsValue, down: &HashSet<String>) -> bool {
     }
 }
 
+/// The runtime's canvas element, created by the run-loop bootstrap.
+fn canvas() -> Option<web_sys::HtmlCanvasElement> {
+    web_sys::window()?
+        .document()?
+        .get_element_by_id("jumpjet-canvas")?
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .ok()
+}
+
+/// `(device_pixel_ratio, canvas_left, canvas_top)` — the factors that map a
+/// viewport-relative CSS coordinate to a canvas-relative physical pixel.
+fn canvas_frame() -> (f64, f64, f64) {
+    let dpr = web_sys::window().map(|w| w.device_pixel_ratio()).unwrap_or(1.0).max(1.0);
+    let (left, top) = canvas()
+        .map(|c| {
+            let r = c.get_bounding_client_rect();
+            (r.left(), r.top())
+        })
+        .unwrap_or((0.0, 0.0));
+    (dpr, left, top)
+}
+
 fn add_listener(target: &web_sys::EventTarget, event: &str, cb: Closure<dyn FnMut(JsValue)>) {
     let _ = target.add_event_listener_with_callback(event, cb.as_ref().unchecked_ref());
     cb.forget();
@@ -118,6 +146,26 @@ pub fn input_install() {
         }
     }) as Box<dyn FnMut(JsValue)>));
 
+    add_listener(&target, "mousemove", Closure::wrap(Box::new(|e: JsValue| {
+        // `client_x`/`client_y` are CSS pixels relative to the viewport;
+        // `movement_x`/`movement_y` are CSS-pixel deltas (and the only signal
+        // that keeps reporting while the pointer is locked). The canvas drawing
+        // buffer is sized in physical pixels (CSS * dpr), so scale by dpr and
+        // offset by the canvas rect to land in the guest's coordinate space.
+        let (dpr, rect_left, rect_top) = canvas_frame();
+        let px = (get(&e, "clientX").as_f64().unwrap_or(0.0) - rect_left) * dpr;
+        let py = (get(&e, "clientY").as_f64().unwrap_or(0.0) - rect_top) * dpr;
+        let dx = get(&e, "movementX").as_f64().unwrap_or(0.0) * dpr;
+        let dy = get(&e, "movementY").as_f64().unwrap_or(0.0) * dpr;
+        INPUT.with(|s| {
+            let mut s = s.borrow_mut();
+            s.mouse_x = px as f32;
+            s.mouse_y = py as f32;
+            s.mouse_dx += dx as f32;
+            s.mouse_dy += dy as f32;
+        });
+    }) as Box<dyn FnMut(JsValue)>));
+
     add_listener(&target, "mousedown", Closure::wrap(Box::new(|_e: JsValue| {
         INPUT.with(|s| { s.borrow_mut().mouse_buttons += 1; });
     }) as Box<dyn FnMut(JsValue)>));
@@ -145,10 +193,16 @@ pub fn input_poll() {
     });
 }
 
-/// Clears the per-frame "just pressed" set. Called by the run loop each frame.
+/// Clears per-frame input (just-pressed keys, accumulated mouse movement).
+/// Called by the run loop each frame.
 #[wasm_bindgen(js_name = inputEndFrame)]
 pub fn input_end_frame() {
-    INPUT.with(|s| s.borrow_mut().keys_just.clear());
+    INPUT.with(|s| {
+        let mut s = s.borrow_mut();
+        s.keys_just.clear();
+        s.mouse_dx = 0.0;
+        s.mouse_dy = 0.0;
+    });
 }
 
 // ---- devices ----
@@ -188,6 +242,43 @@ impl MouseDevice {
     pub fn is_pressed(&self, _btn: JsValue) -> bool {
         INPUT.with(|s| s.borrow().mouse_buttons > 0)
     }
+    pub fn position(&self) -> JsValue {
+        INPUT.with(|s| {
+            let s = s.borrow();
+            mouse_position(s.mouse_x, s.mouse_y)
+        })
+    }
+    pub fn delta(&self) -> JsValue {
+        INPUT.with(|s| {
+            let s = s.borrow();
+            mouse_position(s.mouse_dx, s.mouse_dy)
+        })
+    }
+    pub fn lock(&self) {
+        if let Some(c) = canvas() {
+            c.request_pointer_lock();
+        }
+    }
+    pub fn unlock(&self) {
+        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+            doc.exit_pointer_lock();
+        }
+    }
+    #[wasm_bindgen(js_name = isLocked)]
+    pub fn is_locked(&self) -> bool {
+        web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.pointer_lock_element())
+            .is_some()
+    }
+}
+
+/// Builds the JS object for a WIT `mouse-position` record.
+fn mouse_position(x: f32, y: f32) -> JsValue {
+    let out = Object::new();
+    set(&out, "x", JsValue::from_f64(x as f64));
+    set(&out, "y", JsValue::from_f64(y as f64));
+    out.into()
 }
 
 #[wasm_bindgen]

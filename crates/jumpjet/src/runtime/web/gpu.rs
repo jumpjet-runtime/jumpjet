@@ -123,6 +123,18 @@ fn rev_enum(s: &str) -> String {
     }
     .to_owned()
 }
+fn format_has_depth(fmt: &str) -> bool {
+    matches!(
+        fmt,
+        "depth16unorm" | "depth24plus" | "depth24plus-stencil8" | "depth32float" | "depth32float-stencil8"
+    )
+}
+fn format_has_stencil(fmt: &str) -> bool {
+    matches!(fmt, "stencil8" | "depth24plus-stencil8" | "depth32float-stencil8")
+}
+fn view_format(v: &JsValue) -> String {
+    call(v, "__fmt", &[]).as_string().unwrap_or_default()
+}
 fn bits(o: &JsValue, fields: &[(&str, u32)]) -> u32 {
     let mut m = 0u32;
     for (k, bit) in fields {
@@ -431,14 +443,16 @@ impl GpuTexture {
     pub fn usage(&self) -> JsValue { unbits(num(&get(&self.inner, "usage")) as u32, TEXTURE_USAGE) }
     #[wasm_bindgen(js_name = createView)]
     pub fn create_view(&self) -> GpuTextureView {
-        let view = if self.is_surface {
+        let (view, format) = if self.is_surface {
+            let format = surface_view_format();
             let opts = Object::new();
-            set(&opts, "format", JsValue::from_str(&surface_view_format()));
-            call(&self.inner, "createView", &[opts.into()])
+            set(&opts, "format", JsValue::from_str(&format));
+            (call(&self.inner, "createView", &[opts.into()]), format)
         } else {
-            call(&self.inner, "createView", &[])
+            let format = get(&self.inner, "format").as_string().unwrap_or_default();
+            (call(&self.inner, "createView", &[]), format)
         };
-        GpuTextureView { inner: view }
+        GpuTextureView { inner: view, format }
     }
     pub fn destroy(&self) { call(&self.inner, "destroy", &[]); }
 }
@@ -459,7 +473,19 @@ macro_rules! handle_class {
     };
 }
 
-handle_class!(GpuTextureView);
+#[wasm_bindgen]
+pub struct GpuTextureView {
+    inner: JsValue,
+    format: String,
+}
+#[wasm_bindgen]
+impl GpuTextureView {
+    #[wasm_bindgen(js_name = __h)]
+    pub fn h(&self) -> JsValue { self.inner.clone() }
+    #[wasm_bindgen(js_name = __fmt)]
+    pub fn fmt(&self) -> String { self.format.clone() }
+}
+
 handle_class!(GpuBindGroupLayout);
 handle_class!(GpuBindGroup);
 handle_class!(GpuPipelineLayout);
@@ -477,8 +503,9 @@ impl GpuShaderModule {
     pub fn h(&self) -> JsValue { self.inner.clone() }
     #[wasm_bindgen(js_name = getCompilationInfo)]
     pub fn get_compilation_info(&self) -> JsValue {
-        // Returns the compilation info object as-is (messages array).
-        call(&self.inner, "getCompilationInfo", &[])
+        let info = Object::new();
+        set(&info, "messages", Array::new().into());
+        info.into()
     }
 }
 
@@ -883,13 +910,27 @@ fn render_pass_desc(d: &JsValue) -> JsValue {
 
     let din = get(d, "depthStencilAttachment");
     if is_some(&din) {
+        let view = get(&din, "view");
+        let format = view_format(&view);
         let ds = Object::new();
-        set(&ds, "view", handle(&get(&din, "view")));
-        set(&ds, "depthClearValue", get(&din, "depthClearValue"));
-        set(&ds, "depthLoadOp", get(&din, "depthLoadOp"));
-        set(&ds, "depthStoreOp", get(&din, "depthStoreOp"));
-        set(&ds, "depthReadOnly", get(&din, "depthReadOnly"));
-        // Stencil aspect omitted (depth-only formats reject it).
+        set(&ds, "view", handle(&view));
+
+        let depth_read_only = get(&din, "depthReadOnly").as_bool().unwrap_or(false);
+        set(&ds, "depthReadOnly", JsValue::from_bool(depth_read_only));
+        if format_has_depth(&format) && !depth_read_only {
+            set(&ds, "depthClearValue", get(&din, "depthClearValue"));
+            set(&ds, "depthLoadOp", get(&din, "depthLoadOp"));
+            set(&ds, "depthStoreOp", get(&din, "depthStoreOp"));
+        }
+
+        let stencil_read_only = get(&din, "stencilReadOnly").as_bool().unwrap_or(false);
+        set(&ds, "stencilReadOnly", JsValue::from_bool(stencil_read_only));
+        if format_has_stencil(&format) && !stencil_read_only {
+            set(&ds, "stencilClearValue", get(&din, "stencilClearValue"));
+            set(&ds, "stencilLoadOp", get(&din, "stencilLoadOp"));
+            set(&ds, "stencilStoreOp", get(&din, "stencilStoreOp"));
+        }
+
         set(&out, "depthStencilAttachment", ds.into());
     }
 

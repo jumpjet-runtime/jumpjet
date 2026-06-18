@@ -11,8 +11,9 @@ use crate::jumpjet::runtime::window;
 use crate::jumpjet::runtime::input::{keyboard, KeyboardKey};
 
 generate!({
-    world: "runtime",
-    path: ".jumpjet/wit/runtime"
+    world: "game",
+    path: ".jumpjet/wit/runtime",
+    generate_all
 });
 export!(Game);
 

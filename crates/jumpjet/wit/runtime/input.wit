@@ -155,6 +155,25 @@ interface input {
   resource mouse-device {
     /// Checks if the specified mouse button is currently pressed.
     is-pressed: func(btn: mouse-button) -> bool;
+    /// The cursor position in physical pixels relative to the window/canvas,
+    /// with the origin at the top-left. Frozen while the pointer is locked.
+    position: func() -> mouse-position;
+    /// The cursor movement since the last frame, in physical pixels. This is
+    /// the signal to use while the pointer is locked (e.g. for camera control).
+    delta: func() -> mouse-position;
+    /// Requests pointer lock, hiding the cursor and reporting relative motion
+    /// via `delta` until the lock is released. May require a user gesture.
+    lock: func();
+    /// Releases the pointer lock.
+    unlock: func();
+    /// Whether the pointer is currently locked.
+    is-locked: func() -> bool;
+  }
+
+  /// A 2D position or movement, in physical pixels.
+  record mouse-position {
+    x: f32,
+    y: f32,
   }
 
   /// A mouse button

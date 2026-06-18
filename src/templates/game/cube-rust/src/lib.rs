@@ -6,8 +6,9 @@ use crate::exports::jumpjet::runtime::guest::Guest;
 use crate::jumpjet::runtime::gpu::*;
 
 generate!({
-    world: "runtime",
-    path: ".jumpjet/wit/runtime"
+    world: "game",
+    path: ".jumpjet/wit/runtime",
+    generate_all
 });
 export!(Game);
 

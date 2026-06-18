@@ -86,6 +86,7 @@ features = [
   'Element',
   'HtmlElement',
   'HtmlCanvasElement',
+  'DomRect',
   'Node',
   'Window',
   'Navigator',

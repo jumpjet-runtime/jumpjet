@@ -8,7 +8,7 @@
 
 import initHost, * as host from './web.js';
 import { instantiate } from './guest/guest.js';
-import { cli, clocks, filesystem, io, random } from '@bytecodealliance/preview2-shim';
+import { cli, clocks, filesystem, http, io, random } from '@bytecodealliance/preview2-shim';
 
 // WASI imports for the guest, satisfied by jco's preview2 browser shim.
 const wasi = {
@@ -26,6 +26,8 @@ const wasi = {
   'wasi:clocks/wall-clock': clocks.wallClock,
   'wasi:filesystem/preopens': filesystem.preopens,
   'wasi:filesystem/types': filesystem.types,
+  'wasi:http/outgoing-handler': http.outgoingHandler,
+  'wasi:http/types': http.types,
   'wasi:io/error': io.error,
   'wasi:io/poll': io.poll,
   'wasi:io/streams': io.streams,

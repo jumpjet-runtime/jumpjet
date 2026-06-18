@@ -139,6 +139,30 @@ impl KeyboardState {
     }
 }
 
+/// Mouse cursor + pointer-lock state, mirrored from winit events by the run loop.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Default)]
+pub struct MouseState {
+    /// Cursor position in physical pixels relative to the window, top-left origin.
+    pub x: f32,
+    pub y: f32,
+    /// Raw movement accumulated since the last logic frame, in physical pixels.
+    pub dx: f32,
+    pub dy: f32,
+    /// Whether the pointer is currently locked (cursor grabbed + hidden).
+    pub locked: bool,
+    /// Pending lock (`Some(true)`) / unlock (`Some(false)`) request from the
+    /// guest, applied to the window by the run loop and then cleared.
+    pub lock_request: Option<bool>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl MouseState {
+    pub fn new() -> MouseState {
+        Self::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub struct GamepadState {
     pub active_buttons: Vec<(u64, gilrs::GamepadId, gilrs::Button, bool)>,

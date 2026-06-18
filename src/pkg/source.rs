@@ -204,6 +204,43 @@ pub fn interface_wit(component: &[u8], name: &PackageName) -> Result<String> {
     Ok(printer.output.to_string())
 }
 
+/// The `import` statements a consumer's world needs in order to bind every
+/// interface the dependency `name`'s component exports — e.g.
+/// `import jumpjet:threejs/three@0.1.0;`. Derived from the component's *exports*
+/// (the interfaces the package provides for consumption); the package's host
+/// imports (`jumpjet:runtime/*`) are deliberately ignored.
+///
+/// Versions are kept on the path: flat `deps/` resolution fails to find a
+/// versioned dependency package when it is imported without its `@version` (see
+/// [`crate::pkg::stage`]).
+pub fn package_world_imports(component: &[u8], name: &PackageName) -> Result<Vec<String>> {
+    let decoded =
+        wit_component::decode(component).map_err(|e| eyre!("decoding component: {e:#}"))?;
+    let (resolve, world_id) = match decoded {
+        wit_component::DecodedWasm::Component(resolve, world) => (resolve, world),
+        wit_component::DecodedWasm::WitPackage(..) => {
+            return Err(eyre!("expected a component, found a WIT package"))
+        }
+    };
+
+    let mut imports = Vec::new();
+    for key in resolve.worlds[world_id].exports.keys() {
+        if let wit_parser::WorldKey::Interface(id) = key {
+            if let Some(pkg) = resolve.interfaces[*id].package {
+                let pn = &resolve.packages[pkg].name;
+                if pn.namespace == name.namespace && pn.name == name.name {
+                    if let Some(path) = resolve.id_of(*id) {
+                        imports.push(format!("import {path};"));
+                    }
+                }
+            }
+        }
+    }
+    imports.sort();
+    imports.dedup();
+    Ok(imports)
+}
+
 /// Reads a built Jumpjet package project (building it first if needed) into a
 /// [`FetchedPackage`].
 fn fetch_from_project(dir: &Path, name: &PackageName) -> Result<FetchedPackage> {

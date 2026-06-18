@@ -140,6 +140,32 @@ impl HostMouseDevice for JumpjetRuntimeState {
         false
     }
 
+    async fn position(&mut self, _device: Resource<MouseDevice>) -> MousePosition {
+        MousePosition {
+            x: self.mouse_state.x,
+            y: self.mouse_state.y,
+        }
+    }
+
+    async fn delta(&mut self, _device: Resource<MouseDevice>) -> MousePosition {
+        MousePosition {
+            x: self.mouse_state.dx,
+            y: self.mouse_state.dy,
+        }
+    }
+
+    async fn lock(&mut self, _device: Resource<MouseDevice>) {
+        self.mouse_state.lock_request = Some(true);
+    }
+
+    async fn unlock(&mut self, _device: Resource<MouseDevice>) {
+        self.mouse_state.lock_request = Some(false);
+    }
+
+    async fn is_locked(&mut self, _device: Resource<MouseDevice>) -> bool {
+        self.mouse_state.locked
+    }
+
     async fn drop(&mut self, _rep: Resource<MouseDevice>) -> Result<()> {
         Ok(())
     }

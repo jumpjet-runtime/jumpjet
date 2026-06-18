@@ -141,6 +141,11 @@ impl ApplicationHandler<GameEvent> for App {
             WindowEvent::Resized(size) => {
                 game.resize(size);
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                let mouse_state = &mut game.store.as_mut().unwrap().data_mut().mouse_state;
+                mouse_state.x = position.x as f32;
+                mouse_state.y = position.y as f32;
+            }
             WindowEvent::KeyboardInput { event: key_event, .. } => {
                 let generation = game.store.as_ref().unwrap().data().generation;
                 let keyboard_state = &mut game.store.as_mut().unwrap().data_mut().keyboard_state;
@@ -184,6 +189,20 @@ impl ApplicationHandler<GameEvent> for App {
         }
     }
 
+    fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: winit::event::DeviceId, event: winit::event::DeviceEvent) {
+        // Raw mouse motion keeps reporting while the cursor is grabbed/locked,
+        // so it (not CursorMoved) is the source for the guest's `delta`.
+        if let winit::event::DeviceEvent::MouseMotion { delta } = event {
+            if let Some(game) = &mut self.game {
+                if let Some(store) = game.store.as_mut() {
+                    let mouse_state = &mut store.data_mut().mouse_state;
+                    mouse_state.dx += delta.0 as f32;
+                    mouse_state.dy += delta.1 as f32;
+                }
+            }
+        }
+    }
+
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() || self.game.is_none() {
             return;
@@ -191,6 +210,30 @@ impl ApplicationHandler<GameEvent> for App {
 
         let window = self.window.as_ref().unwrap();
         let game = self.game.as_mut().unwrap();
+
+        // Apply any pending pointer-lock request from the guest. `Locked` gives
+        // true relative-only motion where supported; fall back to `Confined`
+        // (e.g. on platforms without grab-lock, like X11) so the cursor at least
+        // stays inside the window.
+        {
+            let mouse_state = &mut game.store.as_mut().unwrap().data_mut().mouse_state;
+            if let Some(lock) = mouse_state.lock_request.take() {
+                if lock {
+                    let grabbed = window
+                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+                        .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Confined))
+                        .is_ok();
+                    if grabbed {
+                        window.set_cursor_visible(false);
+                        mouse_state.locked = true;
+                    }
+                } else {
+                    let _ = window.set_cursor_grab(winit::window::CursorGrabMode::None);
+                    window.set_cursor_visible(true);
+                    mouse_state.locked = false;
+                }
+            }
+        }
 
         // Debugger connection polling only matters when debugging; skip the
         // socket accepts and mutex/peek entirely on the hot path otherwise.
@@ -322,6 +365,10 @@ impl ApplicationHandler<GameEvent> for App {
                 }
             }
 
+            // Reset per-frame mouse movement now that the guest has consumed it.
+            let mouse_state = &mut game.store.as_mut().unwrap().data_mut().mouse_state;
+            mouse_state.dx = 0.0;
+            mouse_state.dy = 0.0;
         }
 
         // Cap render rate at 60Hz.

@@ -8,7 +8,7 @@ use wasmtime_wasi::{ResourceTable, WasiCtxBuilder, WasiCtx};
 use wgpu_types::TextureFormat;
 use winit::dpi::PhysicalSize;
 
-use crate::{runtime::{audio::AudioState, gpu::GpuState, storage::Storage}, GamepadState, KeyboardState};
+use crate::{runtime::{audio::AudioState, gpu::GpuState, storage::Storage}, GamepadState, KeyboardState, MouseState};
 
 pub struct JumpjetRuntimeState {
     pub id: Uuid,
@@ -30,6 +30,7 @@ pub struct JumpjetRuntimeState {
     pub audio_state: AudioState,
     pub gamepad_state: GamepadState,
     pub keyboard_state: KeyboardState,
+    pub mouse_state: MouseState,
     pub paths: Slab<VfsPath>,
     pub storages: Slab<Storage>,
     pub wasi_ctx: WasiCtx,
@@ -89,6 +90,7 @@ impl JumpjetRuntimeState {
             gpu_state: GpuState::new(),
             gamepad_state: GamepadState::new(),
             keyboard_state: KeyboardState::new(),
+            mouse_state: MouseState::new(),
             paths: Slab::new(),
             storages: Slab::new(),
             wasi_ctx: WasiCtxBuilder::new()
