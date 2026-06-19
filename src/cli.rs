@@ -1,8 +1,34 @@
 use std::path::PathBuf;
 
+use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
 
 use crate::utils::version;
+
+/// Distinct template names embedded under `src/templates/<category>/` (e.g.
+/// `game` -> `hello-rust`, `cube-python`, ...). Drives both `--help` listing and
+/// validation, so it always matches the templates actually shipped in the binary.
+fn template_names(category: &str) -> Vec<String> {
+    let prefix = format!("{category}/");
+    let mut names: Vec<String> = crate::assets::Templates::iter()
+        .filter_map(|p| {
+            p.strip_prefix(&prefix)
+                .and_then(|rest| rest.split('/').next())
+                .map(|name| name.to_string())
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn game_templates() -> PossibleValuesParser {
+    PossibleValuesParser::new(template_names("game"))
+}
+
+fn package_templates() -> PossibleValuesParser {
+    PossibleValuesParser::new(template_names("package"))
+}
 
 #[derive(Parser)]
 #[command(author, version = version(), about)]
@@ -88,6 +114,8 @@ pub enum CliCommand {
     //     #[clap(long, short = 'v', value_name = "VERSION")]
     //     version: Option<String>,
     // },
+    /// Re-sync the project's staged WIT to this CLI's embedded runtime definitions
+    Wit,
     /// Upgrade the Jumpjet CLI to the latest version
     Upgrade,
 }
@@ -100,8 +128,8 @@ pub enum NewSubcommand {
         identifier: Option<String>,
         #[clap(long, short = 'n', value_name = "NAME")]
         name: Option<String>,
-        /// One of: hello-js, hello-rust, cube-rust
-        #[clap(long, short = 't', value_name = "TEMPLATE")]
+        /// Game template to scaffold from
+        #[clap(long, short = 't', value_name = "TEMPLATE", value_parser = game_templates())]
         template: String,
     },
     /// New package (library) that other games or packages can depend on
@@ -109,8 +137,8 @@ pub enum NewSubcommand {
         /// Package name in `namespace:name` form (e.g. `acme:physics`)
         #[clap(long, short = 'n', value_name = "NAME")]
         name: String,
-        /// One of: lib-rust
-        #[clap(long, short = 't', value_name = "TEMPLATE")]
+        /// Package template to scaffold from
+        #[clap(long, short = 't', value_name = "TEMPLATE", value_parser = package_templates())]
         template: String,
     },
 }

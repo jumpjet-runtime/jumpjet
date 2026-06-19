@@ -115,6 +115,7 @@ impl App {
             //     .await?
             // }
             // Some(CliCommand::Publish) => crate::commands::publish::publish().await?,
+            Some(CliCommand::Wit) => crate::commands::wit::wit().await?,
             Some(CliCommand::Upgrade) => crate::commands::upgrade::upgrade().await?,
             Some(CliCommand::Docs) => crate::commands::docs::docs(&self.config, &self.mode).await?,
             None => {}

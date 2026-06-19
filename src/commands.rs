@@ -10,6 +10,7 @@ pub mod new;
 pub mod publish;
 pub mod run;
 pub mod serve;
+pub mod wit;
 // Temporarily disabled commands — kept in the tree but not exposed via the CLI
 #[allow(dead_code)]
 pub mod update;
