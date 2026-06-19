@@ -12,9 +12,9 @@ pub mod window;
 // Resource interfaces as wasm-bindgen classes (jco requires instanceof-checked
 // classes). `input` is the validation slice for the pattern; gpu/audio/storage
 // follow once proven.
-pub mod input;
-pub mod gpu;
 pub mod audio;
+pub mod gpu;
+pub mod input;
 pub mod storage;
 
 pub mod run;

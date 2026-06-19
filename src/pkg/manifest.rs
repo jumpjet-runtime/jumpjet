@@ -10,7 +10,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use color_eyre::eyre::{eyre, Result, WrapErr};
+use color_eyre::eyre::{Result, WrapErr, eyre};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 
@@ -91,9 +91,12 @@ fn validate_label(label: &str) -> Result<()> {
     if label.is_empty() {
         return Err(eyre!("label must not be empty"));
     }
-    let valid = label
-        .split('-')
-        .all(|word| !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
+    let valid = label.split('-').all(|word| {
+        !word.is_empty()
+            && word
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    });
     if !valid {
         return Err(eyre!(
             "`{label}` must be lowercase alphanumeric words separated by single dashes"

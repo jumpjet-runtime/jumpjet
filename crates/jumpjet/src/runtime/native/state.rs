@@ -4,11 +4,14 @@ use gilrs::Gilrs;
 use slab::Slab;
 use uuid::Uuid;
 use vfs::VfsPath;
-use wasmtime_wasi::{ResourceTable, WasiCtxBuilder, WasiCtx};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder};
 use wgpu_types::TextureFormat;
 use winit::dpi::PhysicalSize;
 
-use crate::{runtime::{audio::AudioState, gpu::GpuState, storage::Storage}, GamepadState, KeyboardState, MouseState};
+use crate::{
+    GamepadState, KeyboardState, MouseState,
+    runtime::{audio::AudioState, gpu::GpuState, storage::Storage},
+};
 
 pub struct JumpjetRuntimeState {
     pub id: Uuid,
@@ -52,9 +55,7 @@ impl JumpjetRuntimeState {
     ) -> Self {
         let mut table = ResourceTable::new();
 
-        let swapchain_capabilities = instance
-            .surface_get_capabilities(surface, adapter)
-            .unwrap();
+        let swapchain_capabilities = instance.surface_get_capabilities(surface, adapter).unwrap();
         let swapchain_format = swapchain_capabilities.formats[0];
 
         let surface_config = wgpu_types::SurfaceConfiguration {

@@ -1,18 +1,18 @@
 use color_eyre::eyre;
 use rust_embed::Embed;
-use subprocess::{Exec, Redirection};
-use wasmparser::Encoding;
 use std::env;
 use std::path::{Path, PathBuf};
+use subprocess::{Exec, Redirection};
+use wasmparser::Encoding;
 
 use toml::Table;
 
 use wit_component::ComponentEncoder;
 
+use crate::Result;
 use crate::pkg::compose::ComposeDep;
 use crate::pkg::manifest::Manifest;
 use crate::pkg::resolve::Resolution;
-use crate::Result;
 
 #[derive(Embed)]
 #[folder = "wasi"]
@@ -187,7 +187,7 @@ fn validate_lib_component(component_path: &Path) -> Result<()> {
     let (resolve, world_id) = match decoded {
         wit_component::DecodedWasm::Component(resolve, world) => (resolve, world),
         wit_component::DecodedWasm::WitPackage(..) => {
-            return Err(eyre::eyre!("expected a component, found a WIT package"))
+            return Err(eyre::eyre!("expected a component, found a WIT package"));
         }
     };
     let world = &resolve.worlds[world_id];
@@ -231,7 +231,10 @@ pub async fn build_web(release: &bool) -> Result<()> {
     let resolution = prepare_deps().await?;
     run_pre(&config)?;
     build_web_compile(&config, &resolution)?;
-    println!("Web guest compiled to {}", web_guest_dir(&config)?.display());
+    println!(
+        "Web guest compiled to {}",
+        web_guest_dir(&config)?.display()
+    );
     let _ = release;
     Ok(())
 }
@@ -274,11 +277,14 @@ fn transpile_guest(component_path: &Path, guest_dir: &Path) -> Result<()> {
         Err(_) => {
             return Err(eyre::eyre!(
                 "`jco` was not found on your PATH. Install it with `npm i -g @bytecodealliance/jco`."
-            ))
+            ));
         }
     };
     if !capture.success() {
-        return Err(eyre::eyre!("jco transpile failed:\n{}", capture.stdout_str()));
+        return Err(eyre::eyre!(
+            "jco transpile failed:\n{}",
+            capture.stdout_str()
+        ));
     }
 
     // Workaround for a jco 1.23 code-gen bug: resource-method trampolines
@@ -326,7 +332,9 @@ pub fn assemble_web_site(guest_dir: &Path, out_dir: &Path) -> Result<()> {
 
 fn componentize_wasm(output_entrypoint_path: PathBuf) {
     let parser = wat::Parser::new();
-    let wasm = parser.parse_file(&output_entrypoint_path).expect("Unable to read game wasm");
+    let wasm = parser
+        .parse_file(&output_entrypoint_path)
+        .expect("Unable to read game wasm");
     let mut encoder = ComponentEncoder::default()
         .validate(true)
         .reject_legacy_names(false);
@@ -339,7 +347,7 @@ fn componentize_wasm(output_entrypoint_path: PathBuf) {
             wasmparser::Payload::Version { encoding, .. } if encoding != Encoding::Module => {
                 is_component = true;
             }
-            _ => { }
+            _ => {}
         }
     }
 
@@ -347,11 +355,15 @@ fn componentize_wasm(output_entrypoint_path: PathBuf) {
         bytes = wasm;
     } else {
         // encoder = encoder.merge_imports_based_on_semver(merge); // TODO: Needed?
-        encoder = encoder.module(&wasm).expect("Unable to read game as a wasm module");
+        encoder = encoder
+            .module(&wasm)
+            .expect("Unable to read game as a wasm module");
 
         let adapter = WasiWasm::get("wasi_snapshot_preview1.reactor.wasm").unwrap();
         let adapter = wat::parse_bytes(&adapter.data).unwrap();
-        encoder = encoder.adapter("wasi_snapshot_preview1", &adapter).expect("Unable to read adapter");
+        encoder = encoder
+            .adapter("wasi_snapshot_preview1", &adapter)
+            .expect("Unable to read adapter");
 
         bytes = encoder
             .encode()

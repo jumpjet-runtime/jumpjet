@@ -13,7 +13,7 @@ use color_eyre::eyre::{Result, WrapErr};
 
 use crate::pkg::lock::{Lock, LockedPackage};
 use crate::pkg::manifest::{Manifest, PackageId, PackageName};
-use crate::pkg::source::{resolve_source, DepSource};
+use crate::pkg::source::{DepSource, resolve_source};
 use crate::pkg::store::{self, StoredPackage};
 
 pub struct ResolvedPackage {
@@ -29,7 +29,11 @@ pub struct Resolution {
 /// existing lock is honored for immutable sources; when true the lock is rebuilt.
 pub async fn resolve(dir: &Path, update: bool) -> Result<Resolution> {
     let manifest = Manifest::load_from(dir)?;
-    let mut lock = if update { Lock::default() } else { Lock::load(dir)? };
+    let mut lock = if update {
+        Lock::default()
+    } else {
+        Lock::load(dir)?
+    };
 
     let mut packages = Vec::new();
     let mut seen = BTreeSet::new();
@@ -97,7 +101,10 @@ async fn resolve_into(
         // Walk transitive dependencies of live project sources.
         if let DepSource::Path(child_dir) = &source {
             if let Ok(child) = Manifest::load_from(child_dir) {
-                Box::pin(resolve_into(child_dir, &child, update, lock, packages, seen)).await?;
+                Box::pin(resolve_into(
+                    child_dir, &child, update, lock, packages, seen,
+                ))
+                .await?;
             }
         }
 

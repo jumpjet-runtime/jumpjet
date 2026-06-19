@@ -12,9 +12,9 @@ pub mod runtime;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod aot;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod tests;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod debug;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod tests;
 
 // Re-exported so the generated Android bundle wrapper can name `AndroidApp`
 // against the exact `winit`/`android-activity` version the runtime links (the
@@ -117,18 +117,14 @@ pub use exports::jumpjet::runtime::guest;
 #[cfg(not(target_arch = "wasm32"))]
 pub use jumpjet::runtime::*;
 #[cfg(not(target_arch = "wasm32"))]
-use wasmtime_wasi::{
-    ResourceTable,
-    WasiCtxView,
-    WasiView
-};
+use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
 
 pub use runtime::JumpjetRuntimeState;
 
 #[cfg(not(target_arch = "wasm32"))]
 impl WasiView for JumpjetRuntimeState {
     fn ctx(&mut self) -> WasiCtxView<'_> {
-        WasiCtxView{
+        WasiCtxView {
             ctx: &mut self.wasi_ctx,
             table: &mut self.table,
         }
@@ -195,5 +191,3 @@ impl GamepadState {
         }
     }
 }
-
-

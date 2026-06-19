@@ -21,8 +21,8 @@ use toml::Table;
 use xz2::read::XzDecoder;
 use zip::ZipArchive;
 
-use crate::settings::Settings;
 use crate::Result;
+use crate::settings::Settings;
 
 pub async fn bundle(target: &String, release: &bool) -> Result<()> {
     let config = std::fs::read_to_string("jumpjet.toml")
@@ -266,11 +266,9 @@ async fn install_rustup(settings: &Settings) -> Result<()> {
     let rustup_content = resp.bytes().await?;
 
     let rustup_path = rustup_dir.join(filename);
-    
+
     let mut open_options = OpenOptions::new();
-    let open_options = open_options
-        .write(true)
-        .create(true);
+    let open_options = open_options.write(true).create(true);
 
     #[cfg(not(target_os = "windows"))]
     let open_options = open_options.mode(0o755);
@@ -348,7 +346,7 @@ async fn install_zig(settings: &Settings) -> Result<()> {
     // Map Rust OS/Arch to Zig naming if necessary.
     // Rust: x86_64, aarch64
     // Zig: x86_64, aarch64 (mostly match)
-    
+
     let (ext, filename) = if os == "windows" {
         ("zip", format!("zig-{}-{}-{}.zip", os, arch, version))
     } else {
@@ -378,13 +376,15 @@ async fn install_zig(settings: &Settings) -> Result<()> {
 
     // Rename extracted folder to "zig"
     // The folder name inside the archive is usually "zig-{os}-{arch}-{version}"
-    let extracted_folder_name = filename.replace(&format!(".{}", ext), ""); 
+    let extracted_folder_name = filename.replace(&format!(".{}", ext), "");
     let extracted_path = settings.jumpjet_bin_dir.join(extracted_folder_name);
-    
+
     if extracted_path.exists() {
         fs::rename(extracted_path, &zig_dir)?;
     } else {
-        return Err(color_eyre::eyre::eyre!("Failed to find extracted Zig folder"));
+        return Err(color_eyre::eyre::eyre!(
+            "Failed to find extracted Zig folder"
+        ));
     }
 
     // Clean up archive
@@ -442,9 +442,12 @@ async fn add_rust_target(settings: &Settings) -> Result<()> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .output()?;
-    
+
     if !output.status.success() {
-         return Err(color_eyre::eyre::eyre!("Failed to add rust target: {}", settings.target_triplet));
+        return Err(color_eyre::eyre::eyre!(
+            "Failed to add rust target: {}",
+            settings.target_triplet
+        ));
     }
 
     Ok(())

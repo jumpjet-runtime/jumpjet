@@ -21,9 +21,21 @@ pub fn export(_state: SharedState) -> JsValue {
         web_sys::console::error_1(&JsValue::from_str(&msg));
     });
 
-    let _ = Reflect::set(&obj, &JsValue::from_str("log"), log.as_ref().unchecked_ref());
-    let _ = Reflect::set(&obj, &JsValue::from_str("warn"), warn.as_ref().unchecked_ref());
-    let _ = Reflect::set(&obj, &JsValue::from_str("error"), error.as_ref().unchecked_ref());
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("log"),
+        log.as_ref().unchecked_ref(),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("warn"),
+        warn.as_ref().unchecked_ref(),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("error"),
+        error.as_ref().unchecked_ref(),
+    );
 
     // These closures must outlive this call (the guest may invoke them every
     // frame), so leak them into the JS world.

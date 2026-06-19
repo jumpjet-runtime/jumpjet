@@ -13,8 +13,8 @@
 use std::time::Duration;
 
 use js_sys::{Function, Object, Reflect};
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
 use crate::runtime::web::state::SharedState;
@@ -41,8 +41,7 @@ impl Game {
     /// harness, wiring the host import objects and capturing the guest's exported
     /// functions.
     pub async fn instantiate(state: SharedState) -> Result<Game, JsValue> {
-        let window_obj =
-            web_sys::window().ok_or_else(|| JsValue::from_str("no global window"))?;
+        let window_obj = web_sys::window().ok_or_else(|| JsValue::from_str("no global window"))?;
         let jco = Reflect::get(&window_obj, &JsValue::from_str("jco"))?;
         if jco.is_undefined() || jco.is_null() {
             return Err(JsValue::from_str("window.jco harness not found"));
@@ -111,7 +110,15 @@ impl Game {
 /// these and the WASI shim before calling jco's `instantiate` (see `web-runtime/`).
 fn build_imports(state: &SharedState) -> Result<Object, JsValue> {
     let imports = Object::new();
-    Reflect::set(&imports, &JsValue::from_str("jumpjet:runtime/debug"), &debug::export(state.clone()))?;
-    Reflect::set(&imports, &JsValue::from_str("jumpjet:runtime/window"), &window::export(state.clone()))?;
+    Reflect::set(
+        &imports,
+        &JsValue::from_str("jumpjet:runtime/debug"),
+        &debug::export(state.clone()),
+    )?;
+    Reflect::set(
+        &imports,
+        &JsValue::from_str("jumpjet:runtime/window"),
+        &window::export(state.clone()),
+    )?;
     Ok(imports)
 }

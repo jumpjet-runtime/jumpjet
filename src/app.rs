@@ -8,8 +8,8 @@ use color_eyre::eyre::Result;
 use crossterm::event::KeyEvent;
 
 use current_platform::CURRENT_PLATFORM;
-use ratatui::prelude::Rect;
 use jumpjet::input;
+use ratatui::prelude::Rect;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -62,19 +62,21 @@ impl App {
                 let binary = std::fs::read(input_path.join("test-game.wasm")).unwrap();
                 jumpjet::runtime::test(input_path.to_path_buf(), binary).await;
             }
-            Some(CliCommand::Run { release, target, port }) => match target.as_deref() {
-                Some("web") => {
-                    crate::commands::run::run_web(release, port.unwrap_or(8731)).await?
-                }
+            Some(CliCommand::Run {
+                release,
+                target,
+                port,
+            }) => match target.as_deref() {
+                Some("web") => crate::commands::run::run_web(release, port.unwrap_or(8731)).await?,
                 Some(other) if other != "native" => {
-                    return Err(color_eyre::eyre::eyre!("unknown run target: {other}"))
+                    return Err(color_eyre::eyre::eyre!("unknown run target: {other}"));
                 }
                 None | Some(_) => crate::commands::run::run(release).await?,
             },
             Some(CliCommand::Build { release, target }) => match target.as_deref() {
                 Some("web") => crate::commands::build::build_web(release).await?,
                 Some(other) if other != "native" => {
-                    return Err(color_eyre::eyre::eyre!("unknown build target: {other}"))
+                    return Err(color_eyre::eyre::eyre!("unknown build target: {other}"));
                 }
                 None | Some(_) => crate::commands::build::build(release).await?,
             },

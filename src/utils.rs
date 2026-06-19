@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use tracing::error;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
-    self, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
+    self, Layer, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt,
 };
 
 const VERSION_MESSAGE: &str = concat!(
@@ -56,7 +56,7 @@ pub fn initialize_panic_handler() -> Result<()> {
 
         #[cfg(not(debug_assertions))]
         {
-            use human_panic::{handle_dump, print_msg, Metadata};
+            use human_panic::{Metadata, handle_dump, print_msg};
             let meta = Metadata {
                 version: env!("CARGO_PKG_VERSION").into(),
                 name: env!("CARGO_PKG_NAME").into(),

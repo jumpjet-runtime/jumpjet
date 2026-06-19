@@ -3,8 +3,8 @@ use std::path::Path;
 
 use toml::Table;
 
-use crate::commands::build;
 use crate::Result;
+use crate::commands::build;
 
 /// Assembles the deployable web site into `bundle/web/`: the guest compiled by
 /// `build --target web` (`<output>/web/guest`) plus the embedded host runtime,
@@ -26,6 +26,8 @@ pub async fn bundle_project(_release: &bool) -> Result<()> {
     build::assemble_web_site(&guest_dir, &bundle_dir)?;
 
     println!("Web bundle emitted to {}", bundle_dir.display());
-    println!("Deploy its contents to any static host, or serve locally with `python3 -m http.server` from that dir.");
+    println!(
+        "Deploy its contents to any static host, or serve locally with `python3 -m http.server` from that dir."
+    );
     Ok(())
 }

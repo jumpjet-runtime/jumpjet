@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use color_eyre::eyre::{eyre, Result, WrapErr};
+use color_eyre::eyre::{Result, WrapErr, eyre};
 use semver::{Version, VersionReq};
 use subprocess::{Exec, Redirection};
 
@@ -83,7 +83,11 @@ pub fn resolve_source(dep: &Dependency, base_dir: &Path) -> Result<DepSource> {
                 return Ok(DepSource::Path(base_dir.join(p)));
             }
             if let Some(url) = &d.git {
-                let reference = d.rev.clone().or_else(|| d.tag.clone()).or_else(|| d.branch.clone());
+                let reference = d
+                    .rev
+                    .clone()
+                    .or_else(|| d.tag.clone())
+                    .or_else(|| d.branch.clone());
                 return Ok(DepSource::Git {
                     url: url.clone(),
                     reference,
@@ -170,7 +174,10 @@ async fn fetch_from_registry(name: &PackageName, req: &VersionReq) -> Result<Fet
 
     let resolved = component_export_version(&component, name)?;
     let wit_text = interface_wit(&component, name)?;
-    let wit = vec![(PathBuf::from(format!("{}.wit", name.name)), wit_text.into_bytes())];
+    let wit = vec![(
+        PathBuf::from(format!("{}.wit", name.name)),
+        wit_text.into_bytes(),
+    )];
 
     Ok(FetchedPackage {
         version: resolved,
@@ -219,7 +226,7 @@ pub fn package_world_imports(component: &[u8], name: &PackageName) -> Result<Vec
     let (resolve, world_id) = match decoded {
         wit_component::DecodedWasm::Component(resolve, world) => (resolve, world),
         wit_component::DecodedWasm::WitPackage(..) => {
-            return Err(eyre!("expected a component, found a WIT package"))
+            return Err(eyre!("expected a component, found a WIT package"));
         }
     };
 
@@ -266,7 +273,11 @@ fn fetch_from_project(dir: &Path, name: &PackageName) -> Result<FetchedPackage> 
         .version
         .clone()
         .ok_or_else(|| eyre!("dependency `{name}` is missing [package].version"))?;
-    let output = manifest.build.output.clone().unwrap_or_else(|| "bin".into());
+    let output = manifest
+        .build
+        .output
+        .clone()
+        .unwrap_or_else(|| "bin".into());
     let entrypoint = manifest
         .build
         .entrypoint
@@ -311,7 +322,11 @@ fn build_project(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn fetch_from_git(url: &str, reference: Option<&str>, name: &PackageName) -> Result<FetchedPackage> {
+fn fetch_from_git(
+    url: &str,
+    reference: Option<&str>,
+    name: &PackageName,
+) -> Result<FetchedPackage> {
     let tmp = tempfile::tempdir()?;
     let clone = Exec::cmd("git")
         .args(&["clone", "--quiet", url])
@@ -333,7 +348,10 @@ fn fetch_from_git(url: &str, reference: Option<&str>, name: &PackageName) -> Res
             .capture()
             .wrap_err("running git checkout")?;
         if !co.success() {
-            return Err(eyre!("git checkout {reference} failed:\n{}", co.stdout_str()));
+            return Err(eyre!(
+                "git checkout {reference} failed:\n{}",
+                co.stdout_str()
+            ));
         }
     }
     let fetched = fetch_from_project(tmp.path(), name)?;
@@ -415,7 +433,7 @@ pub fn component_export_version(component: &[u8], name: &PackageName) -> Result<
     let (resolve, world_id) = match decoded {
         wit_component::DecodedWasm::Component(resolve, world) => (resolve, world),
         wit_component::DecodedWasm::WitPackage(..) => {
-            return Err(eyre!("expected a component, found a WIT package"))
+            return Err(eyre!("expected a component, found a WIT package"));
         }
     };
     for key in resolve.worlds[world_id].exports.keys() {

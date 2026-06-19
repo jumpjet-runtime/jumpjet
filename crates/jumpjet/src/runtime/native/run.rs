@@ -1,4 +1,4 @@
-use std::{path::PathBuf, net::TcpListener};
+use std::{net::TcpListener, path::PathBuf};
 use wasmtime::AsContextMut;
 
 use anyhow::Result;
@@ -64,8 +64,7 @@ struct App {
 impl ApplicationHandler<GameEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
-            let mut window_attributes = WindowAttributes::default()
-                .with_title("Game");
+            let mut window_attributes = WindowAttributes::default().with_title("Game");
 
             #[cfg(target_os = "macos")]
             {
@@ -93,31 +92,28 @@ impl ApplicationHandler<GameEvent> for App {
                     .unwrap()
             };
             let adapter_id = instance
-                .request_adapter(
-                    &Default::default(),
-                    wgpu_types::Backends::all(),
-                    None
-                )
+                .request_adapter(&Default::default(), wgpu_types::Backends::all(), None)
                 .unwrap();
 
-            let adapter_limits = instance
-                .adapter_limits(adapter_id);
+            let adapter_limits = instance.adapter_limits(adapter_id);
 
             // Create the logical device and command queue
-            let (device_id, queue_id) = instance.adapter_request_device(
-                adapter_id,
-                &wgpu_types::DeviceDescriptor {
-                    label: None,
-                    required_features: wgpu_types::Features::empty(),
-                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                    required_limits:
-                        wgpu_types::Limits::downlevel_webgl2_defaults().using_resolution(adapter_limits),
-                    memory_hints: wgpu_types::MemoryHints::default(),
-                },
-                None,
-                None,
-                None,
-            ).unwrap();
+            let (device_id, queue_id) = instance
+                .adapter_request_device(
+                    adapter_id,
+                    &wgpu_types::DeviceDescriptor {
+                        label: None,
+                        required_features: wgpu_types::Features::empty(),
+                        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                        required_limits: wgpu_types::Limits::downlevel_webgl2_defaults()
+                            .using_resolution(adapter_limits),
+                        memory_hints: wgpu_types::MemoryHints::default(),
+                    },
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
 
             let audio_host = cpal::default_host();
             let audio_device = audio_host.default_output_device().unwrap();
@@ -141,7 +137,8 @@ impl ApplicationHandler<GameEvent> for App {
                 device_id,
                 queue_id,
                 gilrs,
-            )).expect("Game didn't initialize");
+            ))
+            .expect("Game didn't initialize");
 
             let start_time = std::time::Instant::now();
             self.start_time = Some(start_time);
@@ -154,7 +151,12 @@ impl ApplicationHandler<GameEvent> for App {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: winit::window::WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
         if self.window.is_none() {
             return;
         }
@@ -181,7 +183,9 @@ impl ApplicationHandler<GameEvent> for App {
                     mouse_state.buttons.push(button);
                 }
             }
-            WindowEvent::KeyboardInput { event: key_event, .. } => {
+            WindowEvent::KeyboardInput {
+                event: key_event, ..
+            } => {
                 let generation = game.store.as_ref().unwrap().data().generation;
                 let keyboard_state = &mut game.store.as_mut().unwrap().data_mut().keyboard_state;
 
@@ -236,7 +240,12 @@ impl ApplicationHandler<GameEvent> for App {
         }
     }
 
-    fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: winit::event::DeviceId, event: winit::event::DeviceEvent) {
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
         // Raw mouse motion keeps reporting while the cursor is grabbed/locked,
         // so it (not CursorMoved) is the source for the guest's `delta`.
         if let winit::event::DeviceEvent::MouseMotion { delta } = event {
@@ -268,7 +277,9 @@ impl ApplicationHandler<GameEvent> for App {
                 if lock {
                     let grabbed = window
                         .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                        .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Confined))
+                        .or_else(|_| {
+                            window.set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                        })
                         .is_ok();
                     if grabbed && !mouse_state.locked {
                         window.set_cursor_visible(false);
@@ -322,7 +333,13 @@ impl ApplicationHandler<GameEvent> for App {
                 let mut lock = game.dap_connection.lock().unwrap();
                 if let Some(conn) = lock.as_mut() {
                     let store = game.store.as_mut().unwrap();
-                    if let Err(e) = crate::debug::dap::handle_dap_event(store.as_context_mut(), conn, None, None, game.binary.clone()) {
+                    if let Err(e) = crate::debug::dap::handle_dap_event(
+                        store.as_context_mut(),
+                        conn,
+                        None,
+                        None,
+                        game.binary.clone(),
+                    ) {
                         eprintln!("DAP handler error: {:?}", e);
                     }
                 }
@@ -333,11 +350,11 @@ impl ApplicationHandler<GameEvent> for App {
         let last_update = self.last_update.unwrap();
         let delta_time = now - last_update;
         self.last_update = Some(now);
-        
+
         self.accumulator += delta_time;
 
         // Fixed timestep: 30 FPS logic
-        let fixed_time_step = std::time::Duration::from_millis(33); 
+        let fixed_time_step = std::time::Duration::from_millis(33);
 
         // Limit accumulator to avoid spiral of death
         if self.accumulator > std::time::Duration::from_millis(200) {
@@ -351,21 +368,35 @@ impl ApplicationHandler<GameEvent> for App {
             let generation = game.store.as_ref().unwrap().data().generation;
             let game_store = game.store.as_mut().unwrap();
 
-            while let Some(gilrs::Event { id, event, .. }) = game_store.data_mut().gilrs.next_event() {
+            while let Some(gilrs::Event { id, event, .. }) =
+                game_store.data_mut().gilrs.next_event()
+            {
                 let gamepad_state = &mut game_store.data_mut().gamepad_state;
                 match event {
                     gilrs::EventType::ButtonPressed(button, _) => {
-                         if !gamepad_state.active_buttons.iter().any(|b| b.1 == id && b.2 == button) {
-                             gamepad_state.active_buttons.push((generation, id, button, false));
-                         }
+                        if !gamepad_state
+                            .active_buttons
+                            .iter()
+                            .any(|b| b.1 == id && b.2 == button)
+                        {
+                            gamepad_state
+                                .active_buttons
+                                .push((generation, id, button, false));
+                        }
                     }
                     gilrs::EventType::ButtonRepeated(button, _) => {
-                         if let Some(idx) = gamepad_state.active_buttons.iter().position(|b| b.1 == id && b.2 == button) {
-                             gamepad_state.active_buttons[idx].3 = true;
-                         }
+                        if let Some(idx) = gamepad_state
+                            .active_buttons
+                            .iter()
+                            .position(|b| b.1 == id && b.2 == button)
+                        {
+                            gamepad_state.active_buttons[idx].3 = true;
+                        }
                     }
                     gilrs::EventType::ButtonReleased(button, _) => {
-                         gamepad_state.active_buttons.retain(|b| !(b.1 == id && b.2 == button));
+                        gamepad_state
+                            .active_buttons
+                            .retain(|b| !(b.1 == id && b.2 == button));
                     }
                     _ => {}
                 }
@@ -378,31 +409,34 @@ impl ApplicationHandler<GameEvent> for App {
 
             // TODO: Track total logic time separately from wall clock?
             // For now, epoch can be wall clock, but strictly it should be logic time.
-            let epoch_time = now - self.start_time.unwrap(); 
+            let epoch_time = now - self.start_time.unwrap();
 
             let update_result = pollster::block_on(game.update(epoch_time, fixed_time_step));
-            
+
             if let Err(e) = update_result {
                 let mut handled_by_dap = false;
                 {
                     let mut lock = game.dap_connection.lock().unwrap();
                     if let Some(conn) = lock.as_mut() {
-                        eprintln!("Game update error (trapped): {:?}. Entering Debugger Loop.", e);
+                        eprintln!(
+                            "Game update error (trapped): {:?}. Entering Debugger Loop.",
+                            e
+                        );
                         let store = game.store.as_mut().unwrap();
-                        
-                        // We use Breakpoint reason if it looks like a breakpoint? 
+
+                        // We use Breakpoint reason if it looks like a breakpoint?
                         // Or just Exception.
                         // For now use Exception.
                         let reason = dapts::StoppedEventReason::Exception;
-                        
+
                         let bt = e.downcast_ref::<wasmtime::WasmBacktrace>();
-                        
+
                         if let Err(dap_err) = crate::debug::dap::handle_dap_event(
-                            store.as_context_mut(), 
-                            conn, 
+                            store.as_context_mut(),
+                            conn,
                             Some(reason),
                             bt,
-                            game.binary.clone()
+                            game.binary.clone(),
                         ) {
                             eprintln!("Failed to handle DAP event during trap: {:?}", dap_err);
                         }
@@ -462,7 +496,10 @@ async fn run_loop(
     };
 
     let dap_server = if debug {
-        eprintln!("Starting DAP server on port {}", crate::debug::dap::DEFAULT_DAP_PORT);
+        eprintln!(
+            "Starting DAP server on port {}",
+            crate::debug::dap::DEFAULT_DAP_PORT
+        );
         Some(crate::debug::dap::start_dap_server(crate::debug::dap::DEFAULT_DAP_PORT).unwrap())
     } else {
         None
@@ -544,7 +581,6 @@ pub fn prepare_android_input(app: &winit::platform::android::activity::AndroidAp
 
     dest
 }
-
 
 pub async fn test(_input_path: PathBuf, _binary: Vec<u8>) {
     // Parse command line arguments

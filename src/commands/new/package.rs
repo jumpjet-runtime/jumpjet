@@ -7,9 +7,9 @@ use std::{
 use color_eyre::eyre::eyre;
 
 use crate::{
+    Result,
     assets::{JumpjetRuntimeWits, Templates},
     pkg::manifest::PackageName,
-    Result,
 };
 
 use super::game::{template_files, to_snake_case};
@@ -39,7 +39,13 @@ pub async fn package(name: &str, template: &str) -> Result<()> {
         "runtime_version": env!("CARGO_PKG_VERSION"),
     });
 
-    template_files("package", &template_key, project_root.as_path(), paths, &globals)?;
+    template_files(
+        "package",
+        &template_key,
+        project_root.as_path(),
+        paths,
+        &globals,
+    )?;
 
     // Stage the Jumpjet runtime WIT as a dependency of the package's own WIT so
     // `wit-bindgen`/`jco` can resolve `import jumpjet:runtime/*`.

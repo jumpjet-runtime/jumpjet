@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, num::NonZeroU64};
 
-use wasmtime::{component::Resource, Result};
+use wasmtime::{Result, component::Resource};
 use wgpu_core::{
     binding_model::{BindGroupLayoutDescriptor, PipelineLayoutDescriptor},
     command::PassChannel,
@@ -189,11 +189,10 @@ impl HostGpuDevice for JumpjetRuntimeState {
                 mapped_at_creation: false,
             };
 
-            wgpu_id(self.instance.device_create_buffer(
-                *device_id,
-                &buffer_descriptor,
-                None,
-            ))
+            wgpu_id(
+                self.instance
+                    .device_create_buffer(*device_id, &buffer_descriptor, None),
+            )
             .unwrap()
         };
 
@@ -202,7 +201,7 @@ impl HostGpuDevice for JumpjetRuntimeState {
             Buffer {
                 size: buffer_descriptor.size,
                 usage: buffer_descriptor.usage,
-                map_state: GpuBufferMapState::Unmapped
+                map_state: GpuBufferMapState::Unmapped,
             },
         );
 
@@ -314,7 +313,9 @@ impl HostGpuDevice for JumpjetRuntimeState {
                     }
                 } else if let Some(sampler) = entry.sampler {
                     wgpu_types::BindingType::Sampler(match sampler.type_ {
-                        GpuSamplerBindingType::Filtering => wgpu_types::SamplerBindingType::Filtering,
+                        GpuSamplerBindingType::Filtering => {
+                            wgpu_types::SamplerBindingType::Filtering
+                        }
                         GpuSamplerBindingType::NonFiltering => {
                             wgpu_types::SamplerBindingType::NonFiltering
                         }
@@ -355,17 +356,14 @@ impl HostGpuDevice for JumpjetRuntimeState {
             })
             .collect();
 
-        let bind_group_layout_id = wgpu_id(
-            self.instance
-                .device_create_bind_group_layout(
-                    *device_id,
-                    &BindGroupLayoutDescriptor {
-                        label: None,
-                        entries: Cow::Owned(bind_group_layout_entries),
-                    },
-                    None,
-                ),
-        )
+        let bind_group_layout_id = wgpu_id(self.instance.device_create_bind_group_layout(
+            *device_id,
+            &BindGroupLayoutDescriptor {
+                label: None,
+                entries: Cow::Owned(bind_group_layout_entries),
+            },
+            None,
+        ))
         .unwrap();
 
         self.table
@@ -385,18 +383,15 @@ impl HostGpuDevice for JumpjetRuntimeState {
             .map(|layout| *self.table.get(&layout).unwrap())
             .collect();
 
-        let pipeline_layout_id = wgpu_id(
-            self.instance
-                .device_create_pipeline_layout(
-                    *device_id,
-                    &PipelineLayoutDescriptor {
-                        label: None,
-                        bind_group_layouts: Cow::Owned(bind_group_layouts),
-                        push_constant_ranges: Cow::Owned(Vec::new()),
-                    },
-                    None,
-                ),
-        )
+        let pipeline_layout_id = wgpu_id(self.instance.device_create_pipeline_layout(
+            *device_id,
+            &PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: Cow::Owned(bind_group_layouts),
+                push_constant_ranges: Cow::Owned(Vec::new()),
+            },
+            None,
+        ))
         .unwrap();
 
         self.table.push_child(pipeline_layout_id, &device).unwrap()
@@ -441,7 +436,7 @@ impl HostGpuDevice for JumpjetRuntimeState {
             *device_id,
             &wgpu_core::pipeline::ShaderModuleDescriptor {
                 label: descriptor.label.map(|label| label.into()),
-                runtime_checks: Default::default()
+                runtime_checks: Default::default(),
             },
             wgpu_core::pipeline::ShaderModuleSource::Wgsl(Cow::Owned(descriptor.code)),
             None,
@@ -647,16 +642,13 @@ impl HostGpuDevice for JumpjetRuntimeState {
     ) -> Resource<GpuCommandEncoder> {
         let device_id = self.table.get(&device).unwrap();
 
-        let command_encoder_id = wgpu_id(
-            self.instance
-                .device_create_command_encoder(
-                    *device_id,
-                    &wgpu_types::CommandEncoderDescriptor {
-                        label: descriptor.label.map(|label| label.into())
-                    },
-                    None,
-                ),
-        )
+        let command_encoder_id = wgpu_id(self.instance.device_create_command_encoder(
+            *device_id,
+            &wgpu_types::CommandEncoderDescriptor {
+                label: descriptor.label.map(|label| label.into()),
+            },
+            None,
+        ))
         .unwrap();
 
         self.table.push_child(command_encoder_id, &device).unwrap()
@@ -838,7 +830,7 @@ impl HostGpuBuffer for JumpjetRuntimeState {
     ) -> () {
         let buffer_id = self.table.get(&buffer).unwrap();
         let buffer = self.gpu_state.buffers.get_mut(buffer_id).unwrap();
-        
+
         buffer.map_state = GpuBufferMapState::Pending;
         self.instance
             .buffer_map_async(
@@ -847,8 +839,8 @@ impl HostGpuBuffer for JumpjetRuntimeState {
                 Some(size),
                 BufferMapOperation {
                     host: mode.into(),
-                    callback: None
-                }
+                    callback: None,
+                },
             )
             .unwrap();
         buffer.map_state = GpuBufferMapState::Mapped;
@@ -879,18 +871,14 @@ impl HostGpuBuffer for JumpjetRuntimeState {
     async fn unmap(&mut self, buffer: Resource<GpuBuffer>) -> () {
         let buffer_id = self.table.get(&buffer).unwrap();
         let buffer = self.gpu_state.buffers.get_mut(buffer_id).unwrap();
-        self.instance
-            .buffer_unmap(*buffer_id)
-            .ok();
+        self.instance.buffer_unmap(*buffer_id).ok();
         buffer.map_state = GpuBufferMapState::Unmapped;
         ()
     }
 
     async fn destroy(&mut self, buffer: Resource<GpuBuffer>) -> () {
         let buffer_id = self.table.get(&buffer).unwrap();
-        self.instance
-            .buffer_destroy(*buffer_id)
-            .ok();
+        self.instance.buffer_destroy(*buffer_id).ok();
         ()
     }
 
@@ -983,9 +971,7 @@ impl HostGpuTexture for JumpjetRuntimeState {
 
     async fn destroy(&mut self, texture: Resource<GpuTexture>) -> () {
         let texture_id = self.table.get(&texture).unwrap();
-        self.instance
-            .texture_destroy(*texture_id)
-            .unwrap();
+        self.instance.texture_destroy(*texture_id).unwrap();
         self.table.delete(texture).ok();
         ()
     }
@@ -1003,9 +989,7 @@ impl HostGpuTextureView for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuTextureView>) -> Result<()> {
         let texture_view_id = self.table.delete(rep).ok();
         if let Some(texture_view_id) = texture_view_id {
-            self.instance
-                .texture_view_drop(texture_view_id)
-                .unwrap();
+            self.instance.texture_view_drop(texture_view_id).unwrap();
         }
         Ok(())
     }
@@ -1022,8 +1006,7 @@ impl HostGpuSampler for JumpjetRuntimeState {
 impl HostGpuBindGroupLayout for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuBindGroupLayout>) -> Result<()> {
         let bind_group_layout_id = self.table.delete(rep).unwrap();
-        self.instance
-            .bind_group_layout_drop(bind_group_layout_id);
+        self.instance.bind_group_layout_drop(bind_group_layout_id);
         Ok(())
     }
 }
@@ -1031,8 +1014,7 @@ impl HostGpuBindGroupLayout for JumpjetRuntimeState {
 impl HostGpuBindGroup for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuBindGroup>) -> Result<()> {
         let bind_group_id = self.table.delete(rep).unwrap();
-        self.instance
-            .bind_group_drop(bind_group_id);
+        self.instance.bind_group_drop(bind_group_id);
         Ok(())
     }
 }
@@ -1040,8 +1022,7 @@ impl HostGpuBindGroup for JumpjetRuntimeState {
 impl HostGpuPipelineLayout for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuPipelineLayout>) -> Result<()> {
         let pipeline_layout_id = self.table.delete(rep).unwrap();
-        self.instance
-            .pipeline_layout_drop(pipeline_layout_id);
+        self.instance.pipeline_layout_drop(pipeline_layout_id);
         Ok(())
     }
 }
@@ -1056,8 +1037,7 @@ impl HostGpuShaderModule for JumpjetRuntimeState {
 
     async fn drop(&mut self, rep: Resource<GpuShaderModule>) -> Result<()> {
         let shader_module_id = self.table.delete(rep).unwrap();
-        self.instance
-            .shader_module_drop(shader_module_id);
+        self.instance.shader_module_drop(shader_module_id);
         Ok(())
     }
 }
@@ -1069,14 +1049,11 @@ impl HostGpuComputePipeline for JumpjetRuntimeState {
         index: u32,
     ) -> Resource<GpuBindGroupLayout> {
         let pipeline_id = self.table.get(&pipeline).unwrap();
-        let bind_group_layout_id = wgpu_id(
-            self.instance
-                .compute_pipeline_get_bind_group_layout(
-                    *pipeline_id,
-                    index,
-                    None,
-                ),
-        )
+        let bind_group_layout_id = wgpu_id(self.instance.compute_pipeline_get_bind_group_layout(
+            *pipeline_id,
+            index,
+            None,
+        ))
         .unwrap();
         self.table
             .push_child(bind_group_layout_id, &pipeline)
@@ -1085,8 +1062,7 @@ impl HostGpuComputePipeline for JumpjetRuntimeState {
 
     async fn drop(&mut self, rep: Resource<GpuComputePipeline>) -> Result<()> {
         let pipeline_id = self.table.delete(rep).unwrap();
-        self.instance
-            .compute_pipeline_drop(pipeline_id);
+        self.instance.compute_pipeline_drop(pipeline_id);
         Ok(())
     }
 }
@@ -1098,10 +1074,11 @@ impl HostGpuRenderPipeline for JumpjetRuntimeState {
         index: u32,
     ) -> Resource<GpuBindGroupLayout> {
         let pipeline_id = self.table.get(&pipeline).unwrap();
-        let bind_group_layout_id = wgpu_id(
-            self.instance
-                .render_pipeline_get_bind_group_layout(*pipeline_id, index, None),
-        )
+        let bind_group_layout_id = wgpu_id(self.instance.render_pipeline_get_bind_group_layout(
+            *pipeline_id,
+            index,
+            None,
+        ))
         .unwrap();
         self.table
             .push_child(bind_group_layout_id, &pipeline)
@@ -1110,8 +1087,7 @@ impl HostGpuRenderPipeline for JumpjetRuntimeState {
 
     async fn drop(&mut self, rep: Resource<GpuRenderPipeline>) -> Result<()> {
         let render_pipeline_id = self.table.delete(rep).unwrap();
-        self.instance
-            .render_pipeline_drop(render_pipeline_id);
+        self.instance.render_pipeline_drop(render_pipeline_id);
         Ok(())
     }
 }
@@ -1144,11 +1120,13 @@ impl HostGpuCommandEncoder for JumpjetRuntimeState {
             color_attachments.push(Some(wgpu_core::command::RenderPassColorAttachment {
                 view: views[i],
                 resolve_target,
-                load_op: color_attachment.load_op.into_wgt(color_attachment
-                    .clear_value
-                    .as_ref()
-                    .map(|v| vec_to_color(v))
-                    .unwrap_or(Color::BLACK)),
+                load_op: color_attachment.load_op.into_wgt(
+                    color_attachment
+                        .clear_value
+                        .as_ref()
+                        .map(|v| vec_to_color(v))
+                        .unwrap_or(Color::BLACK),
+                ),
                 store_op: color_attachment.store_op.into(),
             }));
         }
@@ -1160,30 +1138,36 @@ impl HostGpuCommandEncoder for JumpjetRuntimeState {
                     wgpu_core::command::RenderPassDepthStencilAttachment {
                         view: *self.table.get(&depth_stencil_attachment.view).unwrap(),
                         depth: PassChannel {
-                            load_op: Some(depth_stencil_attachment.depth_load_op.into_wgt(Some(depth_stencil_attachment.depth_clear_value))),
+                            load_op: Some(
+                                depth_stencil_attachment
+                                    .depth_load_op
+                                    .into_wgt(Some(depth_stencil_attachment.depth_clear_value)),
+                            ),
                             store_op: Some(depth_stencil_attachment.depth_store_op.into()),
                             read_only: depth_stencil_attachment.depth_read_only,
                         },
                         stencil: PassChannel {
-                            load_op: Some(depth_stencil_attachment.stencil_load_op.into_wgt(Some(depth_stencil_attachment.stencil_clear_value))),
+                            load_op: Some(
+                                depth_stencil_attachment
+                                    .stencil_load_op
+                                    .into_wgt(Some(depth_stencil_attachment.stencil_clear_value)),
+                            ),
                             store_op: Some(depth_stencil_attachment.stencil_store_op.into()),
                             read_only: depth_stencil_attachment.stencil_read_only,
                         },
                     }
                 });
 
-        let (render_pass, _) = self
-            .instance
-            .command_encoder_create_render_pass(
-                *command_encoder,
-                &wgpu_core::command::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: color_attachments.into(),
-                    depth_stencil_attachment: depth_stencil_attachment.as_ref(),
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                },
-            );
+        let (render_pass, _) = self.instance.command_encoder_create_render_pass(
+            *command_encoder,
+            &wgpu_core::command::RenderPassDescriptor {
+                label: None,
+                color_attachments: color_attachments.into(),
+                depth_stencil_attachment: depth_stencil_attachment.as_ref(),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            },
+        );
 
         self.table.push(render_pass).unwrap()
     }
@@ -1388,11 +1372,7 @@ impl HostGpuCommandEncoder for JumpjetRuntimeState {
         let query_set_id = self.table.get(&query_set).unwrap();
 
         self.instance
-            .command_encoder_write_timestamp(
-                *command_encoder_id,
-                *query_set_id,
-                query_index,
-            )
+            .command_encoder_write_timestamp(*command_encoder_id, *query_set_id, query_index)
             .ok();
         ()
     }
@@ -1445,8 +1425,7 @@ impl HostGpuCommandEncoder for JumpjetRuntimeState {
         rep: wasmtime::component::Resource<GpuCommandEncoder>,
     ) -> wasmtime::Result<()> {
         let command_encoder_id = self.table.delete(rep).unwrap();
-        self.instance
-            .command_encoder_drop(command_encoder_id);
+        self.instance.command_encoder_drop(command_encoder_id);
         Ok(())
     }
 }
@@ -1584,7 +1563,10 @@ impl HostGpuComputePassEncoder for JumpjetRuntimeState {
         ()
     }
 
-    async fn pop_debug_group(&mut self, compute_pass_encoder: Resource<GpuComputePassEncoder>) -> () {
+    async fn pop_debug_group(
+        &mut self,
+        compute_pass_encoder: Resource<GpuComputePassEncoder>,
+    ) -> () {
         let compute_pass_encoder_id = self.table.get_mut(&compute_pass_encoder).unwrap();
         self.instance
             .compute_pass_pop_debug_group(compute_pass_encoder_id)
@@ -1599,11 +1581,7 @@ impl HostGpuComputePassEncoder for JumpjetRuntimeState {
     ) -> () {
         let compute_pass_encoder_id = self.table.get_mut(&compute_pass_encoder).unwrap();
         self.instance
-            .compute_pass_insert_debug_marker(
-                compute_pass_encoder_id,
-                &marker_label,
-                0,
-            )
+            .compute_pass_insert_debug_marker(compute_pass_encoder_id, &marker_label, 0)
             .unwrap();
         ()
     }
@@ -1735,11 +1713,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
 
         self.instance
-            .render_pass_draw_indirect(
-                render_pass_encoder_id,
-                buffer_id,
-                indirect_offset,
-            )
+            .render_pass_draw_indirect(render_pass_encoder_id, buffer_id, indirect_offset)
             .unwrap();
 
         ()
@@ -1755,11 +1729,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
 
         self.instance
-            .render_pass_draw_indexed_indirect(
-                render_pass_encoder_id,
-                buffer_id,
-                indirect_offset,
-            )
+            .render_pass_draw_indexed_indirect(render_pass_encoder_id, buffer_id, indirect_offset)
             .unwrap();
 
         ()
@@ -1801,13 +1771,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
     ) -> () {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
         self.instance
-            .render_pass_set_scissor_rect(
-                render_pass_encoder_id,
-                x,
-                y,
-                width,
-                height,
-            )
+            .render_pass_set_scissor_rect(render_pass_encoder_id, x, y, width, height)
             .unwrap();
 
         ()
@@ -1854,10 +1818,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
     ) -> () {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
         self.instance
-            .render_pass_begin_occlusion_query(
-                render_pass_encoder_id,
-                query_index,
-            )
+            .render_pass_begin_occlusion_query(render_pass_encoder_id, query_index)
             .unwrap();
 
         ()
@@ -1888,10 +1849,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
 
         self.instance
-            .render_pass_execute_bundles(
-                render_pass_encoder_id,
-                &render_bundle_ids[..],
-            )
+            .render_pass_execute_bundles(render_pass_encoder_id, &render_bundle_ids[..])
             .unwrap();
 
         ()
@@ -1900,9 +1858,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
     async fn end(&mut self, render_pass: Resource<GpuRenderPassEncoder>) -> () {
         let render_pass = self.table.get_mut(&render_pass).unwrap();
 
-        self.instance
-            .render_pass_end(render_pass)
-            .unwrap();
+        self.instance.render_pass_end(render_pass).unwrap();
         ()
     }
 
@@ -1919,12 +1875,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
         let dynamic_offsets = dynamic_offsets.as_deref().unwrap_or(&[]);
 
         self.instance
-            .render_pass_set_bind_group(
-                render_pass,
-                index,
-                Some(bind_group_id),
-                dynamic_offsets,
-            )
+            .render_pass_set_bind_group(render_pass, index, Some(bind_group_id), dynamic_offsets)
             .unwrap();
 
         ()
@@ -1992,11 +1943,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
     ) -> () {
         let render_pass_encoder_id = self.table.get_mut(&render_pass_encoder).unwrap();
         self.instance
-            .render_pass_insert_debug_marker(
-                render_pass_encoder_id,
-                &marker_label,
-                0,
-            )
+            .render_pass_insert_debug_marker(render_pass_encoder_id, &marker_label, 0)
             .unwrap();
 
         ()
@@ -2011,8 +1958,7 @@ impl HostGpuRenderPassEncoder for JumpjetRuntimeState {
 impl HostGpuRenderBundle for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<GpuRenderBundle>) -> Result<()> {
         let render_bundle_id = self.table.delete(rep).unwrap();
-        self.instance
-            .render_bundle_drop(render_bundle_id);
+        self.instance.render_bundle_drop(render_bundle_id);
         Ok(())
     }
 }
@@ -2024,16 +1970,13 @@ impl HostGpuRenderBundleEncoder for JumpjetRuntimeState {
         descriptor: GpuRenderBundleDescriptor,
     ) -> Resource<GpuRenderBundle> {
         let render_bundle_encoder = self.table.delete(render_bundle_encoder_resource).unwrap();
-        let render_bundle_id = wgpu_id(
-            self.instance
-                .render_bundle_encoder_finish(
-                    render_bundle_encoder,
-                    &wgpu_core::command::RenderBundleDescriptor {
-                        label: Some(descriptor.label.into()),
-                    },
-                    None,
-                ),
-        )
+        let render_bundle_id = wgpu_id(self.instance.render_bundle_encoder_finish(
+            render_bundle_encoder,
+            &wgpu_core::command::RenderBundleDescriptor {
+                label: Some(descriptor.label.into()),
+            },
+            None,
+        ))
         .unwrap();
 
         self.table.push(render_bundle_id).unwrap()

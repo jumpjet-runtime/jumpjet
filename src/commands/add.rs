@@ -1,8 +1,8 @@
-use color_eyre::eyre::{eyre, Result};
-use toml_edit::{value, DocumentMut, InlineTable, Item, Table};
+use color_eyre::eyre::{Result, eyre};
+use toml_edit::{DocumentMut, InlineTable, Item, Table, value};
 
-use crate::pkg::manifest::{Manifest, PackageName};
 use crate::Result as CrateResult;
+use crate::pkg::manifest::{Manifest, PackageName};
 
 #[derive(Default)]
 pub struct AddOptions {
@@ -27,7 +27,9 @@ pub async fn add(spec: &str, opts: AddOptions) -> CrateResult<()> {
     let dir = std::env::current_dir()?;
     let toml_path = dir.join(Manifest::FILE_NAME);
     let text = std::fs::read_to_string(&toml_path)?;
-    let mut doc: DocumentMut = text.parse().map_err(|e| eyre!("parsing jumpjet.toml: {e}"))?;
+    let mut doc: DocumentMut = text
+        .parse()
+        .map_err(|e| eyre!("parsing jumpjet.toml: {e}"))?;
 
     if doc.get("dependencies").is_none() {
         doc["dependencies"] = Item::Table(Table::new());

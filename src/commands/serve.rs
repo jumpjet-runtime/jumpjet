@@ -69,7 +69,13 @@ async fn handle_conn(
     let rel = path.trim_start_matches('/');
     let rel = if rel.is_empty() { "index.html" } else { rel };
     if rel.contains("..") {
-        return write_response(&mut stream, "403 Forbidden", "text/plain; charset=utf-8", b"forbidden").await;
+        return write_response(
+            &mut stream,
+            "403 Forbidden",
+            "text/plain; charset=utf-8",
+            b"forbidden",
+        )
+        .await;
     }
 
     let file_path = site_dir.join(rel);
@@ -83,7 +89,15 @@ async fn handle_conn(
                 write_response(&mut stream, "200 OK", ct, &bytes).await
             }
         }
-        Err(_) => write_response(&mut stream, "404 Not Found", "text/plain; charset=utf-8", b"not found").await,
+        Err(_) => {
+            write_response(
+                &mut stream,
+                "404 Not Found",
+                "text/plain; charset=utf-8",
+                b"not found",
+            )
+            .await
+        }
     }
 }
 
@@ -103,7 +117,9 @@ async fn serve_sse(mut stream: TcpStream, mut reload_rx: broadcast::Receiver<()>
     loop {
         match reload_rx.recv().await {
             Ok(()) => {
-                if stream.write_all(b"data: reload\n\n").await.is_err() || stream.flush().await.is_err() {
+                if stream.write_all(b"data: reload\n\n").await.is_err()
+                    || stream.flush().await.is_err()
+                {
                     break;
                 }
             }
@@ -168,7 +184,9 @@ pub fn open_browser(url: &str) {
     #[cfg(target_os = "linux")]
     let _ = std::process::Command::new("xdg-open").arg(url).spawn();
     #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    let _ = std::process::Command::new("cmd")
+        .args(["/C", "start", "", url])
+        .spawn();
 }
 
 /// Returns the last-modified time of `path`, if available — used by the watch loop.

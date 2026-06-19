@@ -4,7 +4,7 @@ use wasmtime::component::ResourceTable;
 use wgpu_core::{
     binding_model::{BindGroupEntry, BindingResource, BufferBinding},
     command::{LoadOp, StoreOp},
-    device::HostMap
+    device::HostMap,
 };
 
 use crate::gpu::{
@@ -152,7 +152,9 @@ impl Into<wgpu_types::TextureFormat> for GpuTextureFormat {
             GpuTextureFormat::Depth24plus => wgpu_types::TextureFormat::Depth24Plus,
             GpuTextureFormat::Depth24plusstencil8 => wgpu_types::TextureFormat::Depth24PlusStencil8,
             GpuTextureFormat::Depth32float => wgpu_types::TextureFormat::Depth32Float,
-            GpuTextureFormat::Depth32floatstencil8 => wgpu_types::TextureFormat::Depth32FloatStencil8,
+            GpuTextureFormat::Depth32floatstencil8 => {
+                wgpu_types::TextureFormat::Depth32FloatStencil8
+            }
             GpuTextureFormat::Bc1rgbaunorm => wgpu_types::TextureFormat::Bc1RgbaUnorm,
             GpuTextureFormat::Bc1rgbaunormsrgb => wgpu_types::TextureFormat::Bc1RgbaUnormSrgb,
             GpuTextureFormat::Bc2rgbaunorm => wgpu_types::TextureFormat::Bc2RgbaUnorm,
@@ -337,7 +339,9 @@ impl Into<GpuTextureFormat> for wgpu_types::TextureFormat {
             wgpu_types::TextureFormat::Depth24Plus => GpuTextureFormat::Depth24plus,
             wgpu_types::TextureFormat::Depth24PlusStencil8 => GpuTextureFormat::Depth24plusstencil8,
             wgpu_types::TextureFormat::Depth32Float => GpuTextureFormat::Depth32float,
-            wgpu_types::TextureFormat::Depth32FloatStencil8 => GpuTextureFormat::Depth32floatstencil8,
+            wgpu_types::TextureFormat::Depth32FloatStencil8 => {
+                GpuTextureFormat::Depth32floatstencil8
+            }
             wgpu_types::TextureFormat::Bc1RgbaUnorm => GpuTextureFormat::Bc1rgbaunorm,
             wgpu_types::TextureFormat::Bc1RgbaUnormSrgb => GpuTextureFormat::Bc1rgbaunormsrgb,
             wgpu_types::TextureFormat::Bc2RgbaUnorm => GpuTextureFormat::Bc2rgbaunorm,

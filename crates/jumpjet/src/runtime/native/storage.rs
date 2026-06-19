@@ -3,8 +3,8 @@ use std::io::Write;
 
 use vfs::{AltrootFS, FileSystem, PhysicalFS, VfsPath};
 
-use wasmtime::component::Resource;
 use wasmtime::Result;
+use wasmtime::component::Resource;
 
 use crate::jumpjet::runtime::storage::*;
 use crate::runtime::storage::Storage;

@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{assets::Templates, Result};
+use crate::{Result, assets::Templates};
 
 use liquid::Object;
 
@@ -67,7 +67,7 @@ pub fn template_files(
 
         let destination_parent = destination_path.as_path().parent().unwrap();
         std::fs::create_dir_all(destination_parent).unwrap();
-        
+
         let mut file = fs::OpenOptions::new()
             .create(true)
             .read(true)
@@ -90,7 +90,7 @@ pub fn template_files(
 
 pub fn to_snake_case(input: &str) -> String {
     let mut snake_case = String::new();
-    
+
     for (i, c) in input.chars().enumerate() {
         if c.is_uppercase() && i != 0 {
             // Add an underscore before uppercase letters (except for the first character)

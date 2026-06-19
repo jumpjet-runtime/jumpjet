@@ -1,10 +1,10 @@
 use gilrs::{Axis, Button};
-use wasmtime::component::Resource;
 use wasmtime::Result;
+use wasmtime::component::Resource;
 use winit::keyboard::{Key, NamedKey, SmolStr};
 
-use crate::jumpjet::runtime::input::*;
 use super::state::JumpjetRuntimeState;
+use crate::jumpjet::runtime::input::*;
 
 impl Host for JumpjetRuntimeState {
     async fn gamepad(&mut self, id: u32) -> Option<Resource<GamepadDevice>> {
@@ -63,7 +63,8 @@ impl HostGamepadDevice for JumpjetRuntimeState {
         let gamepad_id = *self.table.get(&gamepad).unwrap();
         let btn_code: Button = btn.into();
 
-        let button_state = self.gamepad_state
+        let button_state = self
+            .gamepad_state
             .active_buttons
             .iter()
             .find(|k| k.1 == gamepad_id && k.2 == btn_code);
@@ -73,7 +74,7 @@ impl HostGamepadDevice for JumpjetRuntimeState {
                 is_pressed: true,
                 value: 1.0, // TODO: Get actual value from gilrs if possible, or support analog buttons in active_buttons
                 is_repeating: *is_repeating,
-                counter: 0 // TODO: Implement counter
+                counter: 0, // TODO: Implement counter
             })
         } else {
             None
@@ -138,13 +139,17 @@ impl HostKeyboardDevice for JumpjetRuntimeState {
 impl HostMouseDevice for JumpjetRuntimeState {
     async fn is_pressed(&mut self, _device: Resource<MouseDevice>, btn: MouseButton) -> bool {
         use winit::event::MouseButton as W;
-        self.mouse_state.buttons.iter().any(|b| matches!((btn, b),
-            (MouseButton::Left, W::Left)
-            | (MouseButton::Right, W::Right)
-            | (MouseButton::Middle, W::Middle)
-            | (MouseButton::Back, W::Back)
-            | (MouseButton::Forward, W::Forward)
-            | (MouseButton::Other, W::Other(_))))
+        self.mouse_state.buttons.iter().any(|b| {
+            matches!(
+                (btn, b),
+                (MouseButton::Left, W::Left)
+                    | (MouseButton::Right, W::Right)
+                    | (MouseButton::Middle, W::Middle)
+                    | (MouseButton::Back, W::Back)
+                    | (MouseButton::Forward, W::Forward)
+                    | (MouseButton::Other, W::Other(_))
+            )
+        })
     }
 
     async fn position(&mut self, _device: Resource<MouseDevice>) -> MousePosition {

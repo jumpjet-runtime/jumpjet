@@ -6,8 +6,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use derive_deref::{Deref, DerefMut};
 use ratatui::style::{Color, Modifier, Style};
 use serde::{
-    de::{self, Deserializer, MapAccess, Visitor},
     Deserialize, Serialize,
+    de::{self, Deserializer, MapAccess, Visitor},
 };
 use serde_json::Value as JsonValue;
 

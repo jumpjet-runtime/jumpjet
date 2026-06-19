@@ -12,8 +12,8 @@ use std::process::{Command, Stdio};
 
 use color_eyre::eyre::eyre;
 
-use crate::settings::Settings;
 use crate::Result;
+use crate::settings::Settings;
 
 pub async fn bundle(settings: &Settings) -> Result<()> {
     ensure_xcode()?;
@@ -50,7 +50,10 @@ pub async fn bundle(settings: &Settings) -> Result<()> {
     )?;
 
     // Executable.
-    crate::fs::copy_file(settings.target_binary_path(), app.join(settings.binary_name()))?;
+    crate::fs::copy_file(
+        settings.target_binary_path(),
+        app.join(settings.binary_name()),
+    )?;
 
     write_info_plist(&app, settings)?;
 

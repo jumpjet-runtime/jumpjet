@@ -9,7 +9,7 @@ use color_eyre::eyre::Result;
 use sha2::{Digest, Sha256};
 
 use crate::pkg::manifest::PackageId;
-use crate::pkg::source::{read_wit_tree, write_wit_tree, FetchedPackage, WitTree};
+use crate::pkg::source::{FetchedPackage, WitTree, read_wit_tree, write_wit_tree};
 
 pub fn packages_root() -> PathBuf {
     crate::utils::get_data_dir().join("packages")

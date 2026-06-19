@@ -1,11 +1,17 @@
 use std::{
-    env, fs::File, io::{Cursor, Read}, path::PathBuf
+    env,
+    fs::File,
+    io::{Cursor, Read},
+    path::PathBuf,
 };
 
 use flate2::bufread::GzDecoder;
-use reqwest::{header::{HeaderMap, HeaderValue, USER_AGENT}, Client};
-use tar::Archive;
+use reqwest::{
+    Client,
+    header::{HeaderMap, HeaderValue, USER_AGENT},
+};
 use serde_json::Value;
+use tar::Archive;
 use tempfile::TempDir;
 
 use crate::Result;
@@ -15,7 +21,10 @@ pub async fn upgrade() -> Result<()> {
         let client = Client::new();
 
         let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static("Jumpjet CLI (https://jumpjet.dev)"));
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_static("Jumpjet CLI (https://jumpjet.dev)"),
+        );
 
         let response = client
             .get("https://api.github.com/repos/jumpjet-runtime/jumpjet/tags")
@@ -29,7 +38,9 @@ pub async fn upgrade() -> Result<()> {
     };
     let platform = format!("{}-{}", env::consts::OS, env::consts::ARCH);
     let tarball_name = format!("jumpjet-cli-{latest_version}-{platform}.tar.gz");
-    let tarball_url = format!("https://github.com/jumpjet-runtime/jumpjet/releases/download/{latest_version}/{tarball_name}");
+    let tarball_url = format!(
+        "https://github.com/jumpjet-runtime/jumpjet/releases/download/{latest_version}/{tarball_name}"
+    );
 
     let tmp_dir = tempfile::Builder::new()
         .prefix(&format!(".update-{latest_version}"))
@@ -37,10 +48,7 @@ pub async fn upgrade() -> Result<()> {
 
     let tmp_path = tmp_dir.path().to_path_buf();
 
-    download_tarball(
-        &tarball_url,
-        &tmp_path
-    ).await?;
+    download_tarball(&tarball_url, &tmp_path).await?;
 
     let new_bin = tmp_path.join("jumpjet-cli");
 

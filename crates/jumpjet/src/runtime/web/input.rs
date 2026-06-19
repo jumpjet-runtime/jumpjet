@@ -10,10 +10,10 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 
-use gilrs::{Axis, Button, Gilrs, GamepadId};
+use gilrs::{Axis, Button, GamepadId, Gilrs};
 use js_sys::{Array, Object, Reflect};
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 
 #[derive(Default)]
 struct InputState {
@@ -43,15 +43,42 @@ fn set(o: &Object, k: &str, v: JsValue) {
 
 /// `keyboard-key` named-variant tag <-> browser `KeyboardEvent.key`.
 const KEYMAP: &[(&str, &str)] = &[
-    ("arrow-up", "ArrowUp"), ("arrow-down", "ArrowDown"), ("arrow-left", "ArrowLeft"),
-    ("arrow-right", "ArrowRight"), ("enter", "Enter"), ("tab", "Tab"), ("space", " "),
-    ("escape", "Escape"), ("backspace", "Backspace"), ("delete", "Delete"), ("insert", "Insert"),
-    ("home", "Home"), ("end", "End"), ("page-up", "PageUp"), ("page-down", "PageDown"),
-    ("caps-lock", "CapsLock"), ("num-lock", "NumLock"), ("scroll-lock", "ScrollLock"),
-    ("shift", "Shift"), ("control", "Control"), ("alt", "Alt"), ("super", "Meta"),
-    ("context-menu", "ContextMenu"), ("fn", "Fn"),
-    ("f1", "F1"), ("f2", "F2"), ("f3", "F3"), ("f4", "F4"), ("f5", "F5"), ("f6", "F6"),
-    ("f7", "F7"), ("f8", "F8"), ("f9", "F9"), ("f10", "F10"), ("f11", "F11"), ("f12", "F12"),
+    ("arrow-up", "ArrowUp"),
+    ("arrow-down", "ArrowDown"),
+    ("arrow-left", "ArrowLeft"),
+    ("arrow-right", "ArrowRight"),
+    ("enter", "Enter"),
+    ("tab", "Tab"),
+    ("space", " "),
+    ("escape", "Escape"),
+    ("backspace", "Backspace"),
+    ("delete", "Delete"),
+    ("insert", "Insert"),
+    ("home", "Home"),
+    ("end", "End"),
+    ("page-up", "PageUp"),
+    ("page-down", "PageDown"),
+    ("caps-lock", "CapsLock"),
+    ("num-lock", "NumLock"),
+    ("scroll-lock", "ScrollLock"),
+    ("shift", "Shift"),
+    ("control", "Control"),
+    ("alt", "Alt"),
+    ("super", "Meta"),
+    ("context-menu", "ContextMenu"),
+    ("fn", "Fn"),
+    ("f1", "F1"),
+    ("f2", "F2"),
+    ("f3", "F3"),
+    ("f4", "F4"),
+    ("f5", "F5"),
+    ("f6", "F6"),
+    ("f7", "F7"),
+    ("f8", "F8"),
+    ("f9", "F9"),
+    ("f10", "F10"),
+    ("f11", "F11"),
+    ("f12", "F12"),
 ];
 /// Variants whose WIT payload is a `key-location`.
 const LOCATION_TAGS: &[&str] = &["shift", "control", "alt", "super"];
@@ -82,7 +109,10 @@ fn event_key_to_variant(key: &str) -> Option<JsValue> {
 fn key_query_matches(key: &JsValue, down: &HashSet<String>) -> bool {
     let tag = get(key, "tag").as_string().unwrap_or_default();
     if tag == "character" {
-        get(key, "val").as_string().map(|c| down.contains(&c)).unwrap_or(false)
+        get(key, "val")
+            .as_string()
+            .map(|c| down.contains(&c))
+            .unwrap_or(false)
     } else if let Some(ev) = tag_to_event_key(&tag) {
         down.contains(ev)
     } else {
@@ -102,7 +132,10 @@ fn canvas() -> Option<web_sys::HtmlCanvasElement> {
 /// `(device_pixel_ratio, canvas_left, canvas_top)` — the factors that map a
 /// viewport-relative CSS coordinate to a canvas-relative physical pixel.
 fn canvas_frame() -> (f64, f64, f64) {
-    let dpr = web_sys::window().map(|w| w.device_pixel_ratio()).unwrap_or(1.0).max(1.0);
+    let dpr = web_sys::window()
+        .map(|w| w.device_pixel_ratio())
+        .unwrap_or(1.0)
+        .max(1.0);
     let (left, top) = canvas()
         .map(|c| {
             let r = c.get_bounding_client_rect();
@@ -129,53 +162,77 @@ pub fn input_install() {
     };
     let target: web_sys::EventTarget = window.into();
 
-    add_listener(&target, "keydown", Closure::wrap(Box::new(|e: JsValue| {
-        if let Some(k) = get(&e, "key").as_string() {
+    add_listener(
+        &target,
+        "keydown",
+        Closure::wrap(Box::new(|e: JsValue| {
+            if let Some(k) = get(&e, "key").as_string() {
+                INPUT.with(|s| {
+                    let mut s = s.borrow_mut();
+                    if s.keys_down.insert(k.clone()) {
+                        s.keys_just.insert(k);
+                    }
+                });
+            }
+        }) as Box<dyn FnMut(JsValue)>),
+    );
+
+    add_listener(
+        &target,
+        "keyup",
+        Closure::wrap(Box::new(|e: JsValue| {
+            if let Some(k) = get(&e, "key").as_string() {
+                INPUT.with(|s| {
+                    s.borrow_mut().keys_down.remove(&k);
+                });
+            }
+        }) as Box<dyn FnMut(JsValue)>),
+    );
+
+    add_listener(
+        &target,
+        "mousemove",
+        Closure::wrap(Box::new(|e: JsValue| {
+            // `client_x`/`client_y` are CSS pixels relative to the viewport;
+            // `movement_x`/`movement_y` are CSS-pixel deltas (and the only signal
+            // that keeps reporting while the pointer is locked). The canvas drawing
+            // buffer is sized in physical pixels (CSS * dpr), so scale by dpr and
+            // offset by the canvas rect to land in the guest's coordinate space.
+            let (dpr, rect_left, rect_top) = canvas_frame();
+            let px = (get(&e, "clientX").as_f64().unwrap_or(0.0) - rect_left) * dpr;
+            let py = (get(&e, "clientY").as_f64().unwrap_or(0.0) - rect_top) * dpr;
+            let dx = get(&e, "movementX").as_f64().unwrap_or(0.0) * dpr;
+            let dy = get(&e, "movementY").as_f64().unwrap_or(0.0) * dpr;
             INPUT.with(|s| {
                 let mut s = s.borrow_mut();
-                if s.keys_down.insert(k.clone()) {
-                    s.keys_just.insert(k);
-                }
+                s.mouse_x = px as f32;
+                s.mouse_y = py as f32;
+                s.mouse_dx += dx as f32;
+                s.mouse_dy += dy as f32;
             });
-        }
-    }) as Box<dyn FnMut(JsValue)>));
+        }) as Box<dyn FnMut(JsValue)>),
+    );
 
-    add_listener(&target, "keyup", Closure::wrap(Box::new(|e: JsValue| {
-        if let Some(k) = get(&e, "key").as_string() {
-            INPUT.with(|s| { s.borrow_mut().keys_down.remove(&k); });
-        }
-    }) as Box<dyn FnMut(JsValue)>));
+    add_listener(
+        &target,
+        "mousedown",
+        Closure::wrap(Box::new(|_e: JsValue| {
+            INPUT.with(|s| {
+                s.borrow_mut().mouse_buttons += 1;
+            });
+        }) as Box<dyn FnMut(JsValue)>),
+    );
 
-    add_listener(&target, "mousemove", Closure::wrap(Box::new(|e: JsValue| {
-        // `client_x`/`client_y` are CSS pixels relative to the viewport;
-        // `movement_x`/`movement_y` are CSS-pixel deltas (and the only signal
-        // that keeps reporting while the pointer is locked). The canvas drawing
-        // buffer is sized in physical pixels (CSS * dpr), so scale by dpr and
-        // offset by the canvas rect to land in the guest's coordinate space.
-        let (dpr, rect_left, rect_top) = canvas_frame();
-        let px = (get(&e, "clientX").as_f64().unwrap_or(0.0) - rect_left) * dpr;
-        let py = (get(&e, "clientY").as_f64().unwrap_or(0.0) - rect_top) * dpr;
-        let dx = get(&e, "movementX").as_f64().unwrap_or(0.0) * dpr;
-        let dy = get(&e, "movementY").as_f64().unwrap_or(0.0) * dpr;
-        INPUT.with(|s| {
-            let mut s = s.borrow_mut();
-            s.mouse_x = px as f32;
-            s.mouse_y = py as f32;
-            s.mouse_dx += dx as f32;
-            s.mouse_dy += dy as f32;
-        });
-    }) as Box<dyn FnMut(JsValue)>));
-
-    add_listener(&target, "mousedown", Closure::wrap(Box::new(|_e: JsValue| {
-        INPUT.with(|s| { s.borrow_mut().mouse_buttons += 1; });
-    }) as Box<dyn FnMut(JsValue)>));
-
-    add_listener(&target, "mouseup", Closure::wrap(Box::new(|_e: JsValue| {
-        INPUT.with(|s| {
-            let mut s = s.borrow_mut();
-            s.mouse_buttons = s.mouse_buttons.saturating_sub(1);
-        });
-    }) as Box<dyn FnMut(JsValue)>));
+    add_listener(
+        &target,
+        "mouseup",
+        Closure::wrap(Box::new(|_e: JsValue| {
+            INPUT.with(|s| {
+                let mut s = s.borrow_mut();
+                s.mouse_buttons = s.mouse_buttons.saturating_sub(1);
+            });
+        }) as Box<dyn FnMut(JsValue)>),
+    );
 
     // gilrs (its wasm backend wraps the Gamepad API) drives gamepad input.
     if let Ok(gilrs) = Gilrs::new() {
@@ -292,24 +349,49 @@ pub struct GamepadDevice {
 impl GamepadDevice {
     pub fn name(&self) -> String {
         GILRS.with(|g| {
-            g.borrow().as_ref().map(|gilrs| gilrs.gamepad(self.id).name().to_owned()).unwrap_or_default()
+            g.borrow()
+                .as_ref()
+                .map(|gilrs| gilrs.gamepad(self.id).name().to_owned())
+                .unwrap_or_default()
         })
     }
     #[wasm_bindgen(js_name = isPressed)]
     pub fn is_pressed(&self, btn: JsValue) -> bool {
-        let b = match button(&btn) { Some(b) => b, None => return false };
-        GILRS.with(|g| g.borrow().as_ref().map(|gilrs| gilrs.gamepad(self.id).is_pressed(b)).unwrap_or(false))
+        let b = match button(&btn) {
+            Some(b) => b,
+            None => return false,
+        };
+        GILRS.with(|g| {
+            g.borrow()
+                .as_ref()
+                .map(|gilrs| gilrs.gamepad(self.id).is_pressed(b))
+                .unwrap_or(false)
+        })
     }
     pub fn value(&self, axis: JsValue) -> f32 {
-        let a = match self::axis(&axis) { Some(a) => a, None => return 0.0 };
-        GILRS.with(|g| g.borrow().as_ref().map(|gilrs| gilrs.gamepad(self.id).value(a)).unwrap_or(0.0))
+        let a = match self::axis(&axis) {
+            Some(a) => a,
+            None => return 0.0,
+        };
+        GILRS.with(|g| {
+            g.borrow()
+                .as_ref()
+                .map(|gilrs| gilrs.gamepad(self.id).value(a))
+                .unwrap_or(0.0)
+        })
     }
     #[wasm_bindgen(js_name = buttonData)]
     pub fn button_data(&self, btn: JsValue) -> JsValue {
-        let b = match button(&btn) { Some(b) => b, None => return JsValue::UNDEFINED };
+        let b = match button(&btn) {
+            Some(b) => b,
+            None => return JsValue::UNDEFINED,
+        };
         GILRS.with(|g| {
             let g = g.borrow();
-            let gilrs = match g.as_ref() { Some(g) => g, None => return JsValue::UNDEFINED };
+            let gilrs = match g.as_ref() {
+                Some(g) => g,
+                None => return JsValue::UNDEFINED,
+            };
             let pad = gilrs.gamepad(self.id);
             match pad.button_code(b).and_then(|c| pad.state().button_data(c)) {
                 Some(d) => {
@@ -326,10 +408,16 @@ impl GamepadDevice {
     }
     #[wasm_bindgen(js_name = axisData)]
     pub fn axis_data(&self, axis: JsValue) -> JsValue {
-        let a = match self::axis(&axis) { Some(a) => a, None => return JsValue::UNDEFINED };
+        let a = match self::axis(&axis) {
+            Some(a) => a,
+            None => return JsValue::UNDEFINED,
+        };
         GILRS.with(|g| {
             let g = g.borrow();
-            let gilrs = match g.as_ref() { Some(g) => g, None => return JsValue::UNDEFINED };
+            let gilrs = match g.as_ref() {
+                Some(g) => g,
+                None => return JsValue::UNDEFINED,
+            };
             let pad = gilrs.gamepad(self.id);
             match pad.axis_code(a).and_then(|c| pad.state().axis_data(c)) {
                 Some(d) => {
@@ -347,23 +435,39 @@ impl GamepadDevice {
 /// WIT `gamepad-button` -> `gilrs::Button` (identical naming).
 fn button(btn: &JsValue) -> Option<Button> {
     Some(match btn.as_string().as_deref()? {
-        "south" => Button::South, "east" => Button::East, "north" => Button::North, "west" => Button::West,
-        "c" => Button::C, "z" => Button::Z,
-        "left-trigger" => Button::LeftTrigger, "left-trigger2" => Button::LeftTrigger2,
-        "right-trigger" => Button::RightTrigger, "right-trigger2" => Button::RightTrigger2,
-        "select" => Button::Select, "start" => Button::Start, "mode" => Button::Mode,
-        "left-thumb" => Button::LeftThumb, "right-thumb" => Button::RightThumb,
-        "dpad-up" => Button::DPadUp, "dpad-down" => Button::DPadDown,
-        "dpad-left" => Button::DPadLeft, "dpad-right" => Button::DPadRight,
+        "south" => Button::South,
+        "east" => Button::East,
+        "north" => Button::North,
+        "west" => Button::West,
+        "c" => Button::C,
+        "z" => Button::Z,
+        "left-trigger" => Button::LeftTrigger,
+        "left-trigger2" => Button::LeftTrigger2,
+        "right-trigger" => Button::RightTrigger,
+        "right-trigger2" => Button::RightTrigger2,
+        "select" => Button::Select,
+        "start" => Button::Start,
+        "mode" => Button::Mode,
+        "left-thumb" => Button::LeftThumb,
+        "right-thumb" => Button::RightThumb,
+        "dpad-up" => Button::DPadUp,
+        "dpad-down" => Button::DPadDown,
+        "dpad-left" => Button::DPadLeft,
+        "dpad-right" => Button::DPadRight,
         _ => return None,
     })
 }
 /// WIT `gamepad-axis` -> `gilrs::Axis` (identical naming).
 fn axis(axis: &JsValue) -> Option<Axis> {
     Some(match axis.as_string().as_deref()? {
-        "left-stick-x" => Axis::LeftStickX, "left-stick-y" => Axis::LeftStickY, "left-z" => Axis::LeftZ,
-        "right-stick-x" => Axis::RightStickX, "right-stick-y" => Axis::RightStickY, "right-z" => Axis::RightZ,
-        "dpad-x" => Axis::DPadX, "dpad-y" => Axis::DPadY,
+        "left-stick-x" => Axis::LeftStickX,
+        "left-stick-y" => Axis::LeftStickY,
+        "left-z" => Axis::LeftZ,
+        "right-stick-x" => Axis::RightStickX,
+        "right-stick-y" => Axis::RightStickY,
+        "right-z" => Axis::RightZ,
+        "dpad-x" => Axis::DPadX,
+        "dpad-y" => Axis::DPadY,
         _ => return None,
     })
 }

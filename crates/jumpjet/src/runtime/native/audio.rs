@@ -1,14 +1,14 @@
 use std::io::Cursor;
 
 use cpal::traits::DeviceTrait;
-use wasmtime::component::Resource;
 use wasmtime::Result;
+use wasmtime::component::Resource;
 use wasmtime_wasi::ResourceTable;
 use web_audio_api::context::{AudioContext, AudioContextOptions, BaseAudioContext};
 use web_audio_api::node::{AudioNode, AudioScheduledSourceNode, IIRFilterNode};
 
-use crate::jumpjet::runtime::audio::*;
 use super::state::JumpjetRuntimeState;
+use crate::jumpjet::runtime::audio::*;
 
 impl Host for JumpjetRuntimeState {
     async fn output(&mut self) -> Option<Resource<AudioDevice>> {
@@ -562,7 +562,9 @@ impl HostAnalyzerNode for JumpjetRuntimeState {
 impl HostBiquadFilterNode for JumpjetRuntimeState {
     async fn new(&mut self, audio_context: Resource<AudioContext>) -> Resource<BiquadFilterNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_biquad_filter()).unwrap()
+        self.table
+            .push(audio_context.create_biquad_filter())
+            .unwrap()
     }
     async fn gain(&mut self, node: Resource<BiquadFilterNode>) -> Resource<AudioParam> {
         let node = self.table.get(&node).unwrap();
@@ -620,9 +622,14 @@ impl HostAudioDestinationNode for JumpjetRuntimeState {
 }
 
 impl HostAudioBufferSourceNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>) -> Resource<AudioBufferSourceNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+    ) -> Resource<AudioBufferSourceNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_buffer_source()).unwrap()
+        self.table
+            .push(audio_context.create_buffer_source())
+            .unwrap()
     }
     async fn start_at_with_offset(
         &mut self,
@@ -736,7 +743,9 @@ impl HostAudioBufferSourceNode for JumpjetRuntimeState {
 impl HostConstantSourceNode for JumpjetRuntimeState {
     async fn new(&mut self, audio_context: Resource<AudioContext>) -> Resource<ConstantSourceNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_constant_source()).unwrap()
+        self.table
+            .push(audio_context.create_constant_source())
+            .unwrap()
     }
     async fn offset(&mut self, node: Resource<ConstantSourceNode>) -> Resource<AudioParam> {
         let node = self.table.get(&node).unwrap();
@@ -801,9 +810,15 @@ impl HostConvolverNode for JumpjetRuntimeState {
 }
 
 impl HostChannelMergerNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>, number_of_inputs: u32) -> Resource<ChannelMergerNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+        number_of_inputs: u32,
+    ) -> Resource<ChannelMergerNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_channel_merger(number_of_inputs as usize)).unwrap()
+        self.table
+            .push(audio_context.create_channel_merger(number_of_inputs as usize))
+            .unwrap()
     }
     async fn connect(
         &mut self,
@@ -820,9 +835,15 @@ impl HostChannelMergerNode for JumpjetRuntimeState {
 }
 
 impl HostChannelSplitterNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>, number_of_outputs: u32) -> Resource<ChannelSplitterNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+        number_of_outputs: u32,
+    ) -> Resource<ChannelSplitterNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_channel_splitter(number_of_outputs as usize)).unwrap()
+        self.table
+            .push(audio_context.create_channel_splitter(number_of_outputs as usize))
+            .unwrap()
     }
     async fn connect(
         &mut self,
@@ -839,9 +860,15 @@ impl HostChannelSplitterNode for JumpjetRuntimeState {
 }
 
 impl HostDelayNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>, max_delay_time: f32) -> Resource<DelayNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+        max_delay_time: f32,
+    ) -> Resource<DelayNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_delay(max_delay_time as f64)).unwrap()
+        self.table
+            .push(audio_context.create_delay(max_delay_time as f64))
+            .unwrap()
     }
     async fn delay_time(&mut self, node: Resource<DelayNode>) -> Resource<AudioParam> {
         let node = self.table.get(&node).unwrap();
@@ -863,9 +890,14 @@ impl HostDelayNode for JumpjetRuntimeState {
 }
 
 impl HostDynamicsCompressorNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>) -> Resource<DynamicsCompressorNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+    ) -> Resource<DynamicsCompressorNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_dynamics_compressor()).unwrap()
+        self.table
+            .push(audio_context.create_dynamics_compressor())
+            .unwrap()
     }
     async fn attack(&mut self, node: Resource<DynamicsCompressorNode>) -> Resource<AudioParam> {
         let node = self.table.get(&node).unwrap();
@@ -936,12 +968,19 @@ impl HostGainNode for JumpjetRuntimeState {
 }
 
 impl HostIirFilterNode for JumpjetRuntimeState {
-    async fn new(&mut self, audio_context: Resource<AudioContext>, feedforward: Vec<f32>, feedback: Vec<f32>) -> Resource<IIRFilterNode> {
+    async fn new(
+        &mut self,
+        audio_context: Resource<AudioContext>,
+        feedforward: Vec<f32>,
+        feedback: Vec<f32>,
+    ) -> Resource<IIRFilterNode> {
         let audio_context = self.table.get(&audio_context).unwrap();
-        self.table.push(audio_context.create_iir_filter(
-            feedforward.iter().map(|&x| x as f64).collect(),
-            feedback.iter().map(|&x| x as f64).collect(),
-        )).unwrap()
+        self.table
+            .push(audio_context.create_iir_filter(
+                feedforward.iter().map(|&x| x as f64).collect(),
+                feedback.iter().map(|&x| x as f64).collect(),
+            ))
+            .unwrap()
     }
     async fn connect(
         &mut self,
@@ -1267,7 +1306,9 @@ fn audio_node_connect(
             crate::jumpjet::runtime::audio::AudioNode::ChannelMerger(d) => table.get(&d).unwrap(),
             crate::jumpjet::runtime::audio::AudioNode::ChannelSplitter(d) => table.get(&d).unwrap(),
             crate::jumpjet::runtime::audio::AudioNode::Delay(d) => table.get(&d).unwrap(),
-            crate::jumpjet::runtime::audio::AudioNode::DynamicsCompressor(d) => table.get(&d).unwrap(),
+            crate::jumpjet::runtime::audio::AudioNode::DynamicsCompressor(d) => {
+                table.get(&d).unwrap()
+            }
             crate::jumpjet::runtime::audio::AudioNode::Gain(d) => table.get(&d).unwrap(),
             crate::jumpjet::runtime::audio::AudioNode::Oscillator(d) => table.get(&d).unwrap(),
             crate::jumpjet::runtime::audio::AudioNode::Panner(d) => table.get(&d).unwrap(),

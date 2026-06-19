@@ -2,11 +2,11 @@ use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use toml::Table;
 use tokio::sync::broadcast;
+use toml::Table;
 
-use crate::commands::{build, serve};
 use crate::Result;
+use crate::commands::{build, serve};
 
 /// Native run: build the project and execute it in the in-process Jumpjet runtime.
 pub async fn run(release: &bool) -> Result<()> {
@@ -40,8 +40,7 @@ pub async fn run(release: &bool) -> Result<()> {
 /// pipeline (componentize + jco transpile) and reload the tab.
 pub async fn run_web(release: &bool, port: u16) -> Result<()> {
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string(current_dir.join("jumpjet.toml"))?
-        .parse::<Table>()?;
+    let config = std::fs::read_to_string(current_dir.join("jumpjet.toml"))?.parse::<Table>()?;
     let output_path = current_dir.join(config["build"]["output"].as_str().unwrap_or("bin"));
     let site_dir = output_path.join("web");
     let guest_dir = site_dir.join("guest");

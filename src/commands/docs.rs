@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::{action::Action, components::Component, mode::Mode, tui, Result};
+use crate::{Result, action::Action, components::Component, mode::Mode, tui};
 use docs::Docs;
 use ratatui::layout::Rect;
 use tokio::sync::mpsc;

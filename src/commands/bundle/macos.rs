@@ -18,7 +18,7 @@ pub fn bundle_project(settings: &Settings) -> crate::Result<()> {
     if app_bundle_path.exists() {
         fs::remove_dir_all(&app_bundle_path)?;
     }
-    
+
     let bundle_directory = app_bundle_path.join("Contents");
     fs::create_dir_all(&bundle_directory)?;
 

@@ -5,9 +5,9 @@
 //! consumer's `jumpjet:runtime/*` and `wasi:*` imports have no plug and are left
 //! unsatisfied — the runtime `Linker` provides them at load time.
 
-use color_eyre::eyre::{eyre, Result};
+use color_eyre::eyre::{Result, eyre};
 use wac_graph::types::Package;
-use wac_graph::{plug, CompositionGraph, EncodeOptions, PlugError};
+use wac_graph::{CompositionGraph, EncodeOptions, PlugError, plug};
 
 use crate::pkg::manifest::PackageId;
 

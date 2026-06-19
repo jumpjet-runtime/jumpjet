@@ -13,8 +13,8 @@ use std::process::{Command, Stdio};
 
 use color_eyre::eyre::eyre;
 
-use crate::settings::Settings;
 use crate::Result;
+use crate::settings::Settings;
 
 pub async fn bundle(settings: &Settings) -> Result<()> {
     let (sdk, ndk) = ensure_sdk()?;
@@ -163,10 +163,6 @@ fn find_apk(project_dir: &Path) -> Result<PathBuf> {
     let mut apks = Vec::new();
     walk(&project_dir.join("target"), &mut apks);
     apks.into_iter()
-        .max_by_key(|p| {
-            std::fs::metadata(p)
-                .and_then(|m| m.modified())
-                .ok()
-        })
+        .max_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok())
         .ok_or_else(|| eyre!("cargo apk produced no .apk under the target directory"))
 }

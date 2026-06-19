@@ -15,8 +15,8 @@
 use std::cell::RefCell;
 
 use js_sys::{Array, Function, Object, Reflect, Uint8Array};
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 
 // ---- pre-resolved GPU context (set by the harness before guest init) ----
 
@@ -35,18 +35,40 @@ thread_local! {
 #[wasm_bindgen(js_name = gpuSetContext)]
 pub fn gpu_set_context(device: JsValue, context: JsValue, surface_view_format: String) {
     GPU_CTX.with(|c| {
-        *c.borrow_mut() = Some(GpuContext { device, context, surface_view_format });
+        *c.borrow_mut() = Some(GpuContext {
+            device,
+            context,
+            surface_view_format,
+        });
     });
 }
 
 fn device_handle() -> JsValue {
-    GPU_CTX.with(|c| c.borrow().as_ref().expect("gpu context not set").device.clone())
+    GPU_CTX.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("gpu context not set")
+            .device
+            .clone()
+    })
 }
 fn context_handle() -> JsValue {
-    GPU_CTX.with(|c| c.borrow().as_ref().expect("gpu context not set").context.clone())
+    GPU_CTX.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("gpu context not set")
+            .context
+            .clone()
+    })
 }
 fn surface_view_format() -> String {
-    GPU_CTX.with(|c| c.borrow().as_ref().expect("gpu context not set").surface_view_format.clone())
+    GPU_CTX.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("gpu context not set")
+            .surface_view_format
+            .clone()
+    })
 }
 
 // ---- js_sys helpers ----
@@ -68,7 +90,8 @@ fn num(v: &JsValue) -> f64 {
     // `Number::new` (`new Number(v)`) coerces a bigint to a number; the suggested
     // `Number::from` throws on bigint, so we keep `new` despite its deprecation.
     #[allow(deprecated)]
-    v.as_f64().unwrap_or_else(|| js_sys::Number::new(v).value_of())
+    v.as_f64()
+        .unwrap_or_else(|| js_sys::Number::new(v).value_of())
 }
 fn call(obj: &JsValue, method: &str, args: &[JsValue]) -> JsValue {
     let f: Function = get(obj, method).unchecked_into();
@@ -126,11 +149,18 @@ fn rev_enum(s: &str) -> String {
 fn format_has_depth(fmt: &str) -> bool {
     matches!(
         fmt,
-        "depth16unorm" | "depth24plus" | "depth24plus-stencil8" | "depth32float" | "depth32float-stencil8"
+        "depth16unorm"
+            | "depth24plus"
+            | "depth24plus-stencil8"
+            | "depth32float"
+            | "depth32float-stencil8"
     )
 }
 fn format_has_stencil(fmt: &str) -> bool {
-    matches!(fmt, "stencil8" | "depth24plus-stencil8" | "depth32float-stencil8")
+    matches!(
+        fmt,
+        "stencil8" | "depth24plus-stencil8" | "depth32float-stencil8"
+    )
 }
 fn view_format(v: &JsValue) -> String {
     call(v, "__fmt", &[]).as_string().unwrap_or_default()
@@ -145,11 +175,23 @@ fn bits(o: &JsValue, fields: &[(&str, u32)]) -> u32 {
     m
 }
 const BUFFER_USAGE: &[(&str, u32)] = &[
-    ("mapRead", 1), ("mapWrite", 2), ("copySrc", 4), ("copyDst", 8), ("index", 16),
-    ("vertex", 32), ("uniform", 64), ("storage", 128), ("indirect", 256), ("queryResolve", 512),
+    ("mapRead", 1),
+    ("mapWrite", 2),
+    ("copySrc", 4),
+    ("copyDst", 8),
+    ("index", 16),
+    ("vertex", 32),
+    ("uniform", 64),
+    ("storage", 128),
+    ("indirect", 256),
+    ("queryResolve", 512),
 ];
 const TEXTURE_USAGE: &[(&str, u32)] = &[
-    ("copySrc", 1), ("copyDst", 2), ("textureBinding", 4), ("storageBinding", 8), ("renderAttachment", 16),
+    ("copySrc", 1),
+    ("copyDst", 2),
+    ("textureBinding", 4),
+    ("storageBinding", 8),
+    ("renderAttachment", 16),
 ];
 fn buffer_usage(o: &JsValue) -> u32 {
     bits(o, BUFFER_USAGE)
@@ -232,7 +274,9 @@ pub struct GpuAdapter {}
 impl GpuAdapter {
     #[wasm_bindgen(js_name = requestDevice)]
     pub fn request_device(&self) -> GpuDevice {
-        GpuDevice { inner: device_handle() }
+        GpuDevice {
+            inner: device_handle(),
+        }
     }
 }
 
@@ -243,7 +287,9 @@ pub struct GpuDevice {
 #[wasm_bindgen]
 impl GpuDevice {
     pub fn queue(&self) -> GpuQueue {
-        GpuQueue { inner: get(&self.inner, "queue") }
+        GpuQueue {
+            inner: get(&self.inner, "queue"),
+        }
     }
 
     #[wasm_bindgen(js_name = createBuffer)]
@@ -271,7 +317,11 @@ impl GpuDevice {
         let size = Object::new();
         set(&size, "width", get(&size_in, "width"));
         set(&size, "height", get(&size_in, "height"));
-        set(&size, "depthOrArrayLayers", get(&size_in, "depthOrArrayLayers"));
+        set(
+            &size,
+            "depthOrArrayLayers",
+            get(&size_in, "depthOrArrayLayers"),
+        );
 
         let desc = Object::new();
         set(&desc, "size", size.into());
@@ -279,7 +329,11 @@ impl GpuDevice {
         set(&desc, "sampleCount", get(&d, "sampleCount"));
         set(&desc, "dimension", dim(&get(&d, "dimension")));
         set(&desc, "format", fmt(&get(&d, "format")));
-        set(&desc, "usage", f64v(texture_usage(&get(&d, "usage")) as f64));
+        set(
+            &desc,
+            "usage",
+            f64v(texture_usage(&get(&d, "usage")) as f64),
+        );
         let view_formats = get(&d, "viewFormats");
         if is_some(&view_formats) {
             let mapped = Array::new();
@@ -288,29 +342,40 @@ impl GpuDevice {
             });
             set(&desc, "viewFormats", mapped.into());
         }
-        GpuTexture { inner: call(&self.inner, "createTexture", &[desc.into()]), is_surface: false }
+        GpuTexture {
+            inner: call(&self.inner, "createTexture", &[desc.into()]),
+            is_surface: false,
+        }
     }
 
     #[wasm_bindgen(js_name = createSampler)]
     pub fn create_sampler(&self, d: JsValue) -> GpuSampler {
-        GpuSampler { inner: call(&self.inner, "createSampler", &[lower(&d)]) }
+        GpuSampler {
+            inner: call(&self.inner, "createSampler", &[lower(&d)]),
+        }
     }
 
     #[wasm_bindgen(js_name = createBindGroupLayout)]
     pub fn create_bind_group_layout(&self, d: JsValue) -> GpuBindGroupLayout {
-        GpuBindGroupLayout { inner: call(&self.inner, "createBindGroupLayout", &[lower(&d)]) }
+        GpuBindGroupLayout {
+            inner: call(&self.inner, "createBindGroupLayout", &[lower(&d)]),
+        }
     }
 
     #[wasm_bindgen(js_name = createPipelineLayout)]
     pub fn create_pipeline_layout(&self, d: JsValue) -> GpuPipelineLayout {
-        GpuPipelineLayout { inner: call(&self.inner, "createPipelineLayout", &[lower(&d)]) }
+        GpuPipelineLayout {
+            inner: call(&self.inner, "createPipelineLayout", &[lower(&d)]),
+        }
     }
 
     #[wasm_bindgen(js_name = createShaderModule)]
     pub fn create_shader_module(&self, d: JsValue) -> GpuShaderModule {
         let desc = Object::new();
         set(&desc, "code", get(&d, "code"));
-        GpuShaderModule { inner: call(&self.inner, "createShaderModule", &[desc.into()]) }
+        GpuShaderModule {
+            inner: call(&self.inner, "createShaderModule", &[desc.into()]),
+        }
     }
 
     #[wasm_bindgen(js_name = createBindGroup)]
@@ -325,7 +390,9 @@ impl GpuDevice {
         let desc = Object::new();
         set(&desc, "layout", handle(&get(&d, "layout")));
         set(&desc, "entries", entries.into());
-        GpuBindGroup { inner: call(&self.inner, "createBindGroup", &[desc.into()]) }
+        GpuBindGroup {
+            inner: call(&self.inner, "createBindGroup", &[desc.into()]),
+        }
     }
 
     #[wasm_bindgen(js_name = createComputePipeline)]
@@ -337,27 +404,41 @@ impl GpuDevice {
         let desc = Object::new();
         set(&desc, "layout", lower_layout(&get(&d, "layout")));
         set(&desc, "compute", compute.into());
-        GpuComputePipeline { inner: call(&self.inner, "createComputePipeline", &[desc.into()]) }
+        GpuComputePipeline {
+            inner: call(&self.inner, "createComputePipeline", &[desc.into()]),
+        }
     }
 
     #[wasm_bindgen(js_name = createRenderPipeline)]
     pub fn create_render_pipeline(&self, d: JsValue) -> GpuRenderPipeline {
-        GpuRenderPipeline { inner: call(&self.inner, "createRenderPipeline", &[render_pipeline_desc(&d)]) }
+        GpuRenderPipeline {
+            inner: call(
+                &self.inner,
+                "createRenderPipeline",
+                &[render_pipeline_desc(&d)],
+            ),
+        }
     }
 
     #[wasm_bindgen(js_name = createCommandEncoder)]
     pub fn create_command_encoder(&self, _d: JsValue) -> GpuCommandEncoder {
-        GpuCommandEncoder { inner: call(&self.inner, "createCommandEncoder", &[Object::new().into()]) }
+        GpuCommandEncoder {
+            inner: call(&self.inner, "createCommandEncoder", &[Object::new().into()]),
+        }
     }
 
     #[wasm_bindgen(js_name = createRenderBundleEncoder)]
     pub fn create_render_bundle_encoder(&self, d: JsValue) -> GpuRenderBundleEncoder {
-        GpuRenderBundleEncoder { inner: call(&self.inner, "createRenderBundleEncoder", &[lower(&d)]) }
+        GpuRenderBundleEncoder {
+            inner: call(&self.inner, "createRenderBundleEncoder", &[lower(&d)]),
+        }
     }
 
     #[wasm_bindgen(js_name = createQuerySet)]
     pub fn create_query_set(&self, d: JsValue) -> GpuQuerySet {
-        GpuQuerySet { inner: call(&self.inner, "createQuerySet", &[lower(&d)]) }
+        GpuQuerySet {
+            inner: call(&self.inner, "createQuerySet", &[lower(&d)]),
+        }
     }
 }
 
@@ -376,24 +457,45 @@ impl GpuQueue {
     }
 
     #[wasm_bindgen(js_name = writeBuffer)]
-    pub fn write_buffer(&self, buffer: &GpuBuffer, buffer_offset: JsValue, data: JsValue, data_offset: JsValue, size: JsValue) {
-        call(&self.inner, "writeBuffer", &[
-            buffer.inner.clone(),
-            f64v(num(&buffer_offset)),
-            data,
-            f64v(num(&data_offset)),
-            f64v(num(&size)),
-        ]);
+    pub fn write_buffer(
+        &self,
+        buffer: &GpuBuffer,
+        buffer_offset: JsValue,
+        data: JsValue,
+        data_offset: JsValue,
+        size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "writeBuffer",
+            &[
+                buffer.inner.clone(),
+                f64v(num(&buffer_offset)),
+                data,
+                f64v(num(&data_offset)),
+                f64v(num(&size)),
+            ],
+        );
     }
 
     #[wasm_bindgen(js_name = writeTexture)]
-    pub fn write_texture(&self, destination: JsValue, data: JsValue, data_layout: JsValue, size: JsValue) {
-        call(&self.inner, "writeTexture", &[
-            lower(&destination),
-            data, // buffer-source: pass the typed array through unchanged
-            lower(&data_layout),
-            lower(&size),
-        ]);
+    pub fn write_texture(
+        &self,
+        destination: JsValue,
+        data: JsValue,
+        data_layout: JsValue,
+        size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "writeTexture",
+            &[
+                lower(&destination),
+                data, // buffer-source: pass the typed array through unchanged
+                lower(&data_layout),
+                lower(&size),
+            ],
+        );
     }
 }
 
@@ -404,23 +506,47 @@ pub struct GpuBuffer {
 #[wasm_bindgen]
 impl GpuBuffer {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
-    pub fn size(&self) -> f64 { num(&get(&self.inner, "size")) }
-    pub fn usage(&self) -> JsValue { unbits(num(&get(&self.inner, "usage")) as u32, BUFFER_USAGE) }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
+    pub fn size(&self) -> f64 {
+        num(&get(&self.inner, "size"))
+    }
+    pub fn usage(&self) -> JsValue {
+        unbits(num(&get(&self.inner, "usage")) as u32, BUFFER_USAGE)
+    }
     #[wasm_bindgen(js_name = mapState)]
-    pub fn map_state(&self) -> JsValue { get(&self.inner, "mapState") }
+    pub fn map_state(&self) -> JsValue {
+        get(&self.inner, "mapState")
+    }
     #[wasm_bindgen(js_name = map)]
     pub fn map(&self, mode: JsValue, offset: JsValue, size: JsValue) {
         // mapAsync is async in the browser; the sync WIT can't await it. Best-effort.
-        call(&self.inner, "mapAsync", &[f64v(map_mode(&mode) as f64), f64v(num(&offset)), f64v(num(&size))]);
+        call(
+            &self.inner,
+            "mapAsync",
+            &[
+                f64v(map_mode(&mode) as f64),
+                f64v(num(&offset)),
+                f64v(num(&size)),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = getMappedRange)]
     pub fn get_mapped_range(&self, offset: JsValue, size: JsValue) -> Vec<u8> {
-        let range = call(&self.inner, "getMappedRange", &[f64v(num(&offset)), f64v(num(&size))]);
+        let range = call(
+            &self.inner,
+            "getMappedRange",
+            &[f64v(num(&offset)), f64v(num(&size))],
+        );
         Uint8Array::new(&range).to_vec()
     }
-    pub fn unmap(&self) { call(&self.inner, "unmap", &[]); }
-    pub fn destroy(&self) { call(&self.inner, "destroy", &[]); }
+    pub fn unmap(&self) {
+        call(&self.inner, "unmap", &[]);
+    }
+    pub fn destroy(&self) {
+        call(&self.inner, "destroy", &[]);
+    }
 }
 
 #[wasm_bindgen]
@@ -430,17 +556,37 @@ pub struct GpuTexture {
 }
 #[wasm_bindgen]
 impl GpuTexture {
-    pub fn width(&self) -> u32 { num(&get(&self.inner, "width")) as u32 }
-    pub fn height(&self) -> u32 { num(&get(&self.inner, "height")) as u32 }
+    pub fn width(&self) -> u32 {
+        num(&get(&self.inner, "width")) as u32
+    }
+    pub fn height(&self) -> u32 {
+        num(&get(&self.inner, "height")) as u32
+    }
     #[wasm_bindgen(js_name = depthOrArrayLayers)]
-    pub fn depth_or_array_layers(&self) -> u32 { num(&get(&self.inner, "depthOrArrayLayers")) as u32 }
+    pub fn depth_or_array_layers(&self) -> u32 {
+        num(&get(&self.inner, "depthOrArrayLayers")) as u32
+    }
     #[wasm_bindgen(js_name = mipLevelCount)]
-    pub fn mip_level_count(&self) -> u32 { num(&get(&self.inner, "mipLevelCount")) as u32 }
+    pub fn mip_level_count(&self) -> u32 {
+        num(&get(&self.inner, "mipLevelCount")) as u32
+    }
     #[wasm_bindgen(js_name = sampleCount)]
-    pub fn sample_count(&self) -> u32 { num(&get(&self.inner, "sampleCount")) as u32 }
-    pub fn dimension(&self) -> String { rev_enum(&get(&self.inner, "dimension").as_string().unwrap_or_default()) }
-    pub fn format(&self) -> String { rev_enum(&get(&self.inner, "format").as_string().unwrap_or_default()) }
-    pub fn usage(&self) -> JsValue { unbits(num(&get(&self.inner, "usage")) as u32, TEXTURE_USAGE) }
+    pub fn sample_count(&self) -> u32 {
+        num(&get(&self.inner, "sampleCount")) as u32
+    }
+    pub fn dimension(&self) -> String {
+        rev_enum(
+            &get(&self.inner, "dimension")
+                .as_string()
+                .unwrap_or_default(),
+        )
+    }
+    pub fn format(&self) -> String {
+        rev_enum(&get(&self.inner, "format").as_string().unwrap_or_default())
+    }
+    pub fn usage(&self) -> JsValue {
+        unbits(num(&get(&self.inner, "usage")) as u32, TEXTURE_USAGE)
+    }
     #[wasm_bindgen(js_name = createView)]
     pub fn create_view(&self) -> GpuTextureView {
         let (view, format) = if self.is_surface {
@@ -452,9 +598,14 @@ impl GpuTexture {
             let format = get(&self.inner, "format").as_string().unwrap_or_default();
             (call(&self.inner, "createView", &[]), format)
         };
-        GpuTextureView { inner: view, format }
+        GpuTextureView {
+            inner: view,
+            format,
+        }
     }
-    pub fn destroy(&self) { call(&self.inner, "destroy", &[]); }
+    pub fn destroy(&self) {
+        call(&self.inner, "destroy", &[]);
+    }
 }
 
 macro_rules! handle_class {
@@ -481,9 +632,13 @@ pub struct GpuTextureView {
 #[wasm_bindgen]
 impl GpuTextureView {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
     #[wasm_bindgen(js_name = __fmt)]
-    pub fn fmt(&self) -> String { self.format.clone() }
+    pub fn fmt(&self) -> String {
+        self.format.clone()
+    }
 }
 
 handle_class!(GpuBindGroupLayout);
@@ -500,7 +655,9 @@ pub struct GpuShaderModule {
 #[wasm_bindgen]
 impl GpuShaderModule {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
     #[wasm_bindgen(js_name = getCompilationInfo)]
     pub fn get_compilation_info(&self) -> JsValue {
         let info = Object::new();
@@ -516,10 +673,14 @@ pub struct GpuComputePipeline {
 #[wasm_bindgen]
 impl GpuComputePipeline {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
     #[wasm_bindgen(js_name = getBindGroupLayout)]
     pub fn get_bind_group_layout(&self, index: u32) -> GpuBindGroupLayout {
-        GpuBindGroupLayout { inner: call(&self.inner, "getBindGroupLayout", &[f64v(index as f64)]) }
+        GpuBindGroupLayout {
+            inner: call(&self.inner, "getBindGroupLayout", &[f64v(index as f64)]),
+        }
     }
 }
 
@@ -530,10 +691,14 @@ pub struct GpuRenderPipeline {
 #[wasm_bindgen]
 impl GpuRenderPipeline {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
     #[wasm_bindgen(js_name = getBindGroupLayout)]
     pub fn get_bind_group_layout(&self, index: u32) -> GpuBindGroupLayout {
-        GpuBindGroupLayout { inner: call(&self.inner, "getBindGroupLayout", &[f64v(index as f64)]) }
+        GpuBindGroupLayout {
+            inner: call(&self.inner, "getBindGroupLayout", &[f64v(index as f64)]),
+        }
     }
 }
 
@@ -544,11 +709,19 @@ pub struct GpuQuerySet {
 #[wasm_bindgen]
 impl GpuQuerySet {
     #[wasm_bindgen(js_name = __h)]
-    pub fn h(&self) -> JsValue { self.inner.clone() }
+    pub fn h(&self) -> JsValue {
+        self.inner.clone()
+    }
     #[wasm_bindgen(js_name = type)]
-    pub fn type_(&self) -> JsValue { get(&self.inner, "type") }
-    pub fn count(&self) -> u32 { num(&get(&self.inner, "count")) as u32 }
-    pub fn destroy(&self) { call(&self.inner, "destroy", &[]); }
+    pub fn type_(&self) -> JsValue {
+        get(&self.inner, "type")
+    }
+    pub fn count(&self) -> u32 {
+        num(&get(&self.inner, "count")) as u32
+    }
+    pub fn destroy(&self) {
+        call(&self.inner, "destroy", &[]);
+    }
 }
 
 #[wasm_bindgen]
@@ -559,51 +732,128 @@ pub struct GpuCommandEncoder {
 impl GpuCommandEncoder {
     #[wasm_bindgen(js_name = beginRenderPass)]
     pub fn begin_render_pass(&self, d: JsValue) -> GpuRenderPassEncoder {
-        GpuRenderPassEncoder { inner: call(&self.inner, "beginRenderPass", &[render_pass_desc(&d)]) }
+        GpuRenderPassEncoder {
+            inner: call(&self.inner, "beginRenderPass", &[render_pass_desc(&d)]),
+        }
     }
     #[wasm_bindgen(js_name = beginComputePass)]
     pub fn begin_compute_pass(&self, d: JsValue) -> GpuComputePassEncoder {
-        let desc = if is_some(&d) { lower(&d) } else { Object::new().into() };
-        GpuComputePassEncoder { inner: call(&self.inner, "beginComputePass", &[desc]) }
+        let desc = if is_some(&d) {
+            lower(&d)
+        } else {
+            Object::new().into()
+        };
+        GpuComputePassEncoder {
+            inner: call(&self.inner, "beginComputePass", &[desc]),
+        }
     }
     #[wasm_bindgen(js_name = copyBufferToBuffer)]
-    pub fn copy_buffer_to_buffer(&self, source: &GpuBuffer, source_offset: JsValue, destination: &GpuBuffer, destination_offset: JsValue, size: JsValue) {
-        call(&self.inner, "copyBufferToBuffer", &[
-            source.inner.clone(), f64v(num(&source_offset)),
-            destination.inner.clone(), f64v(num(&destination_offset)), f64v(num(&size)),
-        ]);
+    pub fn copy_buffer_to_buffer(
+        &self,
+        source: &GpuBuffer,
+        source_offset: JsValue,
+        destination: &GpuBuffer,
+        destination_offset: JsValue,
+        size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "copyBufferToBuffer",
+            &[
+                source.inner.clone(),
+                f64v(num(&source_offset)),
+                destination.inner.clone(),
+                f64v(num(&destination_offset)),
+                f64v(num(&size)),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = copyBufferToTexture)]
-    pub fn copy_buffer_to_texture(&self, source: JsValue, destination: JsValue, copy_size: JsValue) {
-        call(&self.inner, "copyBufferToTexture", &[lower(&source), lower(&destination), lower(&copy_size)]);
+    pub fn copy_buffer_to_texture(
+        &self,
+        source: JsValue,
+        destination: JsValue,
+        copy_size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "copyBufferToTexture",
+            &[lower(&source), lower(&destination), lower(&copy_size)],
+        );
     }
     #[wasm_bindgen(js_name = copyTextureToBuffer)]
-    pub fn copy_texture_to_buffer(&self, source: JsValue, destination: JsValue, copy_size: JsValue) {
-        call(&self.inner, "copyTextureToBuffer", &[lower(&source), lower(&destination), lower(&copy_size)]);
+    pub fn copy_texture_to_buffer(
+        &self,
+        source: JsValue,
+        destination: JsValue,
+        copy_size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "copyTextureToBuffer",
+            &[lower(&source), lower(&destination), lower(&copy_size)],
+        );
     }
     #[wasm_bindgen(js_name = copyTextureToTexture)]
-    pub fn copy_texture_to_texture(&self, source: JsValue, destination: JsValue, copy_size: JsValue) {
-        call(&self.inner, "copyTextureToTexture", &[lower(&source), lower(&destination), lower(&copy_size)]);
+    pub fn copy_texture_to_texture(
+        &self,
+        source: JsValue,
+        destination: JsValue,
+        copy_size: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "copyTextureToTexture",
+            &[lower(&source), lower(&destination), lower(&copy_size)],
+        );
     }
     #[wasm_bindgen(js_name = clearBuffer)]
     pub fn clear_buffer(&self, buffer: &GpuBuffer, offset: JsValue, size: JsValue) {
-        let off = if is_some(&offset) { f64v(num(&offset)) } else { JsValue::UNDEFINED };
-        let sz = if is_some(&size) { f64v(num(&size)) } else { JsValue::UNDEFINED };
+        let off = if is_some(&offset) {
+            f64v(num(&offset))
+        } else {
+            JsValue::UNDEFINED
+        };
+        let sz = if is_some(&size) {
+            f64v(num(&size))
+        } else {
+            JsValue::UNDEFINED
+        };
         call(&self.inner, "clearBuffer", &[buffer.inner.clone(), off, sz]);
     }
     #[wasm_bindgen(js_name = writeTimestamp)]
     pub fn write_timestamp(&self, query_set: &GpuQuerySet, query_index: u32) {
-        call(&self.inner, "writeTimestamp", &[query_set.inner.clone(), f64v(query_index as f64)]);
+        call(
+            &self.inner,
+            "writeTimestamp",
+            &[query_set.inner.clone(), f64v(query_index as f64)],
+        );
     }
     #[wasm_bindgen(js_name = resolveQuerySet)]
-    pub fn resolve_query_set(&self, query_set: &GpuQuerySet, first_query: u32, query_count: u32, destination: &GpuBuffer, destination_offset: JsValue) {
-        call(&self.inner, "resolveQuerySet", &[
-            query_set.inner.clone(), f64v(first_query as f64), f64v(query_count as f64),
-            destination.inner.clone(), f64v(num(&destination_offset)),
-        ]);
+    pub fn resolve_query_set(
+        &self,
+        query_set: &GpuQuerySet,
+        first_query: u32,
+        query_count: u32,
+        destination: &GpuBuffer,
+        destination_offset: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "resolveQuerySet",
+            &[
+                query_set.inner.clone(),
+                f64v(first_query as f64),
+                f64v(query_count as f64),
+                destination.inner.clone(),
+                f64v(num(&destination_offset)),
+            ],
+        );
     }
     pub fn finish(&self) -> GpuCommandBuffer {
-        GpuCommandBuffer { inner: call(&self.inner, "finish", &[]) }
+        GpuCommandBuffer {
+            inner: call(&self.inner, "finish", &[]),
+        }
     }
 }
 
@@ -619,25 +869,61 @@ impl GpuComputePassEncoder {
     }
     #[wasm_bindgen(js_name = dispatchWorkgroups)]
     pub fn dispatch_workgroups(&self, x: u32, y: JsValue, z: JsValue) {
-        let yv = if is_some(&y) { f64v(num(&y)) } else { f64v(1.0) };
-        let zv = if is_some(&z) { f64v(num(&z)) } else { f64v(1.0) };
+        let yv = if is_some(&y) {
+            f64v(num(&y))
+        } else {
+            f64v(1.0)
+        };
+        let zv = if is_some(&z) {
+            f64v(num(&z))
+        } else {
+            f64v(1.0)
+        };
         call(&self.inner, "dispatchWorkgroups", &[f64v(x as f64), yv, zv]);
     }
     #[wasm_bindgen(js_name = dispatchWorkgroupsIndirect)]
-    pub fn dispatch_workgroups_indirect(&self, indirect_buffer: &GpuBuffer, indirect_offset: JsValue) {
-        call(&self.inner, "dispatchWorkgroupsIndirect", &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))]);
+    pub fn dispatch_workgroups_indirect(
+        &self,
+        indirect_buffer: &GpuBuffer,
+        indirect_offset: JsValue,
+    ) {
+        call(
+            &self.inner,
+            "dispatchWorkgroupsIndirect",
+            &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))],
+        );
     }
-    pub fn end(&self) { call(&self.inner, "end", &[]); }
+    pub fn end(&self) {
+        call(&self.inner, "end", &[]);
+    }
     #[wasm_bindgen(js_name = setBindGroup)]
     pub fn set_bind_group(&self, index: u32, bind_group: JsValue, dynamic_offsets: JsValue) {
-        call(&self.inner, "setBindGroup", &[f64v(index as f64), opt_handle(&bind_group), offsets(&dynamic_offsets)]);
+        call(
+            &self.inner,
+            "setBindGroup",
+            &[
+                f64v(index as f64),
+                opt_handle(&bind_group),
+                offsets(&dynamic_offsets),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = pushDebugGroup)]
-    pub fn push_debug_group(&self, label: String) { call(&self.inner, "pushDebugGroup", &[JsValue::from_str(&label)]); }
+    pub fn push_debug_group(&self, label: String) {
+        call(&self.inner, "pushDebugGroup", &[JsValue::from_str(&label)]);
+    }
     #[wasm_bindgen(js_name = popDebugGroup)]
-    pub fn pop_debug_group(&self) { call(&self.inner, "popDebugGroup", &[]); }
+    pub fn pop_debug_group(&self) {
+        call(&self.inner, "popDebugGroup", &[]);
+    }
     #[wasm_bindgen(js_name = insertDebugMarker)]
-    pub fn insert_debug_marker(&self, label: String) { call(&self.inner, "insertDebugMarker", &[JsValue::from_str(&label)]); }
+    pub fn insert_debug_marker(&self, label: String) {
+        call(
+            &self.inner,
+            "insertDebugMarker",
+            &[JsValue::from_str(&label)],
+        );
+    }
 }
 
 #[wasm_bindgen]
@@ -651,37 +937,132 @@ impl GpuRenderPassEncoder {
         call(&self.inner, "setPipeline", &[pipeline.inner.clone()]);
     }
     #[wasm_bindgen(js_name = setIndexBuffer)]
-    pub fn set_index_buffer(&self, buffer: &GpuBuffer, index_format: JsValue, offset: JsValue, size: JsValue) {
-        let sz = if is_some(&size) { f64v(num(&size)) } else { JsValue::UNDEFINED };
-        call(&self.inner, "setIndexBuffer", &[buffer.inner.clone(), index_format, f64v(num(&offset)), sz]);
+    pub fn set_index_buffer(
+        &self,
+        buffer: &GpuBuffer,
+        index_format: JsValue,
+        offset: JsValue,
+        size: JsValue,
+    ) {
+        let sz = if is_some(&size) {
+            f64v(num(&size))
+        } else {
+            JsValue::UNDEFINED
+        };
+        call(
+            &self.inner,
+            "setIndexBuffer",
+            &[buffer.inner.clone(), index_format, f64v(num(&offset)), sz],
+        );
     }
     #[wasm_bindgen(js_name = setVertexBuffer)]
     pub fn set_vertex_buffer(&self, slot: u32, buffer: &GpuBuffer, offset: JsValue, size: JsValue) {
-        let sz = if is_some(&size) { f64v(num(&size)) } else { JsValue::UNDEFINED };
-        call(&self.inner, "setVertexBuffer", &[f64v(slot as f64), buffer.inner.clone(), f64v(num(&offset)), sz]);
+        let sz = if is_some(&size) {
+            f64v(num(&size))
+        } else {
+            JsValue::UNDEFINED
+        };
+        call(
+            &self.inner,
+            "setVertexBuffer",
+            &[
+                f64v(slot as f64),
+                buffer.inner.clone(),
+                f64v(num(&offset)),
+                sz,
+            ],
+        );
     }
-    pub fn draw(&self, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32) {
-        call(&self.inner, "draw", &[f64v(vertex_count as f64), f64v(instance_count as f64), f64v(first_vertex as f64), f64v(first_instance as f64)]);
+    pub fn draw(
+        &self,
+        vertex_count: u32,
+        instance_count: u32,
+        first_vertex: u32,
+        first_instance: u32,
+    ) {
+        call(
+            &self.inner,
+            "draw",
+            &[
+                f64v(vertex_count as f64),
+                f64v(instance_count as f64),
+                f64v(first_vertex as f64),
+                f64v(first_instance as f64),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = drawIndexed)]
-    pub fn draw_indexed(&self, index_count: u32, instance_count: u32, first_index: u32, base_vertex: i32, first_instance: u32) {
-        call(&self.inner, "drawIndexed", &[f64v(index_count as f64), f64v(instance_count as f64), f64v(first_index as f64), f64v(base_vertex as f64), f64v(first_instance as f64)]);
+    pub fn draw_indexed(
+        &self,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        base_vertex: i32,
+        first_instance: u32,
+    ) {
+        call(
+            &self.inner,
+            "drawIndexed",
+            &[
+                f64v(index_count as f64),
+                f64v(instance_count as f64),
+                f64v(first_index as f64),
+                f64v(base_vertex as f64),
+                f64v(first_instance as f64),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = drawIndirect)]
     pub fn draw_indirect(&self, indirect_buffer: &GpuBuffer, indirect_offset: JsValue) {
-        call(&self.inner, "drawIndirect", &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))]);
+        call(
+            &self.inner,
+            "drawIndirect",
+            &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))],
+        );
     }
     #[wasm_bindgen(js_name = drawIndexedIndirect)]
     pub fn draw_indexed_indirect(&self, indirect_buffer: &GpuBuffer, indirect_offset: JsValue) {
-        call(&self.inner, "drawIndexedIndirect", &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))]);
+        call(
+            &self.inner,
+            "drawIndexedIndirect",
+            &[indirect_buffer.inner.clone(), f64v(num(&indirect_offset))],
+        );
     }
     #[wasm_bindgen(js_name = setViewport)]
-    pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) {
-        call(&self.inner, "setViewport", &[f64v(x as f64), f64v(y as f64), f64v(width as f64), f64v(height as f64), f64v(min_depth as f64), f64v(max_depth as f64)]);
+    pub fn set_viewport(
+        &self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) {
+        call(
+            &self.inner,
+            "setViewport",
+            &[
+                f64v(x as f64),
+                f64v(y as f64),
+                f64v(width as f64),
+                f64v(height as f64),
+                f64v(min_depth as f64),
+                f64v(max_depth as f64),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = setScissorRect)]
     pub fn set_scissor_rect(&self, x: u32, y: u32, width: u32, height: u32) {
-        call(&self.inner, "setScissorRect", &[f64v(x as f64), f64v(y as f64), f64v(width as f64), f64v(height as f64)]);
+        call(
+            &self.inner,
+            "setScissorRect",
+            &[
+                f64v(x as f64),
+                f64v(y as f64),
+                f64v(width as f64),
+                f64v(height as f64),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = setBlendConstant)]
     pub fn set_blend_constant(&self, color: JsValue) {
@@ -689,14 +1070,24 @@ impl GpuRenderPassEncoder {
     }
     #[wasm_bindgen(js_name = setStencilReference)]
     pub fn set_stencil_reference(&self, reference: u32) {
-        call(&self.inner, "setStencilReference", &[f64v(reference as f64)]);
+        call(
+            &self.inner,
+            "setStencilReference",
+            &[f64v(reference as f64)],
+        );
     }
     #[wasm_bindgen(js_name = beginOcclusionQuery)]
     pub fn begin_occlusion_query(&self, query_index: u32) {
-        call(&self.inner, "beginOcclusionQuery", &[f64v(query_index as f64)]);
+        call(
+            &self.inner,
+            "beginOcclusionQuery",
+            &[f64v(query_index as f64)],
+        );
     }
     #[wasm_bindgen(js_name = endOcclusionQuery)]
-    pub fn end_occlusion_query(&self) { call(&self.inner, "endOcclusionQuery", &[]); }
+    pub fn end_occlusion_query(&self) {
+        call(&self.inner, "endOcclusionQuery", &[]);
+    }
     #[wasm_bindgen(js_name = executeBundles)]
     pub fn execute_bundles(&self, bundles: JsValue) {
         let mapped = Array::new();
@@ -705,17 +1096,37 @@ impl GpuRenderPassEncoder {
         });
         call(&self.inner, "executeBundles", &[mapped.into()]);
     }
-    pub fn end(&self) { call(&self.inner, "end", &[]); }
+    pub fn end(&self) {
+        call(&self.inner, "end", &[]);
+    }
     #[wasm_bindgen(js_name = setBindGroup)]
     pub fn set_bind_group(&self, index: u32, bind_group: JsValue, dynamic_offsets: JsValue) {
-        call(&self.inner, "setBindGroup", &[f64v(index as f64), opt_handle(&bind_group), offsets(&dynamic_offsets)]);
+        call(
+            &self.inner,
+            "setBindGroup",
+            &[
+                f64v(index as f64),
+                opt_handle(&bind_group),
+                offsets(&dynamic_offsets),
+            ],
+        );
     }
     #[wasm_bindgen(js_name = pushDebugGroup)]
-    pub fn push_debug_group(&self, label: String) { call(&self.inner, "pushDebugGroup", &[JsValue::from_str(&label)]); }
+    pub fn push_debug_group(&self, label: String) {
+        call(&self.inner, "pushDebugGroup", &[JsValue::from_str(&label)]);
+    }
     #[wasm_bindgen(js_name = popDebugGroup)]
-    pub fn pop_debug_group(&self) { call(&self.inner, "popDebugGroup", &[]); }
+    pub fn pop_debug_group(&self) {
+        call(&self.inner, "popDebugGroup", &[]);
+    }
     #[wasm_bindgen(js_name = insertDebugMarker)]
-    pub fn insert_debug_marker(&self, label: String) { call(&self.inner, "insertDebugMarker", &[JsValue::from_str(&label)]); }
+    pub fn insert_debug_marker(&self, label: String) {
+        call(
+            &self.inner,
+            "insertDebugMarker",
+            &[JsValue::from_str(&label)],
+        );
+    }
 }
 
 #[wasm_bindgen]
@@ -725,7 +1136,9 @@ pub struct GpuRenderBundleEncoder {
 #[wasm_bindgen]
 impl GpuRenderBundleEncoder {
     pub fn finish(&self, d: JsValue) -> GpuRenderBundle {
-        GpuRenderBundle { inner: call(&self.inner, "finish", &[lower(&d)]) }
+        GpuRenderBundle {
+            inner: call(&self.inner, "finish", &[lower(&d)]),
+        }
     }
 }
 
@@ -735,7 +1148,10 @@ pub struct GpuSurface {}
 impl GpuSurface {
     #[wasm_bindgen(js_name = currentTexture)]
     pub fn current_texture(&self) -> GpuTexture {
-        GpuTexture { inner: call(&context_handle(), "getCurrentTexture", &[]), is_surface: true }
+        GpuTexture {
+            inner: call(&context_handle(), "getCurrentTexture", &[]),
+            is_surface: true,
+        }
     }
     #[wasm_bindgen(js_name = getTextureFormat)]
     pub fn get_texture_format(&self) -> String {
@@ -758,11 +1174,7 @@ pub fn surface() -> GpuSurface {
 
 /// `option<borrow<resource>>` -> handle or null.
 fn opt_handle(v: &JsValue) -> JsValue {
-    if is_some(v) {
-        handle(v)
-    } else {
-        JsValue::NULL
-    }
+    if is_some(v) { handle(v) } else { JsValue::NULL }
 }
 /// `option<list<u32>>` dynamic offsets -> array (empty if none).
 fn offsets(v: &JsValue) -> JsValue {
@@ -924,7 +1336,11 @@ fn render_pass_desc(d: &JsValue) -> JsValue {
         }
 
         let stencil_read_only = get(&din, "stencilReadOnly").as_bool().unwrap_or(false);
-        set(&ds, "stencilReadOnly", JsValue::from_bool(stencil_read_only));
+        set(
+            &ds,
+            "stencilReadOnly",
+            JsValue::from_bool(stencil_read_only),
+        );
         if format_has_stencil(&format) && !stencil_read_only {
             set(&ds, "stencilClearValue", get(&din, "stencilClearValue"));
             set(&ds, "stencilLoadOp", get(&din, "stencilLoadOp"));

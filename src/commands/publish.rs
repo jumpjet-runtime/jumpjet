@@ -1,9 +1,9 @@
 use color_eyre::eyre::eyre;
 use wasm_pkg_client::{Client, PackageRef, PublishOpts};
 
+use crate::Result;
 use crate::pkg::manifest::Manifest;
 use crate::pkg::source::registry_config;
-use crate::Result;
 
 /// Builds this package and publishes its component to the Jumpjet registry
 /// (`packages.jumpjet.dev`) using the `wasm-pkg-client` library.
@@ -24,7 +24,11 @@ pub async fn publish() -> Result<()> {
     // Build to make sure the published component is current.
     crate::commands::build::build(&false).await?;
 
-    let output = manifest.build.output.clone().unwrap_or_else(|| "bin".into());
+    let output = manifest
+        .build
+        .output
+        .clone()
+        .unwrap_or_else(|| "bin".into());
     let entrypoint = manifest
         .build
         .entrypoint

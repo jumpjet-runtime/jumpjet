@@ -1,8 +1,8 @@
 use std::{fmt, string::ToString};
 
 use serde::{
-    de::{self, Deserializer, Visitor},
     Deserialize, Serialize,
+    de::{self, Deserializer, Visitor},
 };
 use strum::Display;
 

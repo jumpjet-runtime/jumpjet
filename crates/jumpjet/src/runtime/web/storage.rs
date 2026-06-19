@@ -7,8 +7,8 @@
 //! is UTF-16, so bytes 0-255 round-trip), tagged `f:` (file) or `d:` (directory).
 
 use js_sys::Array;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 
 fn ls() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok().flatten()
@@ -26,8 +26,13 @@ fn decode_bytes(value: &str) -> Option<Vec<u8>> {
 
 /// Normalize a path: leading slash, no trailing slash, no empty segments.
 fn normalize(path: &str) -> String {
-    let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty() && *p != ".").collect();
-    format!("/{}", parts.join("/")).trim_end_matches('/').to_owned()
+    let parts: Vec<&str> = path
+        .split('/')
+        .filter(|p| !p.is_empty() && *p != ".")
+        .collect();
+    format!("/{}", parts.join("/"))
+        .trim_end_matches('/')
+        .to_owned()
 }
 
 #[wasm_bindgen]
@@ -69,7 +74,11 @@ impl StorageDevice {
         let dir = path_str(&path);
         let out = Array::new();
         if let Some(store) = ls() {
-            let needle = if dir == "/" { format!("{}/", self.prefix) } else { format!("{}{}/", self.prefix, dir) };
+            let needle = if dir == "/" {
+                format!("{}/", self.prefix)
+            } else {
+                format!("{}{}/", self.prefix, dir)
+            };
             let mut seen = std::collections::HashSet::new();
             let len = store.length().unwrap_or(0);
             for i in 0..len {
@@ -78,8 +87,15 @@ impl StorageDevice {
                         // immediate child only
                         let child = rest.split('/').next().unwrap_or("");
                         if !child.is_empty() && seen.insert(child.to_owned()) {
-                            let full = if dir == "/" { format!("/{}", child) } else { format!("{}/{}", dir, child) };
-                            out.push(&JsValue::from(Path { prefix: self.prefix.clone(), path: full }));
+                            let full = if dir == "/" {
+                                format!("/{}", child)
+                            } else {
+                                format!("{}/{}", dir, child)
+                            };
+                            out.push(&JsValue::from(Path {
+                                prefix: self.prefix.clone(),
+                                path: full,
+                            }));
                         }
                     }
                 }
@@ -95,7 +111,11 @@ impl StorageDevice {
 
     pub fn read(&self, path: JsValue) -> Option<Vec<u8>> {
         let p = path_str(&path);
-        ls()?.get_item(&self.key(&p)).ok().flatten().and_then(|v| decode_bytes(&v))
+        ls()?
+            .get_item(&self.key(&p))
+            .ok()
+            .flatten()
+            .and_then(|v| decode_bytes(&v))
     }
 
     #[wasm_bindgen(js_name = readString)]
@@ -107,7 +127,11 @@ impl StorageDevice {
         let p = path_str(&path);
         let bytes = match get_str(&content, "tag").as_deref() {
             Some("string") => get_str(&content, "val").unwrap_or_default().into_bytes(),
-            Some("bytes") => js_sys::Uint8Array::new(&js_sys::Reflect::get(&content, &JsValue::from_str("val")).unwrap_or(JsValue::UNDEFINED)).to_vec(),
+            Some("bytes") => js_sys::Uint8Array::new(
+                &js_sys::Reflect::get(&content, &JsValue::from_str("val"))
+                    .unwrap_or(JsValue::UNDEFINED),
+            )
+            .to_vec(),
             _ => return,
         };
         self.ensure_parents(&p);
@@ -129,7 +153,12 @@ impl StorageDevice {
                 // directory (explicit marker or implied by children)
                 let needle = format!("{}/", key);
                 let has_children = (0..store.length().unwrap_or(0)).any(|i| {
-                    store.key(i).ok().flatten().map(|k| k.starts_with(&needle)).unwrap_or(false)
+                    store
+                        .key(i)
+                        .ok()
+                        .flatten()
+                        .map(|k| k.starts_with(&needle))
+                        .unwrap_or(false)
                 });
                 if has_children {
                     Some(false)
@@ -153,14 +182,18 @@ fn path_exists(prefix: &str, path: &str) -> bool {
         // a directory may be implied by child keys
         let needle = format!("{}/", key);
         return (0..store.length().unwrap_or(0)).any(|i| {
-            store.key(i).ok().flatten().map(|k| k.starts_with(&needle)).unwrap_or(false)
+            store
+                .key(i)
+                .ok()
+                .flatten()
+                .map(|k| k.starts_with(&needle))
+                .unwrap_or(false)
         });
     }
     false
 }
 fn is_file(prefix: &str, path: &str) -> bool {
-    ls()
-        .and_then(|s| s.get_item(&format!("{}{}", prefix, path)).ok().flatten())
+    ls().and_then(|s| s.get_item(&format!("{}{}", prefix, path)).ok().flatten())
         .map(|v| v.starts_with("f:"))
         .unwrap_or(false)
 }
@@ -174,7 +207,10 @@ pub struct Path {
 impl Path {
     #[wasm_bindgen(constructor)]
     pub fn new(storage: &StorageDevice, path: String) -> Path {
-        Path { prefix: storage.prefix.clone(), path: normalize(&path) }
+        Path {
+            prefix: storage.prefix.clone(),
+            path: normalize(&path),
+        }
     }
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
@@ -197,23 +233,35 @@ impl Path {
         name.rsplit_once('.').map(|(_, ext)| ext.to_owned())
     }
     pub fn filename(&self) -> Option<String> {
-        self.path.rsplit('/').next().filter(|s| !s.is_empty()).map(|s| s.to_owned())
+        self.path
+            .rsplit('/')
+            .next()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned())
     }
     pub fn join(&self, path: String) -> Path {
         let joined = format!("{}/{}", self.path.trim_end_matches('/'), path);
-        Path { prefix: self.prefix.clone(), path: normalize(&joined) }
+        Path {
+            prefix: self.prefix.clone(),
+            path: normalize(&joined),
+        }
     }
     pub fn parent(&self) -> Path {
         let parent = match self.path.rsplit_once('/') {
             Some((p, _)) if !p.is_empty() => p.to_owned(),
             _ => "/".to_owned(),
         };
-        Path { prefix: self.prefix.clone(), path: parent }
+        Path {
+            prefix: self.prefix.clone(),
+            path: parent,
+        }
     }
 }
 
 fn get_str(o: &JsValue, k: &str) -> Option<String> {
-    js_sys::Reflect::get(o, &JsValue::from_str(k)).ok().and_then(|v| v.as_string())
+    js_sys::Reflect::get(o, &JsValue::from_str(k))
+        .ok()
+        .and_then(|v| v.as_string())
 }
 /// Extract the path string from a `path` resource arg via its `toString` method.
 fn path_str(p: &JsValue) -> String {
@@ -221,7 +269,11 @@ fn path_str(p: &JsValue) -> String {
         .ok()
         .and_then(|f| f.dyn_into::<js_sys::Function>().ok());
     match f {
-        Some(f) => f.call0(p).ok().and_then(|v| v.as_string()).unwrap_or_default(),
+        Some(f) => f
+            .call0(p)
+            .ok()
+            .and_then(|v| v.as_string())
+            .unwrap_or_default(),
         None => String::new(),
     }
 }
@@ -230,7 +282,9 @@ fn path_str(p: &JsValue) -> String {
 
 #[wasm_bindgen(js_name = storageLocal)]
 pub fn local() -> StorageDevice {
-    StorageDevice { prefix: "jumpjet:local:".to_owned() }
+    StorageDevice {
+        prefix: "jumpjet:local:".to_owned(),
+    }
 }
 #[wasm_bindgen(js_name = storageCloud)]
 pub fn cloud() -> Option<StorageDevice> {

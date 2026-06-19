@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_time::Instant;
 use winit::dpi::PhysicalSize;
@@ -38,8 +38,12 @@ pub fn run() {
 /// the frame loop.
 async fn bootstrap() -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("no global window"))?;
-    let document = window.document().ok_or_else(|| JsValue::from_str("no document"))?;
-    let body = document.body().ok_or_else(|| JsValue::from_str("no document body"))?;
+    let document = window
+        .document()
+        .ok_or_else(|| JsValue::from_str("no document"))?;
+    let body = document
+        .body()
+        .ok_or_else(|| JsValue::from_str("no document body"))?;
 
     let canvas = document
         .create_element("canvas")?

@@ -1,11 +1,16 @@
-use std::{path::PathBuf, time::Duration, sync::{Arc, Mutex}, net::TcpStream};
+use std::{
+    net::TcpStream,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{Ok, Result};
 use gilrs::Gilrs;
 use uuid::Uuid;
 use wasmtime::{
+    AsContextMut, Config, DebugEvent, DebugHandler, Engine, Store,
     component::{Component, Linker},
-    Config, Engine, Store, DebugEvent, AsContextMut, DebugHandler,
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -38,8 +43,14 @@ impl DebugHandler for JumpjetDebugHandler {
                     // Map DebugEvent to StoppedEventReason
                     // For now, assume it's a Breakpoint since we are in debug handler
                     let reason = dapts::StoppedEventReason::Breakpoint;
-                    
-                    if let Err(e) = crate::debug::dap::handle_dap_event(store, conn, Some(reason), None, binary_clone) {
+
+                    if let Err(e) = crate::debug::dap::handle_dap_event(
+                        store,
+                        conn,
+                        Some(reason),
+                        None,
+                        binary_clone,
+                    ) {
                         eprintln!("DAP handler error: {:?}", e);
                     }
                     return;
@@ -170,7 +181,7 @@ impl Game {
         );
 
         let mut store = Store::new(&self.engine, runtime_state);
-        
+
         if self.debug {
             let handler = JumpjetDebugHandler {
                 gdb_connection: self.gdb_connection.clone(),
@@ -208,11 +219,7 @@ impl Game {
         Ok(())
     }
 
-    pub async fn render(
-        &mut self,
-        epoch_time: Duration,
-        alpha: f64,
-    ) -> Result<(), anyhow::Error> {
+    pub async fn render(&mut self, epoch_time: Duration, alpha: f64) -> Result<(), anyhow::Error> {
         self.runtime
             .as_ref()
             .expect("Runtime must be initialized")
