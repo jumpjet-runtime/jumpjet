@@ -5,6 +5,15 @@ use clap::{Parser, Subcommand};
 
 use crate::utils::version;
 
+/// Block-letter "JUMPJET" wordmark shown atop `--help`, colored orange.
+const LOGO: &str = concat!(
+    "\n\x1b[38;5;202m",
+    "  ▅▅▅▅ ▅▅   ▅▅ ▅▅   ▅▅ ▅▅▅▅▅▅▅  ▅▅▅▅ ▅▅▅▅▅▅ ▅▅▅▅▅▅\n",
+    "    ▅▅ ▅▅   ▅▅ ▅▅▅▅▅▅▅ ▅▅▅▅▅▅▅    ▅▅ ▅▅▅▅▅▅   ▅▅  \n",
+    "▅▅▅▅▅▅ ▅▅▅▅▅▅▅ ▅▅   ▅▅ ▅▅     ▅▅▅▅▅▅ ▅▅▅▅▅▅   ▅▅  ",
+    "\x1b[0m\n",
+);
+
 /// Distinct template names embedded under `src/templates/<category>/` (e.g.
 /// `game` -> `hello-rust`, `cube-python`, ...). Drives both `--help` listing and
 /// validation, so it always matches the templates actually shipped in the binary.
@@ -31,7 +40,7 @@ fn package_templates() -> PossibleValuesParser {
 }
 
 #[derive(Parser)]
-#[command(author, version = version(), about)]
+#[command(author, version = version(), about, before_help = LOGO)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<CliCommand>,

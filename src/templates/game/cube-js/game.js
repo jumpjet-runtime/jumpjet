@@ -38,7 +38,9 @@ export const guest = {
   init() {
     let adapter = gpu.requestAdapter()
     let device = adapter.requestDevice()
-    
+
+    let surfaceFormat = gpu.surface().getTextureFormat()
+
     let [windowWidth, windowHeight] = window.dimensions()
 
     verticesBuffer = device.createBuffer({
@@ -150,7 +152,7 @@ export const guest = {
         constants: [],
         targets: [
           {
-            format: 'rgba8unormsrgb',
+            format: surfaceFormat,
             blend: {
               color: {
                 srcFactor: 'one',

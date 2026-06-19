@@ -134,6 +134,8 @@ impl Guest for Game {
             hints: vec![],
         });
 
+        let surface_format = crate::jumpjet::runtime::gpu::surface().get_texture_format();
+
         let frag_shader = device.create_shader_module(&GpuShaderModuleDescriptor {
             label: None,
             code: "
@@ -179,7 +181,7 @@ impl Guest for Game {
                 entry_point: "main".to_owned(),
                 constants: Vec::new(),
                 targets: vec![GpuColorTargetState {
-                    format: GpuTextureFormat::Rgba8unormsrgb,
+                    format: surface_format,
                     blend: Some(GpuBlendState {
                         color: GpuBlendComponent {
                             src_factor: Some(GpuBlendFactor::One),

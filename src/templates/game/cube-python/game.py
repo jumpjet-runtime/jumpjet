@@ -151,7 +151,8 @@ class Guest:
         print("Initializing Python Cube Demo")
         adapter = gpu.request_adapter()
         device = adapter.request_device()
-        
+        surface_format = gpu.surface().get_texture_format()
+
         width, height = window.dimensions()
         
         vertex_data = struct.pack(f'{len(CUBE_VERTICES)}f', *CUBE_VERTICES)
@@ -219,7 +220,7 @@ class Guest:
                 module=fragment_module,
                 entry_point="main",
                 targets=[gpu.GpuColorTargetState(
-                    format=gpu.GpuTextureFormat.RGBA8UNORMSRGB,
+                    format=surface_format,
                     blend=gpu.GpuBlendState(
                         color=gpu.GpuBlendComponent(
                             src_factor=gpu.GpuBlendFactor.ONE,
