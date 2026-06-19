@@ -18,6 +18,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          # The runtime integration test builds the guest crate for this target.
+          targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test --all-features --workspace
