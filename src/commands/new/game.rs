@@ -2,11 +2,11 @@ use rust_embed::Embed;
 use std::{
     borrow::Cow,
     env, fs,
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
 };
 
-use crate::{assets::{JumpjetWits, Templates}, Result};
+use crate::{assets::Templates, Result};
 
 use liquid::Object;
 
@@ -40,7 +40,13 @@ pub async fn game(
         &globals,
     )?;
 
-    copy_wits(project_root_path.as_path())?;
+    // Stage the Jumpjet runtime WIT as a dependency of the game's own world, then
+    // generate that world (`jumpjet:game`'s `game` world, which includes the
+    // runtime). The guest targets `world: "game"` at `.jumpjet/wit`; `jumpjet add`
+    // later regenerates the same world with extra imports as packages are added.
+    let wit_root = project_root_path.join(".jumpjet").join("wit");
+    super::package::copy_runtime_wit(&wit_root.join("deps").join("runtime"))?;
+    crate::pkg::stage::write_game_world(&wit_root, &[])?;
 
     Ok(())
 }
@@ -77,30 +83,6 @@ pub fn template_files(
         let contents = template.render(&globals).unwrap();
 
         file.write_all(contents.as_bytes())?;
-    }
-
-    Ok(())
-}
-
-pub fn copy_wits(
-    project_root: &Path,
-) -> crate::Result<()> {
-    for wit_path in JumpjetWits::iter() {
-        let contents = JumpjetWits::get(wit_path.as_ref()).unwrap();
-        let destination_path = project_root
-            .join(".jumpjet/wit")
-            .join(PathBuf::from(wit_path.as_ref()));
-
-        let destination_parent = destination_path.as_path().parent().unwrap();
-        std::fs::create_dir_all(destination_parent).unwrap();
-        
-        let mut file = fs::OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .open(&destination_path.clone())?;
-
-        file.write_all(&contents.data)?;
     }
 
     Ok(())

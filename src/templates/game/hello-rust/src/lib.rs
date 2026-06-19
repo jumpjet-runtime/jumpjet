@@ -5,7 +5,7 @@ use crate::jumpjet::runtime::debug::log;
 
 generate!({
     world: "game",
-    path: ".jumpjet/wit/runtime",
+    path: ".jumpjet/wit",
     generate_all
 });
 export!(Game);

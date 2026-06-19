@@ -110,7 +110,7 @@ impl HostKeyboardDevice for JumpjetRuntimeState {
         self.keyboard_state
             .active_keys
             .iter()
-            .any(|k| k.1 == target_key && k.2 == target_location)
+            .any(|k| k.2 == target_key && k.3 == target_location)
     }
 
     async fn just_pressed(&mut self, _device: Resource<KeyboardDevice>, key: KeyboardKey) -> bool {
@@ -119,14 +119,14 @@ impl HostKeyboardDevice for JumpjetRuntimeState {
         self.keyboard_state
             .active_keys
             .iter()
-            .any(|k| k.0 == generation && k.1 == target_key && k.2 == target_location)
+            .any(|k| k.0 == generation && k.2 == target_key && k.3 == target_location)
     }
 
     async fn active_keys(&mut self, _device: Resource<KeyboardDevice>) -> Vec<KeyboardKey> {
         self.keyboard_state
             .active_keys
             .iter()
-            .map(|k| (k.1.clone(), k.2.clone()).into())
+            .map(|k| (k.2.clone(), k.3.clone()).into())
             .collect()
     }
 
@@ -136,8 +136,15 @@ impl HostKeyboardDevice for JumpjetRuntimeState {
 }
 
 impl HostMouseDevice for JumpjetRuntimeState {
-    async fn is_pressed(&mut self, _device: Resource<MouseDevice>, _btn: MouseButton) -> bool {
-        false
+    async fn is_pressed(&mut self, _device: Resource<MouseDevice>, btn: MouseButton) -> bool {
+        use winit::event::MouseButton as W;
+        self.mouse_state.buttons.iter().any(|b| matches!((btn, b),
+            (MouseButton::Left, W::Left)
+            | (MouseButton::Right, W::Right)
+            | (MouseButton::Middle, W::Middle)
+            | (MouseButton::Back, W::Back)
+            | (MouseButton::Forward, W::Forward)
+            | (MouseButton::Other, W::Other(_))))
     }
 
     async fn position(&mut self, _device: Resource<MouseDevice>) -> MousePosition {

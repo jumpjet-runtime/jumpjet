@@ -9,8 +9,8 @@ version = "{{ runtime_version }}"
 
 [build]
 pre = "npm run build"
-input = "./dist" # Your guest code build output, the files you want to package
-entrypoint = "game.wasm" # The path to your wasm binary relative to the "input" directory
+entrypoint = "./dist/game.wasm" # The built wasm component to package
+# assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)
 output = "./bin" # Jumpjet's build output
 
 [bundle]

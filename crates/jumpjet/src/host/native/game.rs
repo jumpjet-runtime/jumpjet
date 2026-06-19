@@ -75,6 +75,9 @@ impl std::fmt::Debug for Game {
 }
 
 impl Game {
+    /// JIT path (desktop + Android): compile the component to native code at
+    /// startup via Cranelift. Not usable on iOS, which forbids the writable+
+    /// executable memory JIT requires — see [`from_cwasm`](Self::from_cwasm).
     pub fn from_binary(bytes: &[u8], debug: bool) -> Result<Game> {
         let mut config = Config::new();
         config.wasm_component_model(true);
@@ -84,6 +87,35 @@ impl Game {
 
         let engine = Engine::new(&config)?;
         let component = Component::from_binary(&engine, bytes)?;
+        Self::from_component(engine, component, debug, bytes.to_vec())
+    }
+
+    /// AOT path (iOS): load a Pulley `.cwasm` precompiled at bundle time by
+    /// [`crate::aot::precompile_pulley`] and run it interpreted — no JIT, no RWX
+    /// memory, so it passes iOS code-signing. The engine config must match the
+    /// one used to precompile, hence the shared [`crate::aot::pulley_config`].
+    ///
+    /// # Safety
+    /// `cwasm` must be a trusted artifact produced by this toolchain's
+    /// `precompile_pulley` (it is embedded in the signed app bundle), as
+    /// `Component::deserialize` does not validate untrusted input.
+    pub fn from_cwasm(cwasm: &[u8]) -> Result<Game> {
+        let engine = Engine::new(&crate::aot::pulley_config()?)?;
+        // Safety: see method docs — the artifact is bundled by our own tooling.
+        let component = unsafe { Component::deserialize(&engine, cwasm)? };
+        // The interpreted backend has no guest-debug support; AOT bundles ship
+        // without the debugger, so `debug` is always false here.
+        Self::from_component(engine, component, false, cwasm.to_vec())
+    }
+
+    /// Shared linker/instantiation used by both loaders once an `Engine` and
+    /// `Component` exist.
+    fn from_component(
+        engine: Engine,
+        component: Component,
+        debug: bool,
+        binary: Vec<u8>,
+    ) -> Result<Game> {
         let mut linker = Linker::new(&engine);
 
         // Link both WASI 0.3 (p3) and 0.2 (p2). The host now supports 0.3, but the
@@ -91,12 +123,12 @@ impl Game {
         // guests running; the component links against whichever version it imports.
         wasmtime_wasi::p3::add_to_linker(&mut linker)?;
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
-        
+
         type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
         Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
 
         let instance_pre = RuntimePre::new(linker.instantiate_pre(&component)?)?;
-        
+
         Ok(Self {
             path: "bytes".to_owned(),
             engine,
@@ -106,7 +138,7 @@ impl Game {
             debug,
             gdb_connection: Arc::new(Mutex::new(None)),
             dap_connection: Arc::new(Mutex::new(None)),
-            binary: Arc::new(bytes.to_vec()),
+            binary: Arc::new(binary),
         })
     }
 

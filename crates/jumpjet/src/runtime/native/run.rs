@@ -9,7 +9,6 @@ use pollster;
 use crate::host::Game;
 pub use crate::runtime::common::*;
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use super::state::JumpjetRuntimeState;
 
 use winit::{
@@ -23,6 +22,30 @@ use winit::{
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowAttributesExtMacOS;
+
+/// Hide/show the hardware cursor while the pointer is locked. winit's
+/// `set_cursor_visible` hides via cursor-rects, which the system stops
+/// re-evaluating once the pointer is locked (the cursor is decoupled and
+/// frozen), so on macOS the cursor never disappears. `NSCursor`'s `hide`/
+/// `unhide` are app-wide and unaffected by that. The calls are balanced
+/// (stack-counted), so the lock loop only ever calls this on a real
+/// lock <-> unlock transition. No-op off macOS, where `set_cursor_visible` works.
+#[cfg(target_os = "macos")]
+fn set_macos_cursor_hidden(hidden: bool) {
+    use objc2::{class, msg_send};
+    // `+[NSCursor hide]`/`+[NSCursor unhide]` take no arguments and must run on
+    // the main thread, which the winit run loop guarantees.
+    unsafe {
+        if hidden {
+            let _: () = msg_send![class!(NSCursor), hide];
+        } else {
+            let _: () = msg_send![class!(NSCursor), unhide];
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_macos_cursor_hidden(_hidden: bool) {}
 
 struct App {
     input_path: PathBuf,
@@ -101,6 +124,11 @@ impl ApplicationHandler<GameEvent> for App {
 
             let gilrs = gilrs::Gilrs::new().unwrap();
 
+            // iOS forbids JIT, so `self.binary` is a Pulley `.cwasm` loaded
+            // interpreted; every other native target JIT-compiles the component.
+            #[cfg(target_os = "ios")]
+            let mut game = Game::from_cwasm(&self.binary).unwrap();
+            #[cfg(not(target_os = "ios"))]
             let mut game = Game::from_binary(&self.binary, self.debug).unwrap();
 
             pollster::block_on(game.init(
@@ -146,18 +174,29 @@ impl ApplicationHandler<GameEvent> for App {
                 mouse_state.x = position.x as f32;
                 mouse_state.y = position.y as f32;
             }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let mouse_state = &mut game.store.as_mut().unwrap().data_mut().mouse_state;
+                mouse_state.buttons.retain(|b| *b != button);
+                if state.is_pressed() {
+                    mouse_state.buttons.push(button);
+                }
+            }
             WindowEvent::KeyboardInput { event: key_event, .. } => {
                 let generation = game.store.as_ref().unwrap().data().generation;
                 let keyboard_state = &mut game.store.as_mut().unwrap().data_mut().keyboard_state;
 
+                // Match on `physical_key` so a key clears on release even when
+                // the modifier state differs from when it was pressed (the
+                // logical key changes with Shift, the physical key does not).
                 if !key_event.state.is_pressed() || key_event.repeat {
-                    keyboard_state.active_keys.retain(|key| {
-                        !(key.1.eq(&key_event.logical_key) && key.2.eq(&key_event.location))
-                    });
+                    keyboard_state
+                        .active_keys
+                        .retain(|key| key.1 != key_event.physical_key);
 
                     if key_event.repeat {
                         keyboard_state.active_keys.push((
                             generation,
+                            key_event.physical_key,
                             key_event.logical_key,
                             key_event.location,
                         ));
@@ -165,14 +204,22 @@ impl ApplicationHandler<GameEvent> for App {
                 } else if !keyboard_state
                     .active_keys
                     .iter()
-                    .any(|k| k.1.eq(&key_event.logical_key) && k.2.eq(&key_event.location))
+                    .any(|k| k.1 == key_event.physical_key)
                 {
                     keyboard_state.active_keys.push((
                         generation,
+                        key_event.physical_key,
                         key_event.logical_key,
                         key_event.location,
                     ));
                 }
+            }
+            WindowEvent::Focused(false) => {
+                // winit stops delivering key events once the window loses focus
+                // (e.g. alt-tab), so any keys held at that point would never see
+                // a release. Flush them to avoid stranding.
+                let keyboard_state = &mut game.store.as_mut().unwrap().data_mut().keyboard_state;
+                keyboard_state.active_keys.clear();
             }
             WindowEvent::RedrawRequested => {
                 let now = std::time::Instant::now();
@@ -223,13 +270,15 @@ impl ApplicationHandler<GameEvent> for App {
                         .set_cursor_grab(winit::window::CursorGrabMode::Locked)
                         .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Confined))
                         .is_ok();
-                    if grabbed {
+                    if grabbed && !mouse_state.locked {
                         window.set_cursor_visible(false);
+                        set_macos_cursor_hidden(true);
                         mouse_state.locked = true;
                     }
-                } else {
+                } else if mouse_state.locked {
                     let _ = window.set_cursor_grab(winit::window::CursorGrabMode::None);
                     window.set_cursor_visible(true);
+                    set_macos_cursor_hidden(false);
                     mouse_state.locked = false;
                 }
             }
@@ -397,13 +446,15 @@ impl ApplicationHandler<GameEvent> for App {
     }
 }
 
+/// Drives a pre-built event loop. The loop is built by the caller because its
+/// construction differs per platform: desktop/iOS use the default builder, while
+/// Android must thread the `AndroidApp` through `with_android_app`.
 async fn run_loop(
+    event_loop: EventLoop<GameEvent>,
     input_path: PathBuf,
     binary: Vec<u8>,
     debug: bool,
 ) -> Result<(), EventLoopError> {
-    let event_loop = EventLoop::<GameEvent>::with_user_event().build().unwrap();
-    
     let gdb_server = if debug {
         Some(crate::debug::gdb::start_gdb_server(crate::debug::gdb::DEFAULT_GDB_PORT).unwrap())
     } else {
@@ -435,7 +486,63 @@ async fn run_loop(
 }
 
 pub fn run(input_path: PathBuf, binary: Vec<u8>, debug: bool) {
-    pollster::block_on(run_loop(input_path, binary, debug)).ok();
+    let event_loop = EventLoop::<GameEvent>::with_user_event().build().unwrap();
+    pollster::block_on(run_loop(event_loop, input_path, binary, debug)).ok();
+}
+
+/// Android entry. The OS hands the bundle wrapper's `android_main` an
+/// `AndroidApp`, which winit needs to build its event loop; everything after
+/// that is the shared [`run_loop`]. Guest input is extracted from the APK by
+/// [`prepare_android_input`] before this is called.
+#[cfg(target_os = "android")]
+pub fn run_android(
+    app: winit::platform::android::activity::AndroidApp,
+    input_path: PathBuf,
+    binary: Vec<u8>,
+    debug: bool,
+) {
+    use winit::platform::android::EventLoopBuilderExtAndroid;
+    let event_loop = EventLoop::<GameEvent>::with_user_event()
+        .with_android_app(app)
+        .build()
+        .unwrap();
+    pollster::block_on(run_loop(event_loop, input_path, binary, debug)).ok();
+}
+
+/// Name of the single archive asset the Android bundle packs the guest tree into.
+/// Created by the bundler from the build output; see `src/commands/bundle.rs`.
+#[cfg(target_os = "android")]
+pub const ANDROID_INPUT_ARCHIVE: &str = "input.tar";
+
+/// Extracts the bundled guest tree from the APK into app-private storage and
+/// returns that path, so the rest of the runtime reads guest files through the
+/// normal filesystem/VFS path instead of the Android `AssetManager`.
+///
+/// The tree is packed as a single [`ANDROID_INPUT_ARCHIVE`] asset rather than
+/// loose files because Android's `AAssetDir` enumeration cannot list
+/// subdirectories at runtime — walking an arbitrary asset tree is unreliable, so
+/// we open one known asset and unpack it.
+#[cfg(target_os = "android")]
+pub fn prepare_android_input(app: &winit::platform::android::activity::AndroidApp) -> PathBuf {
+    use std::ffi::CString;
+
+    let dest = app
+        .internal_data_path()
+        .expect("Android internal data path unavailable")
+        .join("input");
+    std::fs::create_dir_all(&dest).expect("create Android input dir");
+
+    let name = CString::new(ANDROID_INPUT_ARCHIVE).unwrap();
+    // `Asset` implements `Read`, so stream it straight into the tar extractor.
+    let asset = app
+        .asset_manager()
+        .open(&name)
+        .unwrap_or_else(|| panic!("bundled '{ANDROID_INPUT_ARCHIVE}' missing from APK assets"));
+    tar::Archive::new(asset)
+        .unpack(&dest)
+        .expect("extract bundled guest input");
+
+    dest
 }
 
 

@@ -130,8 +130,11 @@ pub struct Runtime {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Build {
     pub pre: Option<String>,
-    pub input: Option<String>,
+    /// Path (relative to the project root) of the built wasm component to package.
     pub entrypoint: Option<String>,
+    /// Optional directory of data files shipped with the game and mounted as its
+    /// local storage at runtime.
+    pub assets: Option<String>,
     /// For `type = "lib"`: dir (or file) holding the package's own exported WIT.
     pub wit: Option<String>,
     pub output: Option<String>,

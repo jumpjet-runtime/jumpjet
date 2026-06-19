@@ -3,14 +3,24 @@ use anyhow::Result;
 // Input tracking types are native-only; the web build tracks input in
 // `runtime/web/input.rs` (DOM events + navigator.getGamepads).
 #[cfg(not(target_arch = "wasm32"))]
-use winit::keyboard::{Key, KeyLocation};
+use winit::keyboard::{Key, KeyLocation, PhysicalKey};
 
 pub mod host;
 pub mod runtime;
+// Pulley AOT (precompile host-side, deserialize on iOS); shares `pulley_config`
+// with the on-device loader.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod aot;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tests;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod debug;
+
+// Re-exported so the generated Android bundle wrapper can name `AndroidApp`
+// against the exact `winit`/`android-activity` version the runtime links (the
+// glue symbol must come from a single version — see `runtime::run_android`).
+#[cfg(not(target_arch = "wasm32"))]
+pub use winit;
 
 // needed for wasmtime::component::bindgen! as it only looks in the current crate.
 #[cfg(not(target_arch = "wasm32"))]
@@ -127,7 +137,14 @@ impl WasiView for JumpjetRuntimeState {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub struct KeyboardState {
-    pub active_keys: Vec<(u64, Key, KeyLocation)>,
+    /// `(generation, physical_key, logical_key, location)`.
+    ///
+    /// Entries are matched for insert/remove on `physical_key`, which is
+    /// modifier- and layout-invariant, so a key always clears on release even
+    /// if modifier state changed since it was pressed (e.g. releasing Shift
+    /// before the letter you were holding). The `logical_key`/`location` are
+    /// retained only as the value reported back to the guest.
+    pub active_keys: Vec<(u64, PhysicalKey, Key, KeyLocation)>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -149,6 +166,8 @@ pub struct MouseState {
     /// Raw movement accumulated since the last logic frame, in physical pixels.
     pub dx: f32,
     pub dy: f32,
+    /// Mouse buttons currently held down, mirrored from winit press/release.
+    pub buttons: Vec<winit::event::MouseButton>,
     /// Whether the pointer is currently locked (cursor grabbed + hidden).
     pub locked: bool,
     /// Pending lock (`Some(true)`) / unlock (`Some(false)`) request from the

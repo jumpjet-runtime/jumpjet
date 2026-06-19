@@ -18,19 +18,14 @@ pub async fn run(release: &bool) -> Result<()> {
         .parse::<Table>()
         .unwrap();
 
-    let entrypoint_path = match config["build"]["entrypoint"].as_str() {
-        Some(entrypoint_path) => entrypoint_path,
-        None => panic!("No build input provided in config!"),
-    };
-
     match config["build"]["output"].as_str() {
         Some(output_path) => {
             let output_path = current_dir.join(output_path);
-            let entrypoint_path = output_path.join(entrypoint_path);
+            let entrypoint_path = output_path.join(build::ENTRYPOINT_FILE);
             let binary = std::fs::read(entrypoint_path).unwrap();
             jumpjet::runtime::run(output_path.to_path_buf(), binary, !release);
         }
-        None => panic!("No build input provided in config!"),
+        None => panic!("No build output provided in config!"),
     }
 
     Ok(())
@@ -50,7 +45,7 @@ pub async fn run_web(release: &bool, port: u16) -> Result<()> {
     let output_path = current_dir.join(config["build"]["output"].as_str().unwrap_or("bin"));
     let site_dir = output_path.join("web");
     let guest_dir = site_dir.join("guest");
-    let input_artifact = build::input_entrypoint(&config)?;
+    let input_artifact = build::source_entrypoint(&config)?;
 
     // Initial full build (runs `pre`) + assemble the servable site at bin/web.
     build::build_web(release).await?;

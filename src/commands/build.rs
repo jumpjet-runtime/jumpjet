@@ -18,6 +18,11 @@ use crate::Result;
 #[folder = "wasi"]
 struct WasiWasm;
 
+/// The fixed filename the componentized guest is written to inside the build
+/// `output` dir (and shipped under in every bundle). Using a canonical name means
+/// the runtime and generated wrappers never need to know the source wasm's name.
+pub const ENTRYPOINT_FILE: &str = "entrypoint.wasm";
+
 /// Prebuilt web runtime artifacts assembled into a `--target web` site:
 /// the wasm-bindgen host (`web.js` + `web_bg.wasm`), the HTML/JS harness, and the
 /// preview2 WASI browser shim. Regenerate with `scripts/build-web-runtime.sh`.
@@ -49,24 +54,33 @@ fn run_pre(config: &Table) -> Result<()> {
     Ok(())
 }
 
-/// Copies the build `input` dir into the `output` dir (`bin/`) and componentizes the
-/// entrypoint in place, returning the path to the componentized wasm.
-fn componentize_input(config: &Table) -> Result<PathBuf> {
+/// Builds the shippable `output` dir (`bin/`): copy the optional `assets` tree in,
+/// then componentize the built `entrypoint` wasm into `output/entrypoint.wasm`
+/// (in place). Only these — the one component plus declared assets — ever enter a
+/// bundle, so build-tool cruft (cargo target internals, JS dist intermediates)
+/// stays out. Returns the path to the componentized wasm.
+fn componentize(config: &Table) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
 
     let entrypoint = config["build"]["entrypoint"]
         .as_str()
         .expect("No build entrypoint provided in config!");
-    let input_path = config["build"]["input"]
-        .as_str()
-        .expect("No build input provided in config!");
-    let input_path = Path::new(input_path);
-    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
+    let output_path = current_dir.join(config["build"]["output"].as_str().unwrap_or("bin"));
 
-    crate::fs::copy_dir_all(input_path, output_path)?;
+    std::fs::create_dir_all(&output_path)?;
+
+    // Optional data files the game ships, mounted as its local storage at runtime.
+    // Copied before the entrypoint so the canonical wasm name always wins.
+    if let Some(assets) = config["build"].get("assets").and_then(|v| v.as_str()) {
+        let assets_dir = current_dir.join(assets);
+        if assets_dir.exists() {
+            crate::fs::copy_dir_all(&assets_dir, &output_path)?;
+        }
+    }
 
     // Package dependencies are composed in afterwards by `compose_into`.
-    let output_entrypoint_path = current_dir.join(output_path).join(entrypoint);
+    let output_entrypoint_path = output_path.join(ENTRYPOINT_FILE);
+    std::fs::copy(current_dir.join(entrypoint), &output_entrypoint_path)?;
     componentize_wasm(output_entrypoint_path.clone());
 
     Ok(output_entrypoint_path)
@@ -79,16 +93,13 @@ fn web_guest_dir(config: &Table) -> Result<PathBuf> {
     Ok(current_dir.join(output_path).join("web").join("guest"))
 }
 
-/// The build input artifact `run --target web` watches: `<input>/<entrypoint>`.
-pub fn input_entrypoint(config: &Table) -> Result<PathBuf> {
+/// The built wasm artifact `run --target web` watches: the `entrypoint` path.
+pub fn source_entrypoint(config: &Table) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
     let entrypoint = config["build"]["entrypoint"]
         .as_str()
         .expect("No build entrypoint provided in config!");
-    let input_path = config["build"]["input"]
-        .as_str()
-        .expect("No build input provided in config!");
-    Ok(current_dir.join(input_path).join(entrypoint))
+    Ok(current_dir.join(entrypoint))
 }
 
 /// The native build: run the `pre` command, then componentize the guest into `bin/`.
@@ -99,7 +110,7 @@ pub async fn build(_release: &bool) -> Result<()> {
     // Resolve + stage dependency WIT *before* `pre`, so guest bindgen can see it.
     let resolution = prepare_deps().await?;
     run_pre(&config)?;
-    let component_path = componentize_input(&config)?;
+    let component_path = componentize(&config)?;
     // Compose dependency components into the freshly built guest component.
     compose_into(&component_path, &resolution)?;
 
@@ -238,7 +249,7 @@ pub async fn build_web_incremental(_release: &bool) -> Result<()> {
 /// Shared compile step: componentize the input, compose dependencies in, then
 /// transpile the guest to JS.
 fn build_web_compile(config: &Table, resolution: &Resolution) -> Result<()> {
-    let component_path = componentize_input(config)?;
+    let component_path = componentize(config)?;
     compose_into(&component_path, resolution)?;
     let guest_dir = web_guest_dir(config)?;
     transpile_guest(&component_path, &guest_dir)

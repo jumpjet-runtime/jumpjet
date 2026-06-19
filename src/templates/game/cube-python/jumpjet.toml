@@ -8,9 +8,9 @@ author = ""
 version = "{{ runtime_version }}"
 
 [build]
-pre = "componentize-py -d .jumpjet/wit/runtime -w runtime componentize game -o game.wasm"
-input = "." 
-entrypoint = "game.wasm" 
+pre = "componentize-py -d .jumpjet/wit -w game componentize game -o game.wasm"
+entrypoint = "./game.wasm" # The built wasm component to package
+# assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)
 output = "./bin"
 
 [bundle]

@@ -178,7 +178,12 @@ interface input {
 
   /// A mouse button
   enum mouse-button {
-    unknown
+    left,
+    right,
+    middle,
+    back,
+    forward,
+    other,
   }
 
   /// A touch device, allowing interaction with touch states.

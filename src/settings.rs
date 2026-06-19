@@ -17,12 +17,24 @@ pub struct Settings {
 
     pub runtime_version: Version,
 
-    pub build_input_dir: PathBuf,
     pub build_output_dir: PathBuf,
-    pub build_entrypoint: PathBuf,
 
     pub bundle_name: String,
     pub bundle_identifier: String,
+
+    /// iOS codesign identity (e.g. "Apple Development: you@example.com"). `None`
+    /// leaves the app unsigned — fine for the Simulator, rejected on device.
+    pub ios_signing_identity: Option<String>,
+    /// Path to the `.mobileprovision` embedded into the `.app` for device builds.
+    pub ios_provisioning_profile: Option<PathBuf>,
+    /// `MinimumOSVersion` written into the iOS `Info.plist`.
+    pub ios_min_os: String,
+
+    /// Android application id (reverse-DNS); defaults to the package identifier.
+    pub android_package: String,
+    /// Android `minSdkVersion` / `targetSdkVersion`.
+    pub android_min_sdk: u32,
+    pub android_target_sdk: u32,
 }
 
 impl Settings {

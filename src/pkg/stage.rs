@@ -15,11 +15,13 @@
 //!     path but unused, and `wit-bindgen` only generates bindings for what the
 //!     world graph touches.
 //!
-//! A game has no world of its own: it binds the host-owned `runtime` world, which
-//! we mustn't edit. So for games we generate a sibling `game` world that
-//! `include`s `runtime` (pulling in every host import plus the `guest` export) and
-//! adds the dependency imports; the guest targets `game`. Lib packages author their
-//! own world and add the `import`s to it themselves.
+//! A game gets its own WIT package (`jumpjet:game`) under `.jumpjet/wit/`, whose
+//! `game` world `include`s the host `jumpjet:runtime/runtime` world (pulling in
+//! every host import plus the `guest` export) and adds the dependency imports; the
+//! guest targets `game`. The runtime itself is staged as an ordinary dependency at
+//! `.jumpjet/wit/deps/runtime/` (alongside other packages), so a single-directory
+//! resolve of `.jumpjet/wit/` sees everything. Lib packages author their own world
+//! and add the `import`s to it themselves.
 
 use std::path::{Path, PathBuf};
 
@@ -36,14 +38,14 @@ const GAME_WORLD: &str = "game";
 const GENERATED_WORLD_FILE: &str = "world.gen.wit";
 
 /// The WIT package directory that holds the consumer's world:
-/// - games: the world lives in `jumpjet:runtime` (`.jumpjet/wit/runtime`).
+/// - games: the game's own `jumpjet:game` package at `.jumpjet/wit`.
 /// - libs: the world lives in the package's own `wit/`.
 pub fn wit_root(dir: &Path, manifest: &Manifest) -> PathBuf {
     if manifest.is_lib() {
         let wit = manifest.build.wit.clone().unwrap_or_else(|| "wit".into());
         dir.join(wit)
     } else {
-        dir.join(".jumpjet").join("wit").join("runtime")
+        dir.join(".jumpjet").join("wit")
     }
 }
 
@@ -80,19 +82,30 @@ pub fn stage_wit(dir: &Path, manifest: &Manifest, resolution: &Resolution) -> Re
     // Games bind the generated `game` world; it must always exist (even with no
     // dependencies) for `world: "game"` to resolve. Libs own their world.
     if !manifest.is_lib() {
-        std::fs::create_dir_all(&root)?;
-        std::fs::write(root.join(GENERATED_WORLD_FILE), game_world(&imports))?;
+        write_game_world(&root, &imports)?;
     }
     Ok(())
 }
 
-/// The generated `game` world: `include`s the host `runtime` world and adds an
-/// `import` per dependency interface.
+/// Writes the generated `game` world (`include jumpjet:runtime/runtime;` plus an
+/// `import` per dependency interface) into the game's WIT root (`.jumpjet/wit`).
+/// Called by [`stage_wit`] on every build and by `jumpjet new game` at scaffold
+/// time so a freshly created game resolves `world: "game"` before it has any
+/// dependencies — the same file later dependency imports are injected into.
+pub fn write_game_world(wit_root: &Path, imports: &[String]) -> Result<()> {
+    std::fs::create_dir_all(wit_root)?;
+    std::fs::write(wit_root.join(GENERATED_WORLD_FILE), game_world(imports))?;
+    Ok(())
+}
+
+/// The generated `game` world: its own `jumpjet:game` package that `include`s the
+/// host `jumpjet:runtime/runtime` world and adds an `import` per dependency
+/// interface.
 fn game_world(imports: &[String]) -> String {
     let mut out = String::new();
-    out.push_str("package jumpjet:runtime;\n\n");
+    out.push_str("package jumpjet:game;\n\n");
     out.push_str(&format!("world {GAME_WORLD} {{\n"));
-    out.push_str("  include runtime;\n");
+    out.push_str("  include jumpjet:runtime/runtime;\n");
     for imp in imports {
         out.push_str("  ");
         out.push_str(imp);
@@ -109,9 +122,9 @@ mod tests {
     #[test]
     fn game_world_includes_runtime() {
         let w = game_world(&[]);
-        assert!(w.contains("package jumpjet:runtime;"));
+        assert!(w.contains("package jumpjet:game;"));
         assert!(w.contains(&format!("world {GAME_WORLD} {{")));
-        assert!(w.contains("include runtime;"));
+        assert!(w.contains("include jumpjet:runtime/runtime;"));
     }
 
     #[test]
@@ -120,7 +133,7 @@ mod tests {
             "import jumpjet:threejs/three@0.1.0;".to_string(),
             "import jumpjet:physics/world@2.0.0;".to_string(),
         ]);
-        assert!(w.contains("include runtime;"));
+        assert!(w.contains("include jumpjet:runtime/runtime;"));
         assert!(w.contains("import jumpjet:threejs/three@0.1.0;"));
         assert!(w.contains("import jumpjet:physics/world@2.0.0;"));
     }

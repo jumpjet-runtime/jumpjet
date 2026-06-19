@@ -1,3 +1,5 @@
+pub mod android;
+pub mod ios;
 pub mod macos;
 // pub mod windows;
 pub mod web;
@@ -56,45 +58,74 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         target,
         target_triplet,
         runtime_version: Version::parse(config["runtime"]["version"].as_str().unwrap()).unwrap(),
-        build_input_dir: current_dir
-            .clone()
-            .join(config["build"]["input"].as_str().unwrap()),
         build_output_dir: current_dir
             .clone()
             .join(config["build"]["output"].as_str().unwrap()),
-        build_entrypoint: PathBuf::from(config["build"]["entrypoint"].as_str().unwrap()),
         bundle_name: config["bundle"]["name"].as_str().unwrap().to_owned(),
         bundle_identifier: config["package"]["identifier"].as_str().unwrap().to_owned(),
+
+        ios_signing_identity: config
+            .get("ios")
+            .and_then(|t| t.get("signing-identity"))
+            .and_then(|v| v.as_str())
+            .map(str::to_owned),
+        ios_provisioning_profile: config
+            .get("ios")
+            .and_then(|t| t.get("provisioning-profile"))
+            .and_then(|v| v.as_str())
+            .map(PathBuf::from),
+        ios_min_os: config
+            .get("ios")
+            .and_then(|t| t.get("min-os"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("13.0")
+            .to_owned(),
+
+        android_package: config
+            .get("android")
+            .and_then(|t| t.get("package"))
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| config["package"]["identifier"].as_str().unwrap())
+            .to_owned(),
+        android_min_sdk: config
+            .get("android")
+            .and_then(|t| t.get("min-sdk"))
+            .and_then(|v| v.as_integer())
+            .unwrap_or(24) as u32,
+        android_target_sdk: config
+            .get("android")
+            .and_then(|t| t.get("target-sdk"))
+            .and_then(|v| v.as_integer())
+            .unwrap_or(34) as u32,
     };
 
     println!("Building for target {}", settings.target_triplet);
 
+    // Componentize the guest into `bin/` (shared by every target).
     super::build::build(release).await?;
 
-    // TODO: Create a rust project that imports the wasm binary and runs it in the jumpjet runtime
-    // println!("Creating project...");
+    // Scaffold the host wrapper (a `[[bin]]` for desktop/iOS, a `cdylib` exporting
+    // `android_main` for Android) and the Rust toolchain used to cross-build it.
     init_rust_project(&settings).await?;
-
-    // println!("Installing Rust...");
     install_rustup(&settings).await?;
-
-    // println!("Installing Zig...");
-    install_zig(&settings).await?;
-
-    // println!("Installing cargo-zigbuild...");
-    install_cargo_zigbuild(&settings).await?;
-
-    // println!("Adding requested target...");
     add_rust_target(&settings).await?;
 
+    // Mobile targets diverge from the desktop zig pipeline: iOS needs the Apple
+    // toolchain + an AOT precompile + an `.ipa`, Android needs the NDK + an
+    // `.apk`. Each owns its build & packaging.
+    match settings.target.as_str() {
+        "ios" => return ios::bundle(&settings).await,
+        "android" => return android::bundle(&settings).await,
+        _ => {}
+    }
+
+    // Desktop/static targets: cross-compile the wrapper with cargo-zigbuild, then
+    // package per platform.
+    install_zig(&settings).await?;
+    install_cargo_zigbuild(&settings).await?;
     build_target(&settings).await?;
 
-    // TODO: Copy source code from cargo bundle to build appropriate package for target (cargo bundle does not support using existing binaries built by cross)
-    // ie. https://github.com/burtonageo/cargo-bundle/blob/master/src/bundle/ios_bundle.rs#L22
-
     match settings.target.as_str() {
-        "android" => {}
-        "ios" => {}
         "linux" => {}
         "macos" => macos::bundle_project(&settings)?,
         // "windows" => windows::bundle_project(&settings)?,
@@ -105,56 +136,112 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
     Ok(())
 }
 
+/// Scaffolds the host wrapper crate under `.jumpjet/project`. The shape depends on
+/// the target: desktop/iOS produce a `[[bin]]`, Android a `cdylib` exporting
+/// `android_main`. The sources are always rewritten (cheap) so switching `--target`
+/// regenerates the correct wrapper rather than reusing a stale one.
 async fn init_rust_project(settings: &Settings) -> Result<()> {
     let metadata_id = &settings.metadata_id;
     let runtime_version = settings.runtime_version.to_string();
+    let entrypoint_path_str = crate::commands::build::ENTRYPOINT_FILE;
 
     let project_dir = settings.jumpjet_dir.join("project");
     let src_dir = project_dir.join("src");
-    if fs::metadata(&project_dir).is_ok() {
+    fs::create_dir_all(&src_dir)?;
+
+    if settings.target == "android" {
+        // cargo-apk builds a cdylib and packages it into an APK using
+        // `[package.metadata.android]` for the manifest. The guest tree is shipped
+        // as the single `assets/input.tar` extracted at startup by
+        // `runtime::prepare_android_input` (Android can't enumerate asset subdirs).
+        let cargotoml = format!(
+            r#"[package]
+name = "{metadata_id}"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jumpjet = {{ path = "../../../jumpjet/crates/jumpjet", version = "{runtime_version}" }}
+
+[package.metadata.android]
+package = "{package}"
+build_targets = ["{triplet}"]
+assets = "assets"
+
+[package.metadata.android.sdk]
+min_sdk_version = {min_sdk}
+target_sdk_version = {target_sdk}
+
+[[package.metadata.android.uses_feature]]
+name = "android.hardware.vulkan.level"
+required = false
+"#,
+            package = settings.android_package,
+            triplet = settings.target_triplet,
+            min_sdk = settings.android_min_sdk,
+            target_sdk = settings.android_target_sdk,
+        );
+        fs::write(project_dir.join("Cargo.toml"), cargotoml)?;
+
+        // `android_main` is the entry android-activity's NativeActivity glue calls.
+        // We extract the bundled guest tree, read the componentized entrypoint, and
+        // hand both to the runtime's Android event loop.
+        let lib_rs = format!(
+            r#"// Generated by `jumpjet bundle --target android`. Do not edit.
+use jumpjet::winit::platform::android::activity::AndroidApp;
+
+#[no_mangle]
+fn android_main(app: AndroidApp) {{
+    let input_path = jumpjet::runtime::prepare_android_input(&app);
+    let binary = std::fs::read(input_path.join("{entrypoint_path_str}"))
+        .expect("Failed to read the guest entrypoint from extracted assets");
+    jumpjet::runtime::run_android(app, input_path, binary, false);
+}}
+"#
+        );
+        fs::write(src_dir.join("lib.rs"), lib_rs)?;
         return Ok(());
     }
-    fs::create_dir_all(&project_dir)?;
 
-    let cargotoml_path = project_dir.join("Cargo.toml");
-    let mut cargo_toml = File::create(&cargotoml_path)?;
-    cargo_toml.write_all(
-        format!(
-            r#"
-    [package]
-    name = "{}"
-    version = "0.1.0"
-    edition = "2021"
-    publish = false
+    // Desktop + iOS: a plain binary that reads the entrypoint from the bundle's
+    // `.jumpjet/input/` dir. On iOS that entrypoint file holds the Pulley `.cwasm`
+    // (the runtime picks the AOT loader by target); elsewhere it's the wasm
+    // component loaded via JIT.
+    let cargotoml = format!(
+        r#"[package]
+name = "{metadata_id}"
+version = "0.1.0"
+edition = "2021"
+publish = false
 
-    [dependencies]
-    jumpjet = {{ path = "../../../jumpjet/crates/jumpjet", version = "{runtime_version}" }}
+[dependencies]
+jumpjet = {{ path = "../../../jumpjet/crates/jumpjet", version = "{runtime_version}" }}
 
-    [[bin]]
-    name = "{}"
-    path = "src/main.rs"
-    "#,
-            metadata_id, metadata_id
-        )
-        .as_bytes(),
-    )?;
+[[bin]]
+name = "{metadata_id}"
+path = "src/main.rs"
+"#
+    );
+    fs::write(project_dir.join("Cargo.toml"), cargotoml)?;
 
-    fs::create_dir_all(&project_dir.join("src"))?;
+    let main_rs = format!(
+        r#"// Generated by `jumpjet bundle`. Do not edit.
+use std::env;
+use std::fs;
+use jumpjet::runtime;
 
-    let entrypoint_path_str = settings.build_entrypoint.to_str().unwrap();
-    let main_path = src_dir.join("main.rs");
-    let mut main = File::create(&main_path)?;
-    main.write_all(format!(r#"
-    use std::env;
-    use std::fs;
-    use jumpjet::runtime;
-
-    fn main() {{
-        let input_path = env::current_exe().unwrap().parent().unwrap().join(".jumpjet/input/");
-        let binary = fs::read(input_path.join("{entrypoint_path_str}")).expect("Failed to read the WASM file");
-        runtime::run(input_path, binary);
-    }}
-    "#).as_bytes())?;
+fn main() {{
+    let input_path = env::current_exe().unwrap().parent().unwrap().join(".jumpjet/input/");
+    let binary = fs::read(input_path.join("{entrypoint_path_str}")).expect("Failed to read the entrypoint");
+    runtime::run(input_path, binary, false);
+}}
+"#
+    );
+    fs::write(src_dir.join("main.rs"), main_rs)?;
 
     Ok(())
 }
@@ -326,7 +413,14 @@ async fn install_cargo_zigbuild(settings: &Settings) -> Result<()> {
     println!("Installing cargo-zigbuild...");
     let mut cmd = Command::new(&cargo_path);
     cmd.env("CARGO_HOME", settings.jumpjet_bin_dir.join("cargo"));
-    cmd.args(["install", "cargo-zigbuild"]);
+    // The project's `.cargo/config.toml` pins `[build] target` to wasm for the
+    // guest. cargo-zigbuild is a *host* tool, so force the host triple — otherwise
+    // cargo tries to cross-compile it to wasm and pulls in code (e.g. `which`'s
+    // wasi path) that needs the unstable `wasip2` feature and fails to build.
+    cmd.env("CARGO_BUILD_TARGET", CURRENT_PLATFORM);
+    // `--locked` installs with cargo-zigbuild's shipped Cargo.lock for reproducible
+    // transitive deps.
+    cmd.args(["install", "--locked", "cargo-zigbuild"]);
 
     let status = cmd.status()?;
     if !status.success() {
@@ -373,7 +467,12 @@ async fn build_target(settings: &Settings) -> Result<()> {
         .env("RUSTUP_HOME", settings.jumpjet_bin_dir.join("rustup"))
         .env("PATH", new_path);
 
-    cmd.args(["zigbuild", "--locked", "--target", &settings.target_triplet, "--release"]);
+    cmd.args(["zigbuild", "--target", &settings.target_triplet]);
+    // Match the profile to `settings.build` so the artifact lands where
+    // `target_binary_path()` expects it (debug/ vs release/).
+    if settings.build == "release" {
+        cmd.arg("--release");
+    }
 
     let output = cmd
         .stdout(Stdio::inherit()) // Changed to inherit to see build output

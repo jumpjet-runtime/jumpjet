@@ -9,8 +9,8 @@ version = "{{ runtime_version }}"
 
 [build]
 pre = "cargo build --target wasm32-wasip2"
-input = "./target/wasm32-wasip2/debug" # Your guest code build output, the files you want to package
-entrypoint = "{{ identifier_underscored }}.wasm" # The path to your wasm binary relative to the "input" directory
+entrypoint = "./target/wasm32-wasip2/debug/{{ identifier_underscored }}.wasm" # The built wasm component to package
+# assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)
 output = "./bin" # Jumpjet's build output
 
 [bundle]
