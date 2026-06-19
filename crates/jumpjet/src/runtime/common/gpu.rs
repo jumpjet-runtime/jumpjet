@@ -19,6 +19,7 @@ pub struct QuerySet {
 pub struct Texture {
     pub height: u32,
     pub width: u32,
+    pub depth_or_array_layers: u32,
     pub mip_level_count: u32,
     pub sample_count: u32,
     pub dimension: TextureDimension,

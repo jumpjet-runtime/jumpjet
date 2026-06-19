@@ -63,6 +63,7 @@ impl HostGpuSurface for JumpjetRuntimeState {
                 Texture {
                     width: self.surface_config.width,
                     height: self.surface_config.height,
+                    depth_or_array_layers: 1,
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -242,6 +243,7 @@ impl HostGpuDevice for JumpjetRuntimeState {
             Texture {
                 height: texture_descriptor.size.height,
                 width: texture_descriptor.size.width,
+                depth_or_array_layers: texture_descriptor.size.depth_or_array_layers,
                 dimension: texture_descriptor.dimension,
                 format: texture_descriptor.format,
                 mip_level_count: texture_descriptor.mip_level_count,
@@ -448,10 +450,40 @@ impl HostGpuDevice for JumpjetRuntimeState {
 
     async fn create_compute_pipeline(
         &mut self,
-        _self_: Resource<GpuDevice>,
-        _descriptor: GpuComputePipelineDescriptor,
+        device: Resource<GpuDevice>,
+        descriptor: GpuComputePipelineDescriptor,
     ) -> Resource<GpuComputePipeline> {
-        todo!()
+        let layout = match descriptor.layout {
+            GpuLayout::Auto => None,
+            GpuLayout::Pipeline(pipeline_layout) => {
+                Some(*self.table.get(&pipeline_layout).unwrap())
+            }
+        };
+
+        let compute_module = self.table.get(&descriptor.compute.module).unwrap();
+        let stage = wgpu_core::pipeline::ProgrammableStageDescriptor {
+            module: *compute_module,
+            entry_point: Some(descriptor.compute.entry_point.into()),
+            constants: Cow::Owned(HashMap::new()),
+            zero_initialize_workgroup_memory: false,
+        };
+
+        let device_id = self.table.get(&device).unwrap();
+
+        let desc = &wgpu_core::pipeline::ComputePipelineDescriptor {
+            label: Default::default(),
+            layout,
+            stage,
+            cache: None,
+        };
+
+        let compute_pipeline_id = wgpu_id(
+            self.instance
+                .device_create_compute_pipeline(*device_id, desc, None, None),
+        )
+        .unwrap();
+
+        self.table.push_child(compute_pipeline_id, &device).unwrap()
     }
 
     async fn create_render_pipeline(
@@ -657,23 +689,22 @@ impl HostGpuDevice for JumpjetRuntimeState {
     async fn create_render_bundle_encoder(
         &mut self,
         device: Resource<GpuDevice>,
-        _descriptor: GpuRenderBundleDescriptor,
+        descriptor: GpuRenderBundleDescriptor,
     ) -> Resource<GpuRenderBundleEncoder> {
         let device_id = self.table.get(&device).unwrap();
 
-        #[allow(unused_variables)]
+        // The `gpu-render-bundle-descriptor` WIT record only carries a label, so the
+        // attachment formats the bundle is compatible with are defaulted to the
+        // configured surface. This covers the common case of bundles that render into
+        // the swapchain; richer descriptors can be added once the WIT exposes them.
         let (render_bundle_encoder, _) = self.instance.device_create_render_bundle_encoder(
             *device_id,
             &wgpu_core::command::RenderBundleEncoderDescriptor {
-                label: todo!(),
-                #[allow(unreachable_code)]
-                color_formats: todo!(),
-                #[allow(unreachable_code)]
-                depth_stencil: todo!(),
-                #[allow(unreachable_code)]
-                sample_count: todo!(),
-                #[allow(unreachable_code)]
-                multiview: todo!(),
+                label: Some(descriptor.label.into()),
+                color_formats: Cow::Owned(vec![Some(self.surface_config.format)]),
+                depth_stencil: None,
+                sample_count: 1,
+                multiview: None,
             },
         );
 
@@ -905,9 +936,11 @@ impl HostGpuTexture for JumpjetRuntimeState {
 
     async fn depth_or_array_layers(
         &mut self,
-        _self_: Resource<GpuTexture>,
+        texture: Resource<GpuTexture>,
     ) -> GpuIntegerCoordinate {
-        todo!()
+        let texture_id = self.table.get(&texture).unwrap();
+        let texture = self.gpu_state.textures.get(&texture_id).unwrap();
+        texture.depth_or_array_layers
     }
 
     async fn mip_level_count(&mut self, texture: Resource<GpuTexture>) -> GpuIntegerCoordinate {
@@ -1032,7 +1065,11 @@ impl HostGpuShaderModule for JumpjetRuntimeState {
         &mut self,
         _self_: Resource<GpuShaderModule>,
     ) -> GpuCompilationInfo {
-        todo!()
+        // wgpu reports shader compilation problems eagerly as errors when the module or
+        // pipeline is created, so a successfully created module has no pending messages.
+        GpuCompilationInfo {
+            messages: Vec::new(),
+        }
     }
 
     async fn drop(&mut self, rep: Resource<GpuShaderModule>) -> Result<()> {

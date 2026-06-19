@@ -31,13 +31,13 @@ jobs:
             binary-postfix: ""
             use-cross: false
             binary-name: jumpjet-host
-          # - os: ubuntu-latest
-          #   os-name: linux
-          #   target: x86_64-unknown-linux-gnu
-          #   architecture: x86_64
-          #   binary-postfix: ""
-          #   use-cross: false
-          #   binary-name: jumpjet-host
+          - os: ubuntu-latest
+            os-name: linux
+            target: x86_64-unknown-linux-gnu
+            architecture: x86_64
+            binary-postfix: ""
+            use-cross: false
+            binary-name: jumpjet-host
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
@@ -63,6 +63,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install system dependencies (Linux)
+        if: matrix.os-name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -159,13 +162,13 @@ jobs:
             binary-postfix: ""
             use-cross: false
             binary-name: jumpjet-cli
-          # - os: ubuntu-latest
-          #   os-name: linux
-          #   target: x86_64-unknown-linux-gnu
-          #   architecture: x86_64
-          #   binary-postfix: ""
-          #   use-cross: false
-          #   binary-name: jumpjet-cli
+          - os: ubuntu-latest
+            os-name: linux
+            target: x86_64-unknown-linux-gnu
+            architecture: x86_64
+            binary-postfix: ""
+            use-cross: false
+            binary-name: jumpjet-cli
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
@@ -191,6 +194,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install system dependencies (Linux)
+        if: matrix.os-name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:

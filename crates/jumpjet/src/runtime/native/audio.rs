@@ -244,12 +244,16 @@ impl HostAudioContext for JumpjetRuntimeState {
     async fn create_periodic_wave(
         &mut self,
         _audio_context: Resource<AudioContext>,
-        _options: PeriodicWaveOptions,
+        options: PeriodicWaveOptions,
     ) -> PeriodicWave {
-        todo!()
-        // let audio_context = self.table.get(&self_).unwrap();
-        // let periodic_wave = audio_context.create_periodic_wave(options.into());
-        // periodic_wave.into()
+        // The WIT models a periodic wave as a time-domain `wavetable`, whereas web-audio
+        // describes it with Fourier (real/imag) coefficients. Synthesize the wavetable
+        // here so it round-trips through `set_periodic_wave` below.
+        let real = options.real.unwrap_or_default();
+        let imag = options.imag.unwrap_or_default();
+        PeriodicWave {
+            wavetable: synthesize_wavetable(&real, &imag, options.disable_normalization),
+        }
     }
 
     async fn create_stereo_panner(
@@ -1023,12 +1027,33 @@ impl HostOscillatorNode for JumpjetRuntimeState {
 
     async fn set_periodic_wave(
         &mut self,
-        _node: Resource<OscillatorNode>,
-        _periodic_wave: PeriodicWave,
+        node: Resource<OscillatorNode>,
+        periodic_wave: PeriodicWave,
     ) {
-        // let node = self.table.get_mut(&self_).unwrap();
-        // node.set_periodic_wave(periodic_wave.into());
-        todo!()
+        // Recover Fourier coefficients from the time-domain wavetable so we can build a
+        // web-audio `PeriodicWave`. Fewer than 4 samples cannot yield the >= 2 harmonics
+        // web-audio requires, so we skip rather than panic.
+        if periodic_wave.wavetable.len() < 4 {
+            return;
+        }
+
+        let (real, imag) = analyze_wavetable(&periodic_wave.wavetable);
+
+        let wave = {
+            let node = self.table.get(&node).unwrap();
+            web_audio_api::PeriodicWave::new(
+                node.context(),
+                web_audio_api::PeriodicWaveOptions {
+                    real: Some(real),
+                    imag: Some(imag),
+                    // The wavetable already encodes the intended amplitude.
+                    disable_normalization: true,
+                },
+            )
+        };
+
+        let node = self.table.get_mut(&node).unwrap();
+        node.set_periodic_wave(wave);
     }
 
     async fn connect(
@@ -1317,4 +1342,66 @@ fn audio_node_connect(
         }
     };
     source.connect(audio_node);
+}
+
+/// Number of samples used to represent a periodic wave's time-domain wavetable.
+const PERIODIC_WAVE_SAMPLES: usize = 2048;
+/// web-audio rejects periodic waves with more than 8192 components.
+const MAX_PERIODIC_WAVE_HARMONICS: usize = 8192;
+
+/// Synthesizes a single-period, time-domain wavetable from web-audio Fourier
+/// coefficients via additive synthesis. `real` are cosine terms and `imag` are sine
+/// terms; index 0 is the (ignored) DC offset. When normalization is enabled the table is
+/// scaled so its peak magnitude is 1.
+fn synthesize_wavetable(real: &[f32], imag: &[f32], disable_normalization: bool) -> Vec<f32> {
+    let harmonics = real.len().max(imag.len());
+    let mut table = vec![0.0f32; PERIODIC_WAVE_SAMPLES];
+
+    for (n, sample) in table.iter_mut().enumerate() {
+        let t = n as f32 / PERIODIC_WAVE_SAMPLES as f32;
+        let mut value = 0.0f32;
+        for k in 1..harmonics {
+            let a = real.get(k).copied().unwrap_or(0.0);
+            let b = imag.get(k).copied().unwrap_or(0.0);
+            let theta = std::f32::consts::TAU * k as f32 * t;
+            value += a * theta.cos() - b * theta.sin();
+        }
+        *sample = value;
+    }
+
+    if !disable_normalization {
+        let peak = table.iter().fold(0.0f32, |m, &v| m.max(v.abs()));
+        if peak > 0.0 {
+            for v in table.iter_mut() {
+                *v /= peak;
+            }
+        }
+    }
+
+    table
+}
+
+/// Inverse of [`synthesize_wavetable`]: recovers web-audio Fourier coefficients from a
+/// time-domain wavetable via a discrete Fourier transform. Always returns equal-length
+/// `(real, imag)` vectors of at least 2 elements, as required by web-audio.
+fn analyze_wavetable(wavetable: &[f32]) -> (Vec<f32>, Vec<f32>) {
+    let n = wavetable.len();
+    let harmonics = (n / 2).clamp(2, MAX_PERIODIC_WAVE_HARMONICS);
+
+    let mut real = vec![0.0f32; harmonics];
+    let mut imag = vec![0.0f32; harmonics];
+
+    for k in 0..harmonics {
+        let mut a = 0.0f32;
+        let mut b = 0.0f32;
+        for (i, &x) in wavetable.iter().enumerate() {
+            let theta = std::f32::consts::TAU * k as f32 * i as f32 / n as f32;
+            a += x * theta.cos();
+            b += -x * theta.sin();
+        }
+        real[k] = 2.0 * a / n as f32;
+        imag[k] = 2.0 * b / n as f32;
+    }
+
+    (real, imag)
 }

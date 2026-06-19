@@ -39,7 +39,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                 let full_path = self.paths.get(path.rep() as usize).unwrap();
                 vfs.create_dir(full_path.as_str()).unwrap();
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
 
         ()
@@ -66,7 +66,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                     Err(err) => panic!("{}", err),
                 }
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -76,7 +76,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
 
         match storage {
             Storage::Local(_root, vfs) => vfs.exists(path.as_str()).unwrap(),
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -95,7 +95,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                 file.read_to_end(&mut buffer).unwrap();
                 Some(buffer)
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -114,7 +114,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                 file.read_to_string(&mut str).unwrap();
                 Some(str)
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -142,7 +142,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                     WriteableContent::Bytes(bytes) => file.write_all(&bytes).unwrap(),
                 }
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -172,7 +172,7 @@ impl HostStorageDevice for JumpjetRuntimeState {
                     }
                 }
             }
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         }
     }
 
@@ -188,7 +188,7 @@ impl HostPath for JumpjetRuntimeState {
 
         Resource::new_own(match storage {
             Storage::Local(root, _) => self.paths.insert(root.join(path).unwrap()) as u32,
-            Storage::Cloud => todo!(),
+            Storage::Cloud => unreachable!("cloud storage is not yet available"),
         })
     }
 

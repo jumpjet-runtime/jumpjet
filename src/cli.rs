@@ -22,33 +22,34 @@ pub enum CliCommand {
     // Push,
     /// Just for testin'
     Test,
-    /// Re-resolve dependencies and refresh jumpjet.lock
-    Update,
-    /// Add a package dependency to jumpjet.toml and resolve it
-    Add {
-        /// Package spec: `namespace:name[@version]`
-        spec: String,
-        /// Use a local path dependency
-        #[clap(long, value_name = "DIR")]
-        path: Option<String>,
-        /// Use a git dependency
-        #[clap(long, value_name = "URL")]
-        git: Option<String>,
-        /// Use an http(s) bundle dependency
-        #[clap(long, value_name = "URL")]
-        url: Option<String>,
-        /// Git tag (with --git)
-        #[clap(long)]
-        tag: Option<String>,
-        /// Git branch (with --git)
-        #[clap(long)]
-        branch: Option<String>,
-        /// Git revision (with --git)
-        #[clap(long)]
-        rev: Option<String>,
-    },
-    /// Publish this package (type = "lib") to a registry via `wkg`
-    Publish,
+    // Temporarily disabled — not exposed publicly for now
+    // /// Re-resolve dependencies and refresh jumpjet.lock
+    // Update,
+    // /// Add a package dependency to jumpjet.toml and resolve it
+    // Add {
+    //     /// Package spec: `namespace:name[@version]`
+    //     spec: String,
+    //     /// Use a local path dependency
+    //     #[clap(long, value_name = "DIR")]
+    //     path: Option<String>,
+    //     /// Use a git dependency
+    //     #[clap(long, value_name = "URL")]
+    //     git: Option<String>,
+    //     /// Use an http(s) bundle dependency
+    //     #[clap(long, value_name = "URL")]
+    //     url: Option<String>,
+    //     /// Git tag (with --git)
+    //     #[clap(long)]
+    //     tag: Option<String>,
+    //     /// Git branch (with --git)
+    //     #[clap(long)]
+    //     branch: Option<String>,
+    //     /// Git revision (with --git)
+    //     #[clap(long)]
+    //     rev: Option<String>,
+    // },
+    // /// Publish this package (type = "lib") to a registry via `wkg`
+    // Publish,
     /// Build and run the project
     Run {
         #[clap(long, default_value_t = false)]

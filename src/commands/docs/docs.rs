@@ -91,7 +91,8 @@ fn list_items<'a>(
                 .map(|(_, f)| render_function_list_item(package, f))
                 .collect::<Vec<_>>()
         }
-        CurrentItem::Function(_) => todo!(),
+        // A function is a leaf in the docs tree; it has no child items to list.
+        CurrentItem::Function(_) => Vec::new(),
     }
 }
 

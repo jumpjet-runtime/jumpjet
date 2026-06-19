@@ -90,30 +90,31 @@ impl App {
                     crate::commands::bundle::bundle(target, release).await?;
                 }
             },
-            Some(CliCommand::Update) => crate::commands::update::update().await?,
-            Some(CliCommand::Add {
-                spec,
-                path,
-                git,
-                url,
-                tag,
-                branch,
-                rev,
-            }) => {
-                crate::commands::add::add(
-                    spec,
-                    crate::commands::add::AddOptions {
-                        path: path.clone(),
-                        git: git.clone(),
-                        url: url.clone(),
-                        tag: tag.clone(),
-                        branch: branch.clone(),
-                        rev: rev.clone(),
-                    },
-                )
-                .await?
-            }
-            Some(CliCommand::Publish) => crate::commands::publish::publish().await?,
+            // Temporarily disabled — not exposed publicly for now
+            // Some(CliCommand::Update) => crate::commands::update::update().await?,
+            // Some(CliCommand::Add {
+            //     spec,
+            //     path,
+            //     git,
+            //     url,
+            //     tag,
+            //     branch,
+            //     rev,
+            // }) => {
+            //     crate::commands::add::add(
+            //         spec,
+            //         crate::commands::add::AddOptions {
+            //             path: path.clone(),
+            //             git: git.clone(),
+            //             url: url.clone(),
+            //             tag: tag.clone(),
+            //             branch: branch.clone(),
+            //             rev: rev.clone(),
+            //         },
+            //     )
+            //     .await?
+            // }
+            // Some(CliCommand::Publish) => crate::commands::publish::publish().await?,
             Some(CliCommand::Upgrade) => crate::commands::upgrade::upgrade().await?,
             Some(CliCommand::Docs) => crate::commands::docs::docs(&self.config, &self.mode).await?,
             None => {}
