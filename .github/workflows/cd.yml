@@ -75,7 +75,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Cargo build
         uses: actions-rs/cargo@v1
-        working-directory: crates/jumpjet-host
         with:
           command: build
 
@@ -83,7 +82,7 @@ jobs:
 
           toolchain: stable
 
-          args: --release --target ${{ matrix.target }}
+          args: --release -p jumpjet-host --target ${{ matrix.target }}
 
 
       - name: install strip command
@@ -96,7 +95,6 @@ jobs:
               sudo apt-get install -y binutils-aarch64-linux-gnu
           fi
       - name: Packaging final host binary
-        working-directory: crates/jumpjet-host
         shell: bash
         run: |
 
@@ -130,7 +128,6 @@ jobs:
           fi
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
-        working-directory: crates/jumpjet-host
         with:
           files: |
 

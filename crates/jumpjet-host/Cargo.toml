@@ -10,7 +10,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [[bin]]
-name = "native"
+name = "jumpjet-host"
 path = "src/main.rs"
 
 [dependencies]
