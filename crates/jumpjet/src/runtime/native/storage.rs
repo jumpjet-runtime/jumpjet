@@ -90,6 +90,9 @@ impl HostStorageDevice for JumpjetRuntimeState {
 
         match storage {
             Storage::Local(_root, vfs) => {
+                if !vfs.exists(path.as_str()).unwrap_or(false) {
+                    return None;
+                }
                 let mut file = vfs.open_file(path.as_str()).unwrap();
                 let mut buffer = Vec::new();
                 file.read_to_end(&mut buffer).unwrap();
@@ -109,6 +112,9 @@ impl HostStorageDevice for JumpjetRuntimeState {
 
         match storage {
             Storage::Local(_, vfs) => {
+                if !vfs.exists(path.as_str()).unwrap_or(false) {
+                    return None;
+                }
                 let mut file = vfs.open_file(path.as_str()).unwrap();
                 let mut str = String::new();
                 file.read_to_string(&mut str).unwrap();
@@ -129,12 +135,10 @@ impl HostStorageDevice for JumpjetRuntimeState {
 
         match storage {
             Storage::Local(_, vfs) => {
-                let mut file: Box<dyn Write + Send>;
-                if path.exists().unwrap() {
-                    file = vfs.append_file(path.as_str()).unwrap();
-                } else {
-                    file = vfs.create_file(path.as_str()).unwrap();
-                }
+                // WIT contract: overwrite existing files and create parent directories
+                // as needed. `create_file` truncates, so it covers the overwrite case.
+                path.parent().create_dir_all().unwrap();
+                let mut file = vfs.create_file(path.as_str()).unwrap();
 
                 match content {
                     // WriteableContent::Stream(_) => todo!(),
@@ -239,5 +243,76 @@ impl HostPath for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<Path>) -> Result<()> {
         self.paths.remove(rep.rep() as usize);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Mirrors the exact vfs operations used by the `read`/`write` host functions to
+    // verify the WIT contract: writes overwrite (not append), reads of a missing path
+    // resolve to `None`, and parent directories are created on write.
+    fn temp_root() -> (std::path::PathBuf, VfsPath, AltrootFS) {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("jumpjet-storage-test-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        let root = VfsPath::new(PhysicalFS::new(dir.clone()));
+        let vfs = AltrootFS::new(root.clone());
+        (dir, root, vfs)
+    }
+
+    fn write(root: &VfsPath, vfs: &AltrootFS, path: &str, data: &[u8]) {
+        let full = root.join(path).unwrap();
+        full.parent().create_dir_all().unwrap();
+        let mut file = vfs.create_file(full.as_str()).unwrap();
+        file.write_all(data).unwrap();
+    }
+
+    fn read(vfs: &AltrootFS, path: &str) -> Option<Vec<u8>> {
+        if !vfs.exists(path).unwrap_or(false) {
+            return None;
+        }
+        use std::io::Read;
+        let mut file = vfs.open_file(path).unwrap();
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).unwrap();
+        Some(buf)
+    }
+
+    #[test]
+    fn write_overwrites_existing_file() {
+        let (dir, root, vfs) = temp_root();
+        let full = root.join("save.dat").unwrap();
+
+        write(&root, &vfs, "save.dat", b"first");
+        write(&root, &vfs, "save.dat", b"second");
+
+        assert_eq!(read(&vfs, full.as_str()), Some(b"second".to_vec()));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn read_missing_path_is_none() {
+        let (dir, root, vfs) = temp_root();
+        let full = root.join("does-not-exist.dat").unwrap();
+
+        assert_eq!(read(&vfs, full.as_str()), None);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn write_creates_parent_directories() {
+        let (dir, root, vfs) = temp_root();
+        let full = root.join("nested/deep/save.dat").unwrap();
+
+        write(&root, &vfs, "nested/deep/save.dat", b"data");
+
+        assert_eq!(read(&vfs, full.as_str()), Some(b"data".to_vec()));
+        fs::remove_dir_all(&dir).ok();
     }
 }
