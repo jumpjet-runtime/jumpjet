@@ -1,0 +1,5 @@
+package jumpjet:game;
+
+world game {
+  include jumpjet:runtime/runtime;
+}

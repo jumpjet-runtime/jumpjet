@@ -18,22 +18,27 @@ fn main() {
         .expect("Failed to execute cargo build");
 
     if !output.status.success() {
-        panic!("cargo build failed!");
+        panic!(
+            "cargo build failed!\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     // let output = Command::new("jumpjet")
-    let output = Command::new(current_dir.join("../jumpjet-cli/target/debug/jumpjet-cli"))
+    let output = Command::new(current_dir.join("../../target/debug/jumpjet-cli"))
         .arg("build")
         .current_dir(&runtime_tests_dir)
         .output()
         .expect("Failed to execute Jumpjet build");
 
     if !output.status.success() {
-        println!("{:?}", output.stderr);
-        panic!("Jumpjet build failed!");
+        panic!(
+            "Jumpjet build failed!\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     let input_path = runtime_tests_dir.join("bin");
-    let binary = std::fs::read(input_path.join("runtime_tests.wasm")).unwrap();
+    let binary = std::fs::read(input_path.join("entrypoint.wasm")).unwrap();
     pollster::block_on(jumpjet::runtime::test(input_path.to_path_buf(), binary));
 }
