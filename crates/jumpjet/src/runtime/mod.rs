@@ -1,7 +1,9 @@
 // `common` holds native-shaped shared types (wgpu_core/cpal/vfs); it is only
 // part of the native build. The web runtime defines its own JS-handle state.
+// `pub(crate)` so the bindgen `with` map can name `common::image::Bitmap` as the
+// backing type for the `image-bitmap` resource.
 #[cfg(not(target_arch = "wasm32"))]
-mod common;
+pub(crate) mod common;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
 #[cfg(target_arch = "wasm32")]

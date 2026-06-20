@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-wit-bindgen = "0.34.0"
+wit-bindgen = "0.58.0"
 
 [lib]
 crate-type = ["cdylib"]

@@ -69,6 +69,14 @@ libtest-mimic = "0.7.3"
 raw-window-handle = "0.6"
 web-audio-api = "0.45.2"
 uuid = { version = "1.4.1", features = ["v4"] }
+# Host-side image decoding for `image.decode` (storage file -> image-bitmap).
+# Only the formats Jumpjet commits to, to keep the dependency surface small.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+# Host-side (de)compression for the `compression` interface.
+flate2 = "1"
+brotli = "7"
+# Host-side glTF/GLB parsing for the `model` interface.
+gltf = "1"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 wgpu-core = { version = "24.0.0", features = ["wgsl", "raw-window-handle", "vulkan"] }
