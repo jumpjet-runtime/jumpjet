@@ -3,6 +3,8 @@ package jumpjet:runtime;
 /// A GPU API based on the WebGPU API
 
 interface gpu {
+  use image.{image-bitmap};
+
   /// Request a surface from the host.
   surface: func() -> gpu-surface;
   /// Requests an adapter from the host. The host chooses an adapter according to the user's preferences.
@@ -171,6 +173,10 @@ interface gpu {
     write-buffer: func(buffer: borrow<gpu-buffer>, buffer-offset: gpu-size-u64, data: buffer-source, data-offset: gpu-size-u64, size: gpu-size-u64);
     /// Writes data into a GPU texture at a specified location.
     write-texture: func(destination: gpu-image-copy-texture, data: buffer-source, data-layout: gpu-image-data-layout, size: gpu-extent-d3);
+    /// Uploads a decoded image-bitmap into a texture region. Mirrors WebGPU's
+    /// GPUQueue.copyExternalImageToTexture — pixels go from the host-resident
+    /// bitmap straight into the texture without entering guest memory.
+    copy-external-image-to-texture: func(source: borrow<image-bitmap>, destination: gpu-image-copy-texture, size: gpu-extent-d3);
   }
 
   /// Describes properties for creating a GPU queue.

@@ -2,9 +2,13 @@ use std::io::Cursor;
 
 use cpal::traits::DeviceTrait;
 use wasmtime::Result;
-use wasmtime::component::Resource;
+use wasmtime::component::{Accessor, HasSelf, Resource, StreamReader};
+
+use super::stream::read_stream_to_vec;
 use wasmtime_wasi::ResourceTable;
-use web_audio_api::context::{AudioContext, AudioContextOptions, BaseAudioContext};
+use web_audio_api::context::{
+    AudioContext, AudioContextOptions, BaseAudioContext, OfflineAudioContext,
+};
 use web_audio_api::node::{AudioNode, AudioScheduledSourceNode, IIRFilterNode};
 
 use super::state::JumpjetRuntimeState;
@@ -13,6 +17,29 @@ use crate::jumpjet::runtime::audio::*;
 impl Host for JumpjetRuntimeState {
     async fn output(&mut self) -> Option<Resource<AudioDevice>> {
         Some(Resource::new_own(0))
+    }
+}
+
+impl crate::jumpjet::runtime::audio::HostWithStore for HasSelf<JumpjetRuntimeState> {
+    async fn decode<T: Send>(
+        accessor: &Accessor<T, Self>,
+        data: StreamReader<u8>,
+    ) -> core::result::Result<Resource<AudioBuffer>, DecodeError> {
+        let bytes = read_stream_to_vec(accessor, data)
+            .await
+            .map_err(|e| DecodeError::InvalidData(e.to_string()))?;
+
+        // Decode through a throwaway offline context so decoding doesn't touch the
+        // output device. AudioBuffers aren't bound to a context, so the result is
+        // usable from the real playback context.
+        let ctx = OfflineAudioContext::new(2, 1, 44100.);
+        let buffer = ctx
+            .decode_audio_data_sync(Cursor::new(bytes))
+            .map_err(|e| DecodeError::InvalidData(e.to_string()))?;
+
+        accessor
+            .with(|mut access| access.get().table.push(buffer))
+            .map_err(|e| DecodeError::InvalidData(e.to_string()))
     }
 }
 
@@ -82,21 +109,6 @@ impl HostAudioContext for JumpjetRuntimeState {
     async fn close(&mut self, audio_context: Resource<AudioContext>) {
         let audio_context = self.table.get(&audio_context).unwrap();
         audio_context.close_sync()
-    }
-
-    async fn decode_audio_data(
-        &mut self,
-        audio_context: Resource<AudioContext>,
-        data: Vec<u8>,
-    ) -> Resource<AudioBuffer> {
-        let audio_context = self.table.get(&audio_context).unwrap();
-        self.table
-            .push(
-                audio_context
-                    .decode_audio_data_sync(Cursor::new(data))
-                    .unwrap(),
-            )
-            .unwrap()
     }
 
     async fn create_buffer(

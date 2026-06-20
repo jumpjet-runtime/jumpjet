@@ -2,8 +2,15 @@ package jumpjet:runtime;
 
 /// An audio API based on the Web Audio API
 interface audio {
+  use storage.{decode-error};
+
   /// Gets the user's preferred audio output device
   output: func() -> option<audio-device>;
+
+  /// Decode an audio byte stream (e.g. ogg/wav/flac/mp3, detected from its
+  /// bytes) into an audio-buffer. The host reads the stream host-side; unlike
+  /// `audio-context.decode-audio-data`, no bytes cross the wasm boundary.
+  decode: async func(data: stream<u8>) -> result<audio-buffer, decode-error>;
 
   /// Represents a unique identifier for events within an audio processing context or system.
   type event-id = u32;
@@ -35,8 +42,6 @@ interface audio {
     /// Closes the AudioContext, releasing the system resources being used.
     close: func();
 
-    /// Decode audio file data contained in a byte array.
-    decode-audio-data: func(data: list<u8>) -> audio-buffer;
     /// Creates a new, empty audio buffer object, which can then be populated by data, and played via an audio buffer source node.
     create-buffer: func(number-of-channels: u32, length: u32, sample-rate: f32) -> audio-buffer;
     /// Creates an analyzer node, which can be used to expose audio time and frequency data and create data visualizations.

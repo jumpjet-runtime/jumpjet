@@ -1,0 +1,50 @@
+package jumpjet:runtime;
+
+/// (De)compression over byte streams and models. Each operation takes a typed
+/// input (`compression-data`) and a description of the desired output form
+/// (`output-kind`), and returns the produced `compression-data`. Bytes flow as
+/// host-backed streams, so they never cross the wasm boundary.
+interface compression {
+  use model.{model};
+
+  /// Supported compression formats.
+  enum compression-format {
+    /// gzip container (RFC 1952). Operates on `bytes`.
+    gzip,
+    /// Raw DEFLATE stream (RFC 1951). Operates on `bytes`.
+    deflate,
+    /// Brotli (RFC 7932). Operates on `bytes`.
+    brotli,
+    /// Draco geometry compression. Bridges `bytes` <-> `model`.
+    draco
+  }
+
+  /// The data flowing into or out of a (de)compression op.
+  variant compression-data {
+    /// A raw byte stream (for gzip/deflate/brotli, or draco-compressed bytes).
+    bytes(stream<u8>),
+    /// A decoded 3D model (draco's decompressed form).
+    model(model)
+  }
+
+  /// Describes which form the caller wants the output in.
+  enum output-kind {
+    /// Produce a byte stream.
+    bytes,
+    /// Produce a model.
+    model
+  }
+
+  variant compression-error {
+    /// The (format, input, output) combination isn't supported (e.g. gzip on a
+    /// model, or draco encode/decode which isn't wired up yet).
+    unsupported-format,
+    /// The data couldn't be processed (corrupt input).
+    invalid-data(string)
+  }
+
+  /// Compress `input` with `format`, producing output in the requested form.
+  compress: async func(input: compression-data, output: output-kind, format: compression-format) -> result<compression-data, compression-error>;
+  /// Decompress `input` with `format`, producing output in the requested form.
+  decompress: async func(input: compression-data, output: output-kind, format: compression-format) -> result<compression-data, compression-error>;
+}

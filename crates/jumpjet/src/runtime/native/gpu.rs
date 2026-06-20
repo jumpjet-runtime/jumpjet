@@ -828,6 +828,49 @@ impl HostGpuQueue for JumpjetRuntimeState {
         ()
     }
 
+    async fn copy_external_image_to_texture(
+        &mut self,
+        queue: Resource<GpuQueue>,
+        source: Resource<ImageBitmap>,
+        destination: GpuImageCopyTexture,
+        size: GpuExtentD3,
+    ) -> () {
+        // Pull the decoded pixels (and tightly-packed row stride) from the
+        // host-resident bitmap, then upload them like `write_texture` would.
+        let (rgba, bytes_per_row, rows_per_image) = {
+            let bitmap = self.table.get(&source).unwrap();
+            (bitmap.rgba.clone(), bitmap.width * 4, bitmap.height)
+        };
+
+        let queue_id = *self.table.get(&queue).unwrap();
+        let texture_id = *self.table.get(&destination.texture).unwrap();
+
+        self.instance
+            .queue_write_texture(
+                queue_id,
+                &TexelCopyTextureInfo {
+                    texture: texture_id,
+                    mip_level: destination.mip_level,
+                    origin: Origin3d {
+                        x: destination.origin[0],
+                        y: destination.origin[1],
+                        z: destination.origin[2],
+                    },
+                    aspect: destination.aspect.into(),
+                },
+                &rgba,
+                &TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(bytes_per_row),
+                    rows_per_image: Some(rows_per_image),
+                },
+                &size.into(),
+            )
+            .unwrap();
+
+        ()
+    }
+
     async fn drop(&mut self, _rep: Resource<GpuQueue>) -> Result<()> {
         Ok(())
     }

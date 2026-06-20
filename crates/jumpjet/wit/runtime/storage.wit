@@ -7,6 +7,18 @@ interface storage {
   /// Returns the local filesystem storage device
   local: func() -> storage-device;
 
+  /// Why a decoder (image, audio, …) could not turn a file's bytes into an asset.
+  /// Defined here, alongside `file`, so every decoding subsystem shares one error
+  /// type rather than declaring its own.
+  variant decode-error {
+    /// The bytes weren't a format the decoder recognizes.
+    unsupported-format,
+    /// The format was recognized but the data was truncated or corrupt.
+    invalid-data(string),
+    /// The decoded asset would exceed what the host is willing to allocate.
+    too-large
+  }
+
   /// Abstract representation of a storage device (local or cloud)
   resource storage-device {
     /// Creates a directory at specified path. No-op if already exists
@@ -19,6 +31,11 @@ interface storage {
     read: func(path: path) -> option<list<u8>>;
     /// Reads file contents as UTF-8 string. Returns none if path doesn't exist
     read-string: func(path: path) -> option<string>;
+    /// Opens a file as a host-backed byte stream whose bytes stay host-side
+    /// (hand it to a decoder — `image`/`audio`/`model` — or read it yourself).
+    /// `async` because producing a stream needs host store access. Returns none
+    /// if the path doesn't exist or isn't a file.
+    open: async func(path: path) -> option<stream<u8>>;
     /// Writes content to path. Overwrites existing files. Creates parent directories if needed
     write: func(path: path, content: writeable-content);
     /// Deletes a file or empty directory. Returns true if removed, false if not empty, none if path doesn't exist

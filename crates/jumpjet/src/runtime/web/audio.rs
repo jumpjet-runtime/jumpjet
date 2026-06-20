@@ -895,22 +895,7 @@ impl AudioContext {
     pub fn close(&self) {
         call(&self.inner, "close", &[]);
     }
-    #[wasm_bindgen(js_name = decodeAudioData)]
-    pub fn decode_audio_data(&self, _data: Vec<u8>) -> AudioBuffer {
-        // decodeAudioData is async; the sync WIT can't await it. Return a silent
-        // placeholder so the guest gets a valid buffer (known limitation).
-        web_sys::console::warn_1(&JsValue::from_str(
-            "jumpjet: audio decode-audio-data is not supported on web (async); returning a silent buffer",
-        ));
-        let sr = getf(&self.inner, "sampleRate");
-        AudioBuffer {
-            inner: call(
-                &self.inner,
-                "createBuffer",
-                &[JsValue::from_f64(2.0), JsValue::from_f64(1.0), f32v(sr)],
-            ),
-        }
-    }
+
     #[wasm_bindgen(js_name = createBuffer)]
     pub fn create_buffer(
         &self,

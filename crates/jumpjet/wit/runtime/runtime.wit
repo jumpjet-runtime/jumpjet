@@ -16,6 +16,9 @@ world runtime {
   import audio;
   import input;
   import gpu;
+  import image;
+  import model;
+  import compression;
   // import network;
   import storage;
   import window;

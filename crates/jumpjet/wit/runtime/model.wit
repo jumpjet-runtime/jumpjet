@@ -1,0 +1,27 @@
+package jumpjet:runtime;
+
+/// Host-side 3D model decoding. Reads a byte stream host-side and parses it into
+/// a `model` — a variant over the supported model representations (glTF/GLB
+/// today; more formats can be added as new arms without breaking callers).
+interface model {
+  use storage.{decode-error};
+
+  /// A parsed glTF 2.0 document (from `.gltf` or `.glb`). Opaque host handle;
+  /// scene/mesh/material accessors are layered on as the renderer needs them.
+  resource gltf-model {
+    /// Number of scenes in the document.
+    scene-count: func() -> u32;
+    /// Number of meshes in the document.
+    mesh-count: func() -> u32;
+  }
+
+  /// A decoded model, tagged by representation.
+  variant model {
+    /// A glTF 2.0 document (covers both `.gltf` and `.glb`).
+    gltf(gltf-model)
+  }
+
+  /// Decode a byte stream into a `model` (glTF/GLB detected from its bytes).
+  /// `async`: the host reads the stream before parsing.
+  decode: async func(data: stream<u8>) -> result<model, decode-error>;
+}

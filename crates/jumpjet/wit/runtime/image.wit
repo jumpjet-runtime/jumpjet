@@ -1,0 +1,30 @@
+package jumpjet:runtime;
+
+/// Host-side image decoding. Reads a byte stream (PNG, JPEG, WebP) host-side and
+/// turns it into an opaque, host-resident bitmap. The compressed bytes never
+/// enter guest memory, and uploading to a texture goes straight from the bitmap
+/// (`gpu.gpu-queue.copy-external-image-to-texture`), so decoded pixels don't
+/// cross the wasm boundary either.
+interface image {
+  use storage.{decode-error};
+
+  /// A decoded image living in host memory. The guest holds only a handle.
+  resource image-bitmap {
+    /// Width in pixels.
+    width: func() -> u32;
+    /// Height in pixels.
+    height: func() -> u32;
+    /// The pixel format the host decoded to.
+    format: func() -> pixel-format;
+  }
+
+  /// The in-memory pixel layout of a decoded `image-bitmap`.
+  enum pixel-format {
+    /// 8 bits per channel, RGBA order, 4 bytes per pixel.
+    rgba8
+  }
+
+  /// Decode a byte stream (PNG, JPEG, or WebP — detected from its bytes) into a
+  /// host-side bitmap. `async`: the host reads the stream before decoding.
+  decode: async func(data: stream<u8>) -> result<image-bitmap, decode-error>;
+}

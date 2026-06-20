@@ -278,13 +278,20 @@ fn fetch_from_project(dir: &Path, name: &PackageName) -> Result<FetchedPackage> 
         .output
         .clone()
         .unwrap_or_else(|| "bin".into());
-    let entrypoint = manifest
+    // `jumpjet build` always componentizes to a canonical filename in the
+    // output dir (see `ENTRYPOINT_FILE`), regardless of the manifest's source
+    // `entrypoint` (which points at the pre-componentized cargo artifact). Read
+    // that canonical name here, but still require `entrypoint` to be declared so
+    // a misconfigured package fails clearly.
+    manifest
         .build
         .entrypoint
-        .clone()
+        .as_ref()
         .ok_or_else(|| eyre!("dependency `{name}` has no [build].entrypoint"))?;
 
-    let component_path = dir.join(&output).join(&entrypoint);
+    let component_path = dir
+        .join(&output)
+        .join(crate::commands::build::ENTRYPOINT_FILE);
     let wit_dir = dir.join(&output).join("wit");
 
     if !component_path.exists() || !wit_dir.exists() {

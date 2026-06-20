@@ -1,10 +1,14 @@
 pub mod audio;
+pub mod compression;
 pub mod debug;
 pub mod gpu;
+pub mod image;
+pub mod model;
 pub mod input;
 // pub mod network;
 pub mod run;
 pub mod state;
 pub mod storage;
+pub mod stream;
 pub mod utilities;
 pub mod window;

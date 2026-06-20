@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 once_cell = "1.18.0"
 # wit-bindgen = "0.18.0"
-wit-bindgen = { git = "https://github.com/bytecodealliance/wit-bindgen" }
+# Bumped from the pinned 0.32 git commit (wit-parser 0.217, no `async func`) to a
+# release whose wit-parser supports the runtime's component-model-async streams.
+wit-bindgen = "0.58.0"
 bytemuck = "1.14.3"
 glam = "0.25.0"
 wasm-bindgen = "0.2.93"

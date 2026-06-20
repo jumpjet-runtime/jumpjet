@@ -1,10 +1,10 @@
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 
 use vfs::{AltrootFS, FileSystem, PhysicalFS, VfsPath};
 
 use wasmtime::Result;
-use wasmtime::component::Resource;
+use wasmtime::component::{Accessor, HasSelf, Resource, StreamReader};
 
 use crate::jumpjet::runtime::storage::*;
 use crate::runtime::storage::Storage;
@@ -183,6 +183,40 @@ impl HostStorageDevice for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<StorageDevice>) -> Result<()> {
         self.storages.remove(rep.rep() as usize);
         Ok(())
+    }
+}
+
+/// `open` produces a host-backed `stream<u8>`, which needs store access, so it
+/// lives on the async `HostWithStore` trait (taking an `Accessor`) rather than
+/// the `&mut self` `HostStorageDevice`.
+impl crate::jumpjet::runtime::storage::HostStorageDeviceWithStore for HasSelf<JumpjetRuntimeState> {
+    async fn open<T: Send>(
+        accessor: &Accessor<T, Self>,
+        storage: Resource<StorageDevice>,
+        path: Resource<Path>,
+    ) -> Option<StreamReader<u8>> {
+        // Read the whole file host-side (decoders buffer anyway), then emit it as
+        // a stream. Done in two `with` steps so no store borrow is held across.
+        let bytes = accessor.with(|mut access| {
+            let state = access.get();
+            let storage = state.storages.get(storage.rep() as usize)?;
+            let path = state.paths.get(path.rep() as usize)?;
+            match storage {
+                Storage::Local(_, vfs) => {
+                    if !vfs.exists(path.as_str()).unwrap_or(false)
+                        || path.is_dir().unwrap_or(false)
+                    {
+                        return None;
+                    }
+                    let mut f = vfs.open_file(path.as_str()).ok()?;
+                    let mut buf = Vec::new();
+                    f.read_to_end(&mut buf).ok()?;
+                    Some(buf)
+                }
+                Storage::Cloud => unreachable!("cloud storage is not yet available"),
+            }
+        })?;
+        super::stream::vec_to_stream(accessor, bytes).ok()
     }
 }
 
