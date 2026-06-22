@@ -29,6 +29,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         .unwrap()
         .parse::<Table>()
         .unwrap();
+    let manifest = crate::pkg::manifest::Manifest::load()?;
 
     let current_dir = env::current_dir()?;
     let jumpjet_dir = current_dir.join(".jumpjet");
@@ -60,7 +61,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         runtime_version: Version::parse(config["runtime"]["version"].as_str().unwrap()).unwrap(),
         build_output_dir: current_dir
             .clone()
-            .join(config["build"]["output"].as_str().unwrap()),
+            .join(manifest.primary_build()?.output.as_deref().unwrap_or("bin")),
         bundle_name: config["bundle"]["name"].as_str().unwrap().to_owned(),
         bundle_identifier: config["package"]["identifier"].as_str().unwrap().to_owned(),
 

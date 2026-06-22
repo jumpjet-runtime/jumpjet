@@ -7,7 +7,7 @@ author = ""
 [runtime]
 version = "{{ runtime_version }}"
 
-[build]
+[lib.build]
 pre = "cargo build --target wasm32-wasip2"
 entrypoint = "./target/wasm32-wasip2/debug/{{ package_snake }}.wasm" # The built wasm component
 wit = "wit" # The package's exported WIT (its public API), relative to the project root

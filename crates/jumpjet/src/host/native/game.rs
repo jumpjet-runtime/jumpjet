@@ -249,7 +249,7 @@ impl Game {
 
         let store = self.store.as_mut().expect("Store must be initialized");
         let ctx = store.data_mut();
-        let surface_id = ctx.surface;
+        let surface_id = ctx.surface.expect("client runtime always has a surface");
 
         if ctx.gpu_state.present_surface {
             ctx.instance.surface_present(surface_id)?;
@@ -263,10 +263,13 @@ impl Game {
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
         if let Some(store) = self.store.as_mut() {
             let ctx = store.data_mut();
-            let surface_id = ctx.surface;
+            let surface_id = ctx.surface.expect("client runtime always has a surface");
             let device_id = ctx.device;
 
-            let surface_config = &mut ctx.surface_config;
+            let surface_config = ctx
+                .surface_config
+                .as_mut()
+                .expect("client runtime always has a surface config");
 
             surface_config.width = size.width;
             surface_config.height = size.height;

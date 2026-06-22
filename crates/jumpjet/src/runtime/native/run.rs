@@ -662,3 +662,37 @@ pub async fn test(_input_path: PathBuf, _binary: Vec<u8>) {
 
     libtest_mimic::run(&args, tests).exit_code();
 }
+
+/// Headless entry point: load a `server-runtime` component and drive its exported
+/// `server` resource (`init` + `update`, no render) on a fixed timestep until the
+/// process is killed. The windowed client equivalent is [`run`].
+pub fn run_server(input_path: PathBuf, binary: Vec<u8>) {
+    let mut server =
+        crate::host::Server::from_binary(&binary).expect("failed to load server component");
+
+    pollster::block_on(server.init(input_path)).expect("Server didn't initialize");
+
+    // Match the client's fixed logic rate (~30Hz). No render loop or accumulator —
+    // the server only ticks `update`.
+    let fixed_time_step = std::time::Duration::from_millis(33);
+    let start_time = std::time::Instant::now();
+    let mut next_tick = start_time;
+
+    loop {
+        let epoch_time = start_time.elapsed();
+        if let Err(e) = pollster::block_on(server.update(epoch_time, fixed_time_step)) {
+            log::error!("server update error: {e:?}");
+            break;
+        }
+
+        // Sleep until the next tick deadline; if we've fallen behind, resync rather
+        // than spiral into catch-up ticks.
+        next_tick += fixed_time_step;
+        let now = std::time::Instant::now();
+        if next_tick > now {
+            std::thread::sleep(next_tick - now);
+        } else {
+            next_tick = now;
+        }
+    }
+}

@@ -12,7 +12,7 @@ pub mod web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use common::*;
 #[cfg(not(target_arch = "wasm32"))]
-pub use native::{run::run, run::test, state::JumpjetRuntimeState};
+pub use native::{run::run, run::run_server, run::test, state::JumpjetRuntimeState};
 #[cfg(target_arch = "wasm32")]
 pub use web::*;
 

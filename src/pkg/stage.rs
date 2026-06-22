@@ -18,7 +18,10 @@
 //! A game gets its own WIT package (`jumpjet:game`) under `.jumpjet/wit/`, whose
 //! `game` world `include`s the host `jumpjet:runtime/client-runtime` profile world
 //! (pulling in every host import plus the `game` export) and adds the dependency imports; the
-//! guest targets `game`. The runtime itself is staged as an ordinary dependency at
+//! client guest targets `game`. Multiplayer projects (those with `[server.build]`)
+//! get a second `server` world in the same package, `include`-ing the headless
+//! `jumpjet:runtime/server-runtime` profile; the server guest targets `server`.
+//! The runtime itself is staged as an ordinary dependency at
 //! `.jumpjet/wit/deps/runtime/` (alongside other packages), so a single-directory
 //! resolve of `.jumpjet/wit/` sees everything. Lib packages author their own world
 //! and add the `import`s to it themselves.
@@ -31,8 +34,11 @@ use crate::pkg::manifest::Manifest;
 use crate::pkg::resolve::Resolution;
 use crate::pkg::source::{interface_wit, package_world_imports};
 
-/// Name of the generated world a game guest targets (`world: "game"`).
+/// Name of the generated world a game/client guest targets (`world: "game"`).
 const GAME_WORLD: &str = "game";
+/// Name of the generated world a headless server guest targets (`world: "server"`),
+/// emitted alongside `game` only for multiplayer projects (those with `[server.build]`).
+const SERVER_WORLD: &str = "server";
 /// File the generated world is written to. Wholly owned by jumpjet and rewritten on
 /// every build, so the `.gen.` infix signals "do not hand-edit".
 const GENERATED_WORLD_FILE: &str = "world.gen.wit";
@@ -42,7 +48,11 @@ const GENERATED_WORLD_FILE: &str = "world.gen.wit";
 /// - libs: the world lives in the package's own `wit/`.
 pub fn wit_root(dir: &Path, manifest: &Manifest) -> PathBuf {
     if manifest.is_lib() {
-        let wit = manifest.build.wit.clone().unwrap_or_else(|| "wit".into());
+        let wit = manifest
+            .lib
+            .as_ref()
+            .and_then(|c| c.build.wit.clone())
+            .unwrap_or_else(|| "wit".into());
         dir.join(wit)
     } else {
         dir.join(".jumpjet").join("wit")
@@ -80,30 +90,49 @@ pub fn stage_wit(dir: &Path, manifest: &Manifest, resolution: &Resolution) -> Re
     imports.dedup();
 
     // Games bind the generated `game` world; it must always exist (even with no
-    // dependencies) for `world: "game"` to resolve. Libs own their world.
+    // dependencies) for `world: "game"` to resolve. Multiplayer projects also get a
+    // `server` world. Libs own their world.
     if !manifest.is_lib() {
-        write_game_world(&root, &imports)?;
+        write_generated_worlds(&root, &imports, manifest.server_build().is_some())?;
     }
     Ok(())
 }
 
-/// Writes the generated `game` world (`include jumpjet:runtime/client-runtime;` plus an
-/// `import` per dependency interface) into the game's WIT root (`.jumpjet/wit`).
+/// Writes the generated world file (`world.gen.wit`): the `game` world
+/// (`include jumpjet:runtime/client-runtime;` plus an `import` per dependency
+/// interface) and, for `multiplayer` projects, a `server` world
+/// (`include jumpjet:runtime/server-runtime;`).
+///
 /// Called by [`stage_wit`] on every build and by `jumpjet new game` at scaffold
-/// time so a freshly created game resolves `world: "game"` before it has any
+/// time so a freshly created game resolves its world(s) before it has any
 /// dependencies — the same file later dependency imports are injected into.
-pub fn write_game_world(wit_root: &Path, imports: &[String]) -> Result<()> {
+pub fn write_generated_worlds(wit_root: &Path, imports: &[String], multiplayer: bool) -> Result<()> {
     std::fs::create_dir_all(wit_root)?;
-    std::fs::write(wit_root.join(GENERATED_WORLD_FILE), game_world(imports))?;
+    std::fs::write(
+        wit_root.join(GENERATED_WORLD_FILE),
+        world_file(imports, multiplayer),
+    )?;
     Ok(())
 }
 
-/// The generated `game` world: its own `jumpjet:game` package that `include`s the
-/// host `jumpjet:runtime/client-runtime` profile world and adds an `import` per
-/// dependency interface.
-fn game_world(imports: &[String]) -> String {
+/// The generated `jumpjet:game` package: the `game` world always, plus the
+/// `server` world for multiplayer. Both `include` the matching `jumpjet:runtime`
+/// profile world.
+fn world_file(imports: &[String], multiplayer: bool) -> String {
     let mut out = String::new();
     out.push_str("package jumpjet:game;\n\n");
+    out.push_str(&game_world(imports));
+    if multiplayer {
+        out.push('\n');
+        out.push_str(&server_world());
+    }
+    out
+}
+
+/// The `game` world: `include`s the client-runtime profile and adds an `import`
+/// per dependency interface.
+fn game_world(imports: &[String]) -> String {
+    let mut out = String::new();
     out.push_str(&format!("world {GAME_WORLD} {{\n"));
     out.push_str("  include jumpjet:runtime/client-runtime;\n");
     for imp in imports {
@@ -115,24 +144,47 @@ fn game_world(imports: &[String]) -> String {
     out
 }
 
+/// The `server` world: `include`s the headless server-runtime profile. Server-side
+/// dependency imports are a follow-up (servers are dependency-free for now).
+fn server_world() -> String {
+    let mut out = String::new();
+    out.push_str(&format!("world {SERVER_WORLD} {{\n"));
+    out.push_str("  include jumpjet:runtime/server-runtime;\n");
+    out.push_str("}\n");
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn game_world_includes_runtime() {
-        let w = game_world(&[]);
+    fn singleplayer_world_has_game_only() {
+        let w = world_file(&[], false);
         assert!(w.contains("package jumpjet:game;"));
         assert!(w.contains(&format!("world {GAME_WORLD} {{")));
         assert!(w.contains("include jumpjet:runtime/client-runtime;"));
+        assert!(!w.contains(&format!("world {SERVER_WORLD} {{")));
+    }
+
+    #[test]
+    fn multiplayer_world_has_both() {
+        let w = world_file(&[], true);
+        assert!(w.contains(&format!("world {GAME_WORLD} {{")));
+        assert!(w.contains("include jumpjet:runtime/client-runtime;"));
+        assert!(w.contains(&format!("world {SERVER_WORLD} {{")));
+        assert!(w.contains("include jumpjet:runtime/server-runtime;"));
     }
 
     #[test]
     fn game_world_adds_each_import() {
-        let w = game_world(&[
-            "import jumpjet:threejs/three@0.1.0;".to_string(),
-            "import jumpjet:physics/world@2.0.0;".to_string(),
-        ]);
+        let w = world_file(
+            &[
+                "import jumpjet:threejs/three@0.1.0;".to_string(),
+                "import jumpjet:physics/world@2.0.0;".to_string(),
+            ],
+            false,
+        );
         assert!(w.contains("include jumpjet:runtime/client-runtime;"));
         assert!(w.contains("import jumpjet:threejs/three@0.1.0;"));
         assert!(w.contains("import jumpjet:physics/world@2.0.0;"));

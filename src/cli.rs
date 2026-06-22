@@ -95,6 +95,10 @@ pub enum CliCommand {
         /// Port for the web dev server (only with `--target web`)
         #[clap(long, value_name = "PORT")]
         port: Option<u16>,
+        /// Run the headless server component (`[server.build]`) instead of the
+        /// game/client. Native only.
+        #[clap(long, default_value_t = false)]
+        server: bool,
     },
     /// Build the project
     Build {

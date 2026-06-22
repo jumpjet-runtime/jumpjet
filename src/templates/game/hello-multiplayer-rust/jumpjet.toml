@@ -1,0 +1,23 @@
+[package]
+identifier = "{{ identifier }}"
+version = "0.1.0"
+type = "game"
+author = ""
+
+[runtime]
+version = "{{ runtime_version }}"
+
+# The client/singleplayer component: renders and runs on each player's machine.
+[game.build]
+pre = "cargo build -p client --target wasm32-wasip2"
+entrypoint = "./target/wasm32-wasip2/debug/client.wasm"
+# assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)
+output = "./bin" # Jumpjet's build output
+
+# The authoritative headless server component. Run it with `jumpjet run --server`.
+[server.build]
+pre = "cargo build -p server --target wasm32-wasip2"
+entrypoint = "./target/wasm32-wasip2/debug/server.wasm"
+
+[bundle]
+name = "{{ name }}"

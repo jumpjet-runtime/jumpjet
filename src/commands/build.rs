@@ -5,13 +5,11 @@ use std::path::{Path, PathBuf};
 use subprocess::{Exec, Redirection};
 use wasmparser::Encoding;
 
-use toml::Table;
-
 use wit_component::ComponentEncoder;
 
 use crate::Result;
 use crate::pkg::compose::ComposeDep;
-use crate::pkg::manifest::Manifest;
+use crate::pkg::manifest::{Build, Manifest};
 use crate::pkg::resolve::Resolution;
 
 #[derive(Embed)]
@@ -23,6 +21,10 @@ struct WasiWasm;
 /// the runtime and generated wrappers never need to know the source wasm's name.
 pub const ENTRYPOINT_FILE: &str = "entrypoint.wasm";
 
+/// The fixed filename the componentized headless server is written to inside the
+/// build `output` dir, alongside the client's [`ENTRYPOINT_FILE`].
+pub const SERVER_FILE: &str = "server.wasm";
+
 /// Prebuilt web runtime artifacts assembled into a `--target web` site:
 /// the wasm-bindgen host (`web.js` + `web_bg.wasm`), the HTML/JS harness, and the
 /// preview2 WASI browser shim. Regenerate with `scripts/build-web-runtime.sh`.
@@ -30,16 +32,11 @@ pub const ENTRYPOINT_FILE: &str = "entrypoint.wasm";
 #[folder = "web-runtime"]
 struct WebRuntime;
 
-fn read_config() -> Result<Table> {
-    Ok(std::fs::read_to_string("jumpjet.toml")?.parse::<Table>()?)
-}
-
-/// Runs the `[build].pre` command from `jumpjet.toml` (e.g. `cargo build --target
-/// wasm32-wasip2`), if present.
-fn run_pre(config: &Table) -> Result<()> {
-    let build = config.get("build").unwrap();
-    if let Some(command) = build.get("pre") {
-        let result = Exec::shell(command.as_str().unwrap())
+/// Runs a component's `pre` command (e.g. `cargo build --target wasm32-wasip2`),
+/// if present.
+fn run_pre(build: &Build) -> Result<()> {
+    if let Some(command) = &build.pre {
+        let result = Exec::shell(command)
             .stdout(Redirection::Pipe)
             .stderr(Redirection::Merge)
             .capture()
@@ -55,23 +52,24 @@ fn run_pre(config: &Table) -> Result<()> {
 }
 
 /// Builds the shippable `output` dir (`bin/`): copy the optional `assets` tree in,
-/// then componentize the built `entrypoint` wasm into `output/entrypoint.wasm`
-/// (in place). Only these — the one component plus declared assets — ever enter a
+/// then componentize the built `entrypoint` wasm into `output/<out_name>` (in
+/// place). Only these — the component(s) plus declared assets — ever enter a
 /// bundle, so build-tool cruft (cargo target internals, JS dist intermediates)
 /// stays out. Returns the path to the componentized wasm.
-fn componentize(config: &Table) -> Result<PathBuf> {
+fn componentize(build: &Build, out_name: &str) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
 
-    let entrypoint = config["build"]["entrypoint"]
-        .as_str()
-        .expect("No build entrypoint provided in config!");
-    let output_path = current_dir.join(config["build"]["output"].as_str().unwrap_or("bin"));
+    let entrypoint = build
+        .entrypoint
+        .as_deref()
+        .ok_or_else(|| eyre::eyre!("no build entrypoint provided in jumpjet.toml"))?;
+    let output_path = current_dir.join(build.output.as_deref().unwrap_or("bin"));
 
     std::fs::create_dir_all(&output_path)?;
 
     // Optional data files the game ships, mounted as its local storage at runtime.
     // Copied before the entrypoint so the canonical wasm name always wins.
-    if let Some(assets) = config["build"].get("assets").and_then(|v| v.as_str()) {
+    if let Some(assets) = build.assets.as_deref() {
         let assets_dir = current_dir.join(assets);
         if assets_dir.exists() {
             crate::fs::copy_dir_all(&assets_dir, &output_path)?;
@@ -79,7 +77,7 @@ fn componentize(config: &Table) -> Result<PathBuf> {
     }
 
     // Package dependencies are composed in afterwards by `compose_into`.
-    let output_entrypoint_path = output_path.join(ENTRYPOINT_FILE);
+    let output_entrypoint_path = output_path.join(out_name);
     std::fs::copy(current_dir.join(entrypoint), &output_entrypoint_path)?;
     componentize_wasm(output_entrypoint_path.clone());
 
@@ -87,18 +85,19 @@ fn componentize(config: &Table) -> Result<PathBuf> {
 }
 
 /// The directory `build --target web` transpiles the guest into (`<output>/web/guest`).
-fn web_guest_dir(config: &Table) -> Result<PathBuf> {
+fn web_guest_dir(build: &Build) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
-    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
+    let output_path = Path::new(build.output.as_deref().unwrap_or("bin"));
     Ok(current_dir.join(output_path).join("web").join("guest"))
 }
 
 /// The built wasm artifact `run --target web` watches: the `entrypoint` path.
-pub fn source_entrypoint(config: &Table) -> Result<PathBuf> {
+pub fn source_entrypoint(build: &Build) -> Result<PathBuf> {
     let current_dir = env::current_dir()?;
-    let entrypoint = config["build"]["entrypoint"]
-        .as_str()
-        .expect("No build entrypoint provided in config!");
+    let entrypoint = build
+        .entrypoint
+        .as_deref()
+        .ok_or_else(|| eyre::eyre!("no build entrypoint provided in jumpjet.toml"))?;
     Ok(current_dir.join(entrypoint))
 }
 
@@ -106,19 +105,29 @@ pub fn source_entrypoint(config: &Table) -> Result<PathBuf> {
 /// For `type = "lib"` packages, also emit the package's WIT alongside the component
 /// and validate that it only imports Jumpjet/WASI host APIs.
 pub async fn build(_release: &bool) -> Result<()> {
-    let config = read_config()?;
+    let manifest = Manifest::load()?;
     // Resolve + stage dependency WIT *before* `pre`, so guest bindgen can see it.
     let resolution = prepare_deps().await?;
-    run_pre(&config)?;
-    let component_path = componentize(&config)?;
+
+    // Primary component: the game/client (or the lib).
+    let primary = manifest.primary_build()?;
+    run_pre(primary)?;
+    let component_path = componentize(primary, ENTRYPOINT_FILE)?;
     // Compose dependency components into the freshly built guest component.
     compose_into(&component_path, &resolution)?;
 
-    if let Ok(manifest) = Manifest::load() {
-        if manifest.is_lib() {
-            finalize_lib(&manifest, &component_path)?;
-        }
+    if manifest.is_lib() {
+        finalize_lib(&manifest, &component_path)?;
     }
+
+    // Optional headless server component (multiplayer). Built into the same
+    // `output` dir as `server.wasm`; dependency composition for the server is a
+    // follow-up (servers are dependency-free for now).
+    if let Some(server) = manifest.server_build() {
+        run_pre(server)?;
+        componentize(server, SERVER_FILE)?;
+    }
+
     Ok(())
 }
 
@@ -159,9 +168,10 @@ fn compose_into(component_path: &Path, resolution: &Resolution) -> Result<()> {
 /// component + WIT form a self-contained, consumable artifact, then validate the
 /// component's imports.
 fn finalize_lib(manifest: &Manifest, component_path: &Path) -> Result<()> {
-    let output = manifest.build.output.as_deref().unwrap_or("bin");
-    let wit_src = manifest.build.wit.as_deref().ok_or_else(|| {
-        eyre::eyre!("[build].wit is required for `type = \"lib\"` (path to the package's WIT)")
+    let build = manifest.primary_build()?;
+    let output = build.output.as_deref().unwrap_or("bin");
+    let wit_src = build.wit.as_deref().ok_or_else(|| {
+        eyre::eyre!("[lib.build].wit is required for `type = \"lib\"` (path to the package's WIT)")
     })?;
 
     let wit_dest = Path::new(output).join("wit");
@@ -227,14 +237,12 @@ fn validate_lib_component(component_path: &Path) -> Result<()> {
 /// the assembly step shared by `bundle --target web` and `run --target web`
 /// (see [`assemble_web_site`]).
 pub async fn build_web(release: &bool) -> Result<()> {
-    let config = read_config()?;
+    let manifest = Manifest::load()?;
+    let primary = manifest.primary_build()?;
     let resolution = prepare_deps().await?;
-    run_pre(&config)?;
-    build_web_compile(&config, &resolution)?;
-    println!(
-        "Web guest compiled to {}",
-        web_guest_dir(&config)?.display()
-    );
+    run_pre(primary)?;
+    build_web_compile(primary, &resolution)?;
+    println!("Web guest compiled to {}", web_guest_dir(primary)?.display());
     let _ = release;
     Ok(())
 }
@@ -243,18 +251,19 @@ pub async fn build_web(release: &bool) -> Result<()> {
 /// watch loop, which reacts to the developer's own compiler output rather than
 /// invoking the guest compiler itself.
 pub async fn build_web_incremental(_release: &bool) -> Result<()> {
-    let config = read_config()?;
+    let manifest = Manifest::load()?;
+    let primary = manifest.primary_build()?;
     let resolution = prepare_deps().await?;
-    build_web_compile(&config, &resolution)?;
+    build_web_compile(primary, &resolution)?;
     Ok(())
 }
 
 /// Shared compile step: componentize the input, compose dependencies in, then
 /// transpile the guest to JS.
-fn build_web_compile(config: &Table, resolution: &Resolution) -> Result<()> {
-    let component_path = componentize(config)?;
+fn build_web_compile(build: &Build, resolution: &Resolution) -> Result<()> {
+    let component_path = componentize(build, ENTRYPOINT_FILE)?;
     compose_into(&component_path, resolution)?;
-    let guest_dir = web_guest_dir(config)?;
+    let guest_dir = web_guest_dir(build)?;
     transpile_guest(&component_path, &guest_dir)
 }
 

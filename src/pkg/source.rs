@@ -273,21 +273,17 @@ fn fetch_from_project(dir: &Path, name: &PackageName) -> Result<FetchedPackage> 
         .version
         .clone()
         .ok_or_else(|| eyre!("dependency `{name}` is missing [package].version"))?;
-    let output = manifest
-        .build
-        .output
-        .clone()
-        .unwrap_or_else(|| "bin".into());
+    let build = manifest.primary_build()?;
+    let output = build.output.clone().unwrap_or_else(|| "bin".into());
     // `jumpjet build` always componentizes to a canonical filename in the
     // output dir (see `ENTRYPOINT_FILE`), regardless of the manifest's source
     // `entrypoint` (which points at the pre-componentized cargo artifact). Read
     // that canonical name here, but still require `entrypoint` to be declared so
     // a misconfigured package fails clearly.
-    manifest
-        .build
+    build
         .entrypoint
         .as_ref()
-        .ok_or_else(|| eyre!("dependency `{name}` has no [build].entrypoint"))?;
+        .ok_or_else(|| eyre!("dependency `{name}` has no [lib.build].entrypoint"))?;
 
     let component_path = dir
         .join(&output)

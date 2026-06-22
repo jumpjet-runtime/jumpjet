@@ -44,7 +44,13 @@ impl Host for JumpjetRuntimeState {
 
 impl HostAudioDevice for JumpjetRuntimeState {
     async fn name(&mut self, _audio_device: Resource<AudioDevice>) -> String {
-        match self.audio_state.device.name() {
+        match self
+            .audio_state
+            .as_ref()
+            .expect("audio is only available in the client runtime")
+            .device
+            .name()
+        {
             Ok(name) => name,
             Err(_) => "Unknown".to_owned(),
         }

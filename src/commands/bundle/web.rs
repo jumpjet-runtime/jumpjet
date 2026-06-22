@@ -1,10 +1,8 @@
 use std::env;
-use std::path::Path;
-
-use toml::Table;
 
 use crate::Result;
 use crate::commands::build;
+use crate::pkg::manifest::Manifest;
 
 /// Assembles the deployable web site into `bundle/web/`: the guest compiled by
 /// `build --target web` (`<output>/web/guest`) plus the embedded host runtime,
@@ -13,10 +11,10 @@ use crate::commands::build;
 /// Assumes `build --target web` has already run (see the dispatch in `app.rs`).
 pub async fn bundle_project(_release: &bool) -> Result<()> {
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string("jumpjet.toml")?.parse::<Table>()?;
+    let manifest = Manifest::load()?;
 
-    let output_path = Path::new(config["build"]["output"].as_str().unwrap_or("bin"));
-    let guest_dir = current_dir.join(output_path).join("web").join("guest");
+    let output = manifest.primary_build()?.output.clone().unwrap_or_else(|| "bin".into());
+    let guest_dir = current_dir.join(&output).join("web").join("guest");
     let bundle_dir = current_dir.join("bundle").join("web");
 
     if bundle_dir.exists() {

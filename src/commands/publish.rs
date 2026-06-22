@@ -24,16 +24,12 @@ pub async fn publish() -> Result<()> {
     // Build to make sure the published component is current.
     crate::commands::build::build(&false).await?;
 
-    let output = manifest
-        .build
-        .output
-        .clone()
-        .unwrap_or_else(|| "bin".into());
-    let entrypoint = manifest
-        .build
+    let build = manifest.primary_build()?;
+    let output = build.output.clone().unwrap_or_else(|| "bin".into());
+    let entrypoint = build
         .entrypoint
         .clone()
-        .ok_or_else(|| eyre!("[build].entrypoint is required to publish"))?;
+        .ok_or_else(|| eyre!("[lib.build].entrypoint is required to publish"))?;
     let component = dir.join(&output).join(&entrypoint);
 
     let package: PackageRef = name

@@ -28,7 +28,10 @@ impl JumpjetRuntimeState {}
 
 impl Host for JumpjetRuntimeState {
     async fn surface(&mut self) -> Resource<GpuSurface> {
-        Resource::new_own(self.surface_resource_id)
+        Resource::new_own(
+            self.surface_resource_id
+                .expect("surface is only available in the client runtime"),
+        )
     }
 
     async fn request_adapter(&mut self) -> Resource<GpuAdapter> {
@@ -50,9 +53,19 @@ impl HostGpuSurface for JumpjetRuntimeState {
         let texture_id = if let Some(texture_id) = self.gpu_state.current_surface_texture {
             texture_id
         } else {
+            let surface = self
+                .surface
+                .expect("surface is only available in the client runtime");
+            let (sc_width, sc_height, sc_format) = {
+                let sc = self
+                    .surface_config
+                    .as_ref()
+                    .expect("surface is only available in the client runtime");
+                (sc.width, sc.height, sc.format)
+            };
             let surface_output = self
                 .instance
-                .surface_get_current_texture(self.surface, None)
+                .surface_get_current_texture(surface, None)
                 .unwrap();
 
             self.gpu_state.present_surface = true;
@@ -61,13 +74,13 @@ impl HostGpuSurface for JumpjetRuntimeState {
             self.gpu_state.textures.insert(
                 texture_id,
                 Texture {
-                    width: self.surface_config.width,
-                    height: self.surface_config.height,
+                    width: sc_width,
+                    height: sc_height,
                     depth_or_array_layers: 1,
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
-                    format: self.surface_config.format,
+                    format: sc_format,
                     usage: TextureUsages::RENDER_ATTACHMENT,
                 },
             );
@@ -80,7 +93,11 @@ impl HostGpuSurface for JumpjetRuntimeState {
     }
 
     async fn get_texture_format(&mut self, _surface: Resource<GpuSurface>) -> GpuTextureFormat {
-        self.surface_config.format.into()
+        self.surface_config
+            .as_ref()
+            .expect("surface is only available in the client runtime")
+            .format
+            .into()
     }
 
     async fn drop(&mut self, _rep: Resource<GpuSurface>) -> Result<()> {
@@ -701,7 +718,12 @@ impl HostGpuDevice for JumpjetRuntimeState {
             *device_id,
             &wgpu_core::command::RenderBundleEncoderDescriptor {
                 label: Some(descriptor.label.into()),
-                color_formats: Cow::Owned(vec![Some(self.surface_config.format)]),
+                color_formats: Cow::Owned(vec![Some(
+                    self.surface_config
+                        .as_ref()
+                        .expect("surface is only available in the client runtime")
+                        .format,
+                )]),
                 depth_stencil: None,
                 sample_count: 1,
                 multiview: None,

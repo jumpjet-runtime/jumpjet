@@ -46,7 +46,12 @@ pub async fn game(
     // later regenerates the same world with extra imports as packages are added.
     let wit_root = project_root_path.join(".jumpjet").join("wit");
     super::package::copy_runtime_wit(&wit_root.join("deps").join("runtime"))?;
-    crate::pkg::stage::write_game_world(&wit_root, &[])?;
+    // Multiplayer templates ship a `[server.build]`; detect it from the just-written
+    // manifest so the generated WIT includes the `server` world too.
+    let multiplayer = crate::pkg::manifest::Manifest::load_from(&project_root_path)
+        .map(|m| m.server_build().is_some())
+        .unwrap_or(false);
+    crate::pkg::stage::write_generated_worlds(&wit_root, &[], multiplayer)?;
 
     Ok(())
 }

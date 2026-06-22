@@ -7,7 +7,7 @@ author = ""
 [runtime]
 version = "{{ runtime_version }}"
 
-[build]
+[game.build]
 pre = "cargo build --target wasm32-wasip2"
 entrypoint = "./target/wasm32-wasip2/debug/{{ identifier_underscored }}.wasm" # The built wasm component to package
 # assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)

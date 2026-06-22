@@ -1,9 +1,10 @@
 //! Typed view of a `jumpjet.toml` manifest.
 //!
-//! The existing build pipeline (`src/commands/build.rs`) still reads the manifest
-//! as a raw [`toml::Table`] for the fields it already understood; this module adds
-//! a typed layer used by the package manager for package identity and the
-//! `[dependencies]` table. The two coexist — nothing here changes how games build.
+//! Components are declared as `[<type>.build]` — `[game.build]` (the client /
+//! singleplayer entrypoint), the optional `[server.build]` (a headless multiplayer
+//! server), and `[lib.build]` (a library package). [`Manifest::primary_build`]
+//! selects the right one by `[package].type`; [`Manifest::server_build`] returns the
+//! server component when present.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -143,6 +144,16 @@ pub struct Build {
     pub output: Option<String>,
 }
 
+/// A buildable component, declared as `[<type>.build]` (e.g. `[game.build]`,
+/// `[server.build]`, `[lib.build]`). The outer table (`[game]`, `[server]`, …) is
+/// the component's identity; `build` is how it's compiled. Component-level config
+/// (e.g. future server runtime settings) would live as sibling fields here.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Component {
+    #[serde(default)]
+    pub build: Build,
+}
+
 /// A `[dependencies]` entry, either a bare version requirement or a detailed table.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
@@ -178,8 +189,12 @@ pub struct Manifest {
     pub package: Package,
     #[serde(default)]
     pub runtime: Runtime,
-    #[serde(default)]
-    pub build: Build,
+    /// The game/client (and singleplayer) component: `[game.build]`.
+    pub game: Option<Component>,
+    /// The optional headless server component (multiplayer): `[server.build]`.
+    pub server: Option<Component>,
+    /// The library component for `type = "lib"` packages: `[lib.build]`.
+    pub lib: Option<Component>,
     #[serde(default)]
     pub dependencies: BTreeMap<String, Dependency>,
     /// `[bundle]` (and any other sections) are preserved opaquely so a typed
@@ -206,6 +221,29 @@ impl Manifest {
 
     pub fn parse(text: &str) -> Result<Self> {
         toml::from_str(text).wrap_err("parsing jumpjet.toml")
+    }
+
+    /// The build config for the project's primary component, selected by
+    /// `[package].type`: `[game.build]` for games, `[lib.build]` for libs.
+    pub fn primary_build(&self) -> Result<&Build> {
+        match self.package.kind {
+            PackageKind::Game => self
+                .game
+                .as_ref()
+                .map(|c| &c.build)
+                .ok_or_else(|| eyre!("missing [game.build] section in jumpjet.toml")),
+            PackageKind::Lib => self
+                .lib
+                .as_ref()
+                .map(|c| &c.build)
+                .ok_or_else(|| eyre!("missing [lib.build] section in jumpjet.toml")),
+        }
+    }
+
+    /// The headless server component's build config, present only for multiplayer
+    /// games that declare `[server.build]`.
+    pub fn server_build(&self) -> Option<&Build> {
+        self.server.as_ref().map(|c| &c.build)
     }
 
     /// The package's wasm-pkg identity. Prefers `name = "namespace:name"`, falling
@@ -284,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_game_manifest_still_parses() {
+    fn multiplayer_game_manifest_resolves_components() {
         let m = Manifest::parse(
             r#"
             [package]
@@ -296,11 +334,14 @@ mod tests {
             [runtime]
             version = "0.1.0"
 
-            [build]
-            pre = "cargo build --target wasm32-wasip2"
-            input = "./target/wasm32-wasip2/debug"
-            entrypoint = "my_game.wasm"
+            [game.build]
+            pre = "cargo build -p client --target wasm32-wasip2"
+            entrypoint = "./target/wasm32-wasip2/debug/client.wasm"
             output = "./bin"
+
+            [server.build]
+            pre = "cargo build -p server --target wasm32-wasip2"
+            entrypoint = "./target/wasm32-wasip2/debug/server.wasm"
 
             [bundle]
             name = "My Game"
@@ -309,7 +350,71 @@ mod tests {
         .unwrap();
         assert!(!m.is_lib());
         assert_eq!(m.package_name().unwrap().to_string(), "game:my-game");
-        assert!(m.dependencies.is_empty());
         assert!(m.extra.contains_key("bundle"));
+
+        // `[game.build]` is the primary component.
+        let primary = m.primary_build().unwrap();
+        assert_eq!(
+            primary.entrypoint.as_deref(),
+            Some("./target/wasm32-wasip2/debug/client.wasm")
+        );
+        // `[server.build]` is exposed separately.
+        let server = m.server_build().expect("server build present");
+        assert_eq!(
+            server.entrypoint.as_deref(),
+            Some("./target/wasm32-wasip2/debug/server.wasm")
+        );
+    }
+
+    #[test]
+    fn singleplayer_game_has_no_server() {
+        let m = Manifest::parse(
+            r#"
+            [package]
+            identifier = "solo"
+            type = "game"
+
+            [game.build]
+            entrypoint = "./solo.wasm"
+            output = "./bin"
+        "#,
+        )
+        .unwrap();
+        assert!(m.primary_build().is_ok());
+        assert!(m.server_build().is_none());
+    }
+
+    #[test]
+    fn lib_manifest_resolves_primary() {
+        let m = Manifest::parse(
+            r#"
+            [package]
+            name = "acme:physics"
+            version = "0.1.0"
+            type = "lib"
+
+            [lib.build]
+            entrypoint = "./physics.wasm"
+            wit = "./wit"
+            output = "./bin"
+        "#,
+        )
+        .unwrap();
+        assert!(m.is_lib());
+        assert_eq!(m.primary_build().unwrap().wit.as_deref(), Some("./wit"));
+        assert!(m.server_build().is_none());
+    }
+
+    #[test]
+    fn missing_primary_build_errors() {
+        let m = Manifest::parse(
+            r#"
+            [package]
+            identifier = "broken"
+            type = "game"
+        "#,
+        )
+        .unwrap();
+        assert!(m.primary_build().is_err());
     }
 }

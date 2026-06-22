@@ -7,7 +7,7 @@ author = ""
 [runtime]
 version = "{{ runtime_version }}"
 
-[build]
+[game.build]
 pre = "npm run build"
 entrypoint = "./dist/game.wasm" # The built wasm component to package
 # assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)

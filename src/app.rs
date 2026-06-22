@@ -87,12 +87,20 @@ impl App {
                 release,
                 target,
                 port,
+                server,
             }) => match target.as_deref() {
-                Some("web") => crate::commands::run::run_web(release, port.unwrap_or(8731)).await?,
+                Some("web") => {
+                    if *server {
+                        return Err(color_eyre::eyre::eyre!(
+                            "`--server` is native-only and can't be combined with `--target web`"
+                        ));
+                    }
+                    crate::commands::run::run_web(release, port.unwrap_or(8731)).await?
+                }
                 Some(other) if other != "native" => {
                     return Err(color_eyre::eyre::eyre!("unknown run target: {other}"));
                 }
-                None | Some(_) => crate::commands::run::run(release).await?,
+                None | Some(_) => crate::commands::run::run(release, *server).await?,
             },
             Some(CliCommand::Build { release, target }) => match target.as_deref() {
                 Some("web") => crate::commands::build::build_web(release).await?,

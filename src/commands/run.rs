@@ -2,30 +2,34 @@ use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use color_eyre::eyre::eyre;
 use tokio::sync::broadcast;
-use toml::Table;
 
 use crate::Result;
 use crate::commands::{build, serve};
+use crate::pkg::manifest::Manifest;
 
 /// Native run: build the project and execute it in the in-process Jumpjet runtime.
-pub async fn run(release: &bool) -> Result<()> {
+/// With `server`, runs the headless `[server.build]` component instead of the
+/// game/client.
+pub async fn run(release: &bool, server: bool) -> Result<()> {
     crate::commands::build::build(release).await?;
 
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string(current_dir.join("jumpjet.toml"))
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
+    let manifest = Manifest::load()?;
 
-    match config["build"]["output"].as_str() {
-        Some(output_path) => {
-            let output_path = current_dir.join(output_path);
-            let entrypoint_path = output_path.join(build::ENTRYPOINT_FILE);
-            let binary = std::fs::read(entrypoint_path).unwrap();
-            jumpjet::runtime::run(output_path.to_path_buf(), binary, !release);
-        }
-        None => panic!("No build output provided in config!"),
+    if server {
+        let server_build = manifest
+            .server_build()
+            .ok_or_else(|| eyre!("`--server` requires a [server.build] section in jumpjet.toml"))?;
+        let output_path = current_dir.join(server_build.output.as_deref().unwrap_or("bin"));
+        let binary = std::fs::read(output_path.join(build::SERVER_FILE))?;
+        jumpjet::runtime::run_server(output_path, binary);
+    } else {
+        let output_path =
+            current_dir.join(manifest.primary_build()?.output.as_deref().unwrap_or("bin"));
+        let binary = std::fs::read(output_path.join(build::ENTRYPOINT_FILE))?;
+        jumpjet::runtime::run(output_path, binary, !release);
     }
 
     Ok(())
@@ -40,11 +44,12 @@ pub async fn run(release: &bool) -> Result<()> {
 /// pipeline (componentize + jco transpile) and reload the tab.
 pub async fn run_web(release: &bool, port: u16) -> Result<()> {
     let current_dir = env::current_dir()?;
-    let config = std::fs::read_to_string(current_dir.join("jumpjet.toml"))?.parse::<Table>()?;
-    let output_path = current_dir.join(config["build"]["output"].as_str().unwrap_or("bin"));
+    let manifest = Manifest::load()?;
+    let primary = manifest.primary_build()?;
+    let output_path = current_dir.join(primary.output.as_deref().unwrap_or("bin"));
     let site_dir = output_path.join("web");
     let guest_dir = site_dir.join("guest");
-    let input_artifact = build::source_entrypoint(&config)?;
+    let input_artifact = build::source_entrypoint(primary)?;
 
     // Initial full build (runs `pre`) + assemble the servable site at bin/web.
     build::build_web(release).await?;
