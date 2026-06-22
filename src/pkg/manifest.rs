@@ -1,6 +1,6 @@
 //! Typed view of a `jumpjet.toml` manifest.
 //!
-//! Components are declared as `[<type>.build]` — `[game.build]` (the client /
+//! Components are declared as `[<type>.build]` — `[client.build]` (the client /
 //! singleplayer entrypoint), the optional `[server.build]` (a headless multiplayer
 //! server), and `[lib.build]` (a library package). [`Manifest::primary_build`]
 //! selects the right one by `[package].type`; [`Manifest::server_build`] returns the
@@ -110,7 +110,7 @@ fn validate_label(label: &str) -> Result<()> {
 #[serde(rename_all = "lowercase")]
 pub enum PackageKind {
     #[default]
-    Game,
+    Client,
     Lib,
 }
 
@@ -144,8 +144,8 @@ pub struct Build {
     pub output: Option<String>,
 }
 
-/// A buildable component, declared as `[<type>.build]` (e.g. `[game.build]`,
-/// `[server.build]`, `[lib.build]`). The outer table (`[game]`, `[server]`, …) is
+/// A buildable component, declared as `[<type>.build]` (e.g. `[client.build]`,
+/// `[server.build]`, `[lib.build]`). The outer table (`[client]`, `[server]`, …) is
 /// the component's identity; `build` is how it's compiled. Component-level config
 /// (e.g. future server runtime settings) would live as sibling fields here.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -189,8 +189,8 @@ pub struct Manifest {
     pub package: Package,
     #[serde(default)]
     pub runtime: Runtime,
-    /// The game/client (and singleplayer) component: `[game.build]`.
-    pub game: Option<Component>,
+    /// The client (and singleplayer) component: `[client.build]`.
+    pub client: Option<Component>,
     /// The optional headless server component (multiplayer): `[server.build]`.
     pub server: Option<Component>,
     /// The library component for `type = "lib"` packages: `[lib.build]`.
@@ -224,14 +224,14 @@ impl Manifest {
     }
 
     /// The build config for the project's primary component, selected by
-    /// `[package].type`: `[game.build]` for games, `[lib.build]` for libs.
+    /// `[package].type`: `[client.build]` for games, `[lib.build]` for libs.
     pub fn primary_build(&self) -> Result<&Build> {
         match self.package.kind {
-            PackageKind::Game => self
-                .game
+            PackageKind::Client => self
+                .client
                 .as_ref()
                 .map(|c| &c.build)
-                .ok_or_else(|| eyre!("missing [game.build] section in jumpjet.toml")),
+                .ok_or_else(|| eyre!("missing [client.build] section in jumpjet.toml")),
             PackageKind::Lib => self
                 .lib
                 .as_ref()
@@ -328,13 +328,13 @@ mod tests {
             [package]
             identifier = "my-game"
             version = "0.1.0"
-            type = "game"
+            type = "client"
             author = ""
 
             [runtime]
             version = "0.1.0"
 
-            [game.build]
+            [client.build]
             pre = "cargo build -p client --target wasm32-wasip2"
             entrypoint = "./target/wasm32-wasip2/debug/client.wasm"
             output = "./bin"
@@ -352,7 +352,7 @@ mod tests {
         assert_eq!(m.package_name().unwrap().to_string(), "game:my-game");
         assert!(m.extra.contains_key("bundle"));
 
-        // `[game.build]` is the primary component.
+        // `[client.build]` is the primary component.
         let primary = m.primary_build().unwrap();
         assert_eq!(
             primary.entrypoint.as_deref(),
@@ -372,9 +372,9 @@ mod tests {
             r#"
             [package]
             identifier = "solo"
-            type = "game"
+            type = "client"
 
-            [game.build]
+            [client.build]
             entrypoint = "./solo.wasm"
             output = "./bin"
         "#,
@@ -411,7 +411,7 @@ mod tests {
             r#"
             [package]
             identifier = "broken"
-            type = "game"
+            type = "client"
         "#,
         )
         .unwrap();

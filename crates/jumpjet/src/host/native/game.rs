@@ -10,7 +10,7 @@ use gilrs::Gilrs;
 use uuid::Uuid;
 use wasmtime::{
     AsContextMut, Config, DebugEvent, DebugHandler, Engine, Store,
-    component::{Component, Linker, ResourceAny},
+    component::{Component, Linker},
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -73,7 +73,6 @@ pub struct Game {
     pub instance_pre: ClientRuntimePre<JumpjetRuntimeState>,
     pub runtime: Option<ClientRuntime>,
     pub store: Option<Store<JumpjetRuntimeState>>,
-    pub client: Option<ResourceAny>,
     pub debug: bool,
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
     pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
@@ -149,7 +148,6 @@ impl Game {
             instance_pre,
             runtime: None,
             store: None,
-            client: None,
             debug,
             gdb_connection: Arc::new(Mutex::new(None)),
             dap_connection: Arc::new(Mutex::new(None)),
@@ -197,17 +195,14 @@ impl Game {
 
         let runtime = self.instance_pre.instantiate_async(&mut store).await?;
 
-        let client = match runtime
-            .jumpjet_runtime_game()
-            .game()
+        if let Err(msg) = runtime
+            .jumpjet_runtime_client()
             .call_init(&mut store)
             .await?
         {
-            core::result::Result::Ok(client) => client,
-            Err(msg) => panic!("{}", msg),
-        };
+            panic!("{}", msg);
+        }
 
-        self.client = Some(client);
         self.runtime = Some(runtime);
         self.store = Some(store);
 
@@ -220,28 +215,23 @@ impl Game {
         delta_time: Duration,
     ) -> Result<(), anyhow::Error> {
         let store = self.store.as_mut().unwrap();
-        let client = self.client.expect("Client resource must be initialized");
         self.runtime
             .as_ref()
             .unwrap()
-            .jumpjet_runtime_game()
-            .game()
-            .call_update(store, client, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
+            .jumpjet_runtime_client()
+            .call_update(store, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
             .await?;
 
         Ok(())
     }
 
     pub async fn render(&mut self, epoch_time: Duration, alpha: f64) -> Result<(), anyhow::Error> {
-        let client = self.client.expect("Client resource must be initialized");
         self.runtime
             .as_ref()
             .expect("Runtime must be initialized")
-            .jumpjet_runtime_game()
-            .game()
+            .jumpjet_runtime_client()
             .call_render(
                 self.store.as_mut().expect("Store must be initialized"),
-                client,
                 epoch_time.as_secs_f64(),
                 alpha,
             )

@@ -1,13 +1,13 @@
 [package]
 identifier = "{{ identifier }}"
 version = "0.1.0"
-type = "game"
+type = "client"
 author = ""
 
 [runtime]
 version = "{{ runtime_version }}"
 
-[game.build]
+[client.build]
 pre = "componentize-py -d .jumpjet/wit -w game componentize game -o game.wasm"
 entrypoint = "./game.wasm" # The built wasm component to package
 # assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)

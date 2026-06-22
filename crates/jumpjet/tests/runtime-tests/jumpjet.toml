@@ -1,7 +1,7 @@
 [package]
 identifier = "runtime-tests"
 version = "0.1.0"
-type = "game"
+type = "client"
 
 [runtime]
 version = "0.1.0"

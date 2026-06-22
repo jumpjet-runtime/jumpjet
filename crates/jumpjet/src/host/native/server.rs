@@ -1,5 +1,5 @@
 //! Headless server host: instantiates a `server-runtime` component and drives its
-//! exported `server` resource (`init` + `update`, no render) on a fixed timestep.
+//! exported `server` interface (`init` + `update`, no render) on a fixed timestep.
 //! The windowed client equivalent is [`super::game::Game`].
 
 use std::{path::PathBuf, time::Duration};
@@ -8,7 +8,7 @@ use anyhow::Result;
 use uuid::Uuid;
 use wasmtime::{
     Config, Engine, Store,
-    component::{Component, Linker, ResourceAny},
+    component::{Component, Linker},
 };
 
 use crate::{ServerRuntime, ServerRuntimePre};
@@ -20,9 +20,6 @@ pub struct Server {
     pub instance_pre: ServerRuntimePre<JumpjetRuntimeState>,
     pub runtime: Option<ServerRuntime>,
     pub store: Option<Store<JumpjetRuntimeState>>,
-    /// The guest's `server` resource handle, created by `call_init` and passed
-    /// back into `update` for the lifetime of the process.
-    pub game: Option<ResourceAny>,
 }
 
 impl std::fmt::Debug for Server {
@@ -61,7 +58,6 @@ impl Server {
             instance_pre,
             runtime: None,
             store: None,
-            game: None,
         })
     }
 
@@ -71,17 +67,14 @@ impl Server {
 
         let runtime = self.instance_pre.instantiate_async(&mut store).await?;
 
-        let game = match runtime
+        if let Err(msg) = runtime
             .jumpjet_runtime_server()
-            .game()
             .call_init(&mut store)
             .await?
         {
-            core::result::Result::Ok(game) => game,
-            Err(msg) => panic!("{}", msg),
-        };
+            panic!("{}", msg);
+        }
 
-        self.game = Some(game);
         self.runtime = Some(runtime);
         self.store = Some(store);
 
@@ -90,13 +83,11 @@ impl Server {
 
     pub async fn update(&mut self, epoch_time: Duration, delta_time: Duration) -> Result<()> {
         let store = self.store.as_mut().expect("Store must be initialized");
-        let game = self.game.expect("Server resource must be initialized");
         self.runtime
             .as_ref()
             .expect("Runtime must be initialized")
             .jumpjet_runtime_server()
-            .game()
-            .call_update(store, game, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
+            .call_update(store, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
             .await?;
 
         Ok(())

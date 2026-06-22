@@ -2,38 +2,26 @@ package jumpjet:runtime;
 
 /// How Jumpjet interfaces with your game :)
 ///
-/// A singleplayer game implements just `game`. A multiplayer game implements
-/// `game` (the client, which renders) in one component and `server` (the
-/// authoritative, headless simulation) in another.
-interface game {
-  /// Your game. Jumpjet creates one of these at startup via `init`, then drives
-  /// it with `update`/`render` for the lifetime of the process. In multiplayer
-  /// this is the client: it renders and runs on each player's machine.
-  resource game {
-    /// Jumpjet runs this when your game starts up. Return your `game`.
-    init: static func() -> result<game, string>;
-    /// Jumpjet runs this update loop at a fixed frequency per second. Use this for game logic.
-    update: func(time: f64, delta-time: f64);
-    /// Jumpjet runs this render loop at a variable frequency depending on various performance constraints. Use this for render logic.
-    render: func(time: f64, alpha: f64);
-  }
+/// A singleplayer game implements just `client`. A multiplayer game implements
+/// `client` (which renders) in one component and `server` (the headless simulation) in another.
+interface client {
+  /// Jumpjet runs this when your game starts up. Return an error to abort startup.
+  init: func() -> result<_, string>;
+  /// Jumpjet runs this update loop at a fixed frequency per second. Use this for game logic.
+  update: func(time: f64, delta-time: f64);
+  /// Jumpjet runs this render loop at a variable frequency depending on various performance constraints. Use this for render logic.
+  render: func(time: f64, alpha: f64);
 }
 
-/// The server side of a multiplayer game: the authoritative simulation. Jumpjet
-/// creates one at startup via `init`, then drives it with `update` for the
-/// lifetime of the process. It has no render loop — it runs headless.
+/// The server side of a multiplayer game: it has no render loop, it runs headless.
 interface server {
-  resource game {
-    /// Jumpjet runs this when your server starts up. Return your `game`.
-    init: static func() -> result<game, string>;
-    /// Jumpjet runs this update loop at a fixed frequency per second. Use this for game logic.
-    update: func(time: f64, delta-time: f64);
-  }
+  /// Jumpjet runs this when your server starts up. Return an error to abort startup.
+  init: func() -> result<_, string>;
+  /// Jumpjet runs this update loop at a fixed frequency per second. Use this for game logic.
+  update: func(time: f64, delta-time: f64);
 }
 
-/// The full client/singleplayer profile: bundles every host capability a game
-/// running on a player's machine can use, and exports `game`. Not user-facing —
-/// a game's generated `jumpjet:game` world `include`s this.
+/// The full client/singleplayer runtime
 world client-runtime {
   import debug;
   import audio;
@@ -47,13 +35,10 @@ world client-runtime {
   import storage;
   import window;
 
-  export game;
+  export client;
 }
 
-/// The headless server profile: bundles only the capabilities an authoritative
-/// simulation needs (no gpu/window/input/audio/image), and exports `server`.
-/// Not user-facing — a multiplayer game's generated `server` world `include`s
-/// this.
+/// The headless server runtime
 world server-runtime {
   import debug;
   import tasks;

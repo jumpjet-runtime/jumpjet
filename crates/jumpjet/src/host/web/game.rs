@@ -7,10 +7,10 @@
 //!   - `window.jco.instantiate(imports) -> Promise<instance>` — the harness binds
 //!     jco's `instantiate(getCoreModule, imports)`, providing `getCoreModule` to
 //!     fetch/compile the emitted `*.core*.wasm` files.
-//!   - `instance["jumpjet:runtime/game"]` exposes a `Game` resource class with a
-//!     static `init()` returning a game instance, plus `update`/`render` methods.
-//!     The web host runs the `game` (client/singleplayer) component; the separate
-//!     `server` component is driven by a future headless host.
+//!   - `instance["jumpjet:runtime/client"]` exposes the interface's freestanding
+//!     `init()`/`update()`/`render()` functions directly. The web host runs the
+//!     `game` (client/singleplayer) component; the separate `server` component is
+//!     driven by a future headless host.
 //! The guest is transpiled at build time, so there is no runtime wasm binary.
 
 use std::time::Duration;
@@ -27,10 +27,9 @@ pub struct Game {
     pub path: String,
     #[allow(dead_code)]
     state: SharedState,
-    /// The guest's `Game` resource class (carries the static `init`).
-    game_class: Function,
-    /// The game instance returned by `init`; `update`/`render` are called on it.
-    instance: Option<Object>,
+    /// The guest interface's freestanding exports. State lives in the guest's
+    /// component globals, so there's no instance to thread through these calls.
+    init_fn: Function,
     update_fn: Function,
     render_fn: Function,
 }
@@ -63,48 +62,39 @@ impl Game {
         )
         .await?;
 
-        // instance["jumpjet:runtime/game"] -> { Game } (resource class)
-        let guest: Object = Reflect::get(&instance, &JsValue::from_str("jumpjet:runtime/game"))?
+        // instance["jumpjet:runtime/client"] -> { init, update, render }
+        let guest: Object = Reflect::get(&instance, &JsValue::from_str("jumpjet:runtime/client"))?
             .dyn_into()
-            .map_err(|_| JsValue::from_str("guest export `jumpjet:runtime/game` missing"))?;
+            .map_err(|_| JsValue::from_str("guest export `jumpjet:runtime/client` missing"))?;
 
-        let game_class = Reflect::get(&guest, &JsValue::from_str("Game"))?
+        let init_fn = Reflect::get(&guest, &JsValue::from_str("init"))?
             .dyn_into::<Function>()
-            .map_err(|_| JsValue::from_str("guest export `Game` resource missing"))?;
-        // Instance methods live on the class prototype.
-        let prototype = Reflect::get(&game_class, &JsValue::from_str("prototype"))?;
-        let update_fn =
-            Reflect::get(&prototype, &JsValue::from_str("update"))?.dyn_into::<Function>()?;
-        let render_fn =
-            Reflect::get(&prototype, &JsValue::from_str("render"))?.dyn_into::<Function>()?;
+            .map_err(|_| JsValue::from_str("guest export `init` missing"))?;
+        let update_fn = Reflect::get(&guest, &JsValue::from_str("update"))?
+            .dyn_into::<Function>()
+            .map_err(|_| JsValue::from_str("guest export `update` missing"))?;
+        let render_fn = Reflect::get(&guest, &JsValue::from_str("render"))?
+            .dyn_into::<Function>()
+            .map_err(|_| JsValue::from_str("guest export `render` missing"))?;
 
         Ok(Self {
             path: "bytes".to_owned(),
             state,
-            game_class,
-            instance: None,
+            init_fn,
             update_fn,
             render_fn,
         })
     }
 
     pub fn init(&mut self) -> Result<(), JsValue> {
-        // Static `init` lives on the class; it constructs and returns the game.
-        let init_fn = Reflect::get(&self.game_class, &JsValue::from_str("init"))?
-            .dyn_into::<Function>()
-            .map_err(|_| JsValue::from_str("guest export `Game.init` missing"))?;
-        let instance: Object = init_fn.call0(&self.game_class)?.dyn_into()?;
-        self.instance = Some(instance);
+        // `init` returns void on success and throws on the guest's `Err` variant.
+        self.init_fn.call0(&JsValue::NULL)?;
         Ok(())
     }
 
     pub fn update(&mut self, epoch: Duration, delta: Duration) -> Result<(), JsValue> {
-        let instance = self
-            .instance
-            .as_ref()
-            .ok_or_else(|| JsValue::from_str("game not initialized"))?;
         self.update_fn.call2(
-            instance,
+            &JsValue::NULL,
             &JsValue::from_f64(epoch.as_secs_f64()),
             &JsValue::from_f64(delta.as_secs_f64()),
         )?;
@@ -112,12 +102,8 @@ impl Game {
     }
 
     pub fn render(&mut self, epoch: Duration, alpha: f64) -> Result<(), JsValue> {
-        let instance = self
-            .instance
-            .as_ref()
-            .ok_or_else(|| JsValue::from_str("game not initialized"))?;
         self.render_fn.call2(
-            instance,
+            &JsValue::NULL,
             &JsValue::from_f64(epoch.as_secs_f64()),
             &JsValue::from_f64(alpha),
         )?;

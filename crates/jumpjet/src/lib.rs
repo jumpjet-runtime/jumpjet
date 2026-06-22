@@ -55,8 +55,6 @@ pub use client::{ClientRuntime, ClientRuntimePre, exports, jumpjet};
 pub use server::{ServerRuntime, ServerRuntimePre};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use exports::jumpjet::runtime::game;
-#[cfg(not(target_arch = "wasm32"))]
 pub use jumpjet::runtime::*;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};

@@ -1,14 +1,14 @@
 [package]
 identifier = "{{ identifier }}"
 version = "0.1.0"
-type = "game"
+type = "client"
 author = ""
 
 [runtime]
 version = "{{ runtime_version }}"
 
 # The client/singleplayer component: renders and runs on each player's machine.
-[game.build]
+[client.build]
 pre = "cargo build -p client --target wasm32-wasip2"
 entrypoint = "./target/wasm32-wasip2/debug/client.wasm"
 # assets = "./assets" # Optional: data files shipped with your game (mounted as local storage)

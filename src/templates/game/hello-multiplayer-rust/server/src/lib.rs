@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use wit_bindgen::generate;
 
-use crate::exports::jumpjet::runtime::server::{Game, Guest, GuestGame};
+use crate::exports::jumpjet::runtime::server::Guest;
 use crate::jumpjet::runtime::debug::log;
 
 generate!({
@@ -15,25 +15,19 @@ generate!({
     path: "../.jumpjet/wit",
     generate_all
 });
-export!(Component);
+export!(Server);
 
 static TICK: AtomicU64 = AtomicU64::new(0);
 
-struct Component;
+struct Server;
 
-impl Guest for Component {
-    type Game = MyGame;
-}
-
-struct MyGame;
-
-impl GuestGame for MyGame {
-    fn init() -> Result<Game, String> {
+impl Guest for Server {
+    fn init() -> Result<(), String> {
         log(&format!("server init: {}", common::name()));
-        Ok(Game::new(MyGame))
+        Ok(())
     }
 
-    fn update(&self, time: f64, _delta_time: f64) {
+    fn update(time: f64, _delta_time: f64) {
         // The authoritative simulation step — the exact code the client predicts.
         let next = common::step(TICK.load(Ordering::Relaxed));
         TICK.store(next, Ordering::Relaxed);

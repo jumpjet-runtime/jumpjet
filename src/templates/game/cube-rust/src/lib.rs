@@ -2,7 +2,7 @@ use glam::{Mat4, Vec3};
 use once_cell::sync::OnceCell;
 use wit_bindgen::generate;
 
-use crate::exports::jumpjet::runtime::game::{Game, Guest, GuestGame};
+use crate::exports::jumpjet::runtime::client::Guest;
 use crate::jumpjet::runtime::gpu::*;
 
 generate!({
@@ -10,15 +10,9 @@ generate!({
     path: ".jumpjet/wit",
     generate_all
 });
-export!(Component);
+export!(Game);
 
-struct Component;
-
-impl Guest for Component {
-    type Game = MyGame;
-}
-
-struct MyGame;
+struct Game;
 
 static RENDER_PIPELINE: OnceCell<GpuRenderPipeline> = OnceCell::new();
 static UNIFORM_BIND_GROUP: OnceCell<GpuBindGroup> = OnceCell::new();
@@ -68,8 +62,8 @@ fn get_transform_matrix(projection_matrix: Mat4, time: f64) -> Mat4 {
     projection_matrix.mul_mat4(&transformed)
 }
 
-impl GuestGame for MyGame {
-    fn init() -> Result<Game, String> {
+impl Guest for Game {
+    fn init() -> Result<(), String> {
         let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
         let (window_width, window_height) = crate::jumpjet::runtime::window::dimensions();
@@ -245,12 +239,12 @@ impl GuestGame for MyGame {
 
         RENDER_PIPELINE.set(pipeline).unwrap();
 
-        Ok(Game::new(MyGame))
+        Ok(())
     }
 
-    fn update(&self, time: f64, delta_time: f64) { }
+    fn update(time: f64, delta_time: f64) { }
 
-    fn render(&self, time: f64, alpha: f64) {
+    fn render(time: f64, alpha: f64) {
         let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
         let queue = device.queue();
