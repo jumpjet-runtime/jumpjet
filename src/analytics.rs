@@ -84,6 +84,27 @@ fn has_credentials() -> bool {
     !FIREBASE_APP_ID.is_empty() && !FIREBASE_API_SECRET.is_empty()
 }
 
+/// Report the one-time `install` event on a brand-new install, returning a handle
+/// to await before exit (see [`track`]). The state file is only ever written by
+/// analytics, so its absence is our first-run signal — this means existing users
+/// (who already have `analytics.json`) never retroactively fire `install`.
+///
+/// Call this before [`track`] so the shared first-run setup (consent notice,
+/// `app_instance_id`) is persisted once and reused by the command event.
+#[must_use]
+pub fn track_install() -> Option<JoinHandle<()>> {
+    if !has_credentials() || env_opted_out() {
+        return None;
+    }
+
+    // Genuine first run: no state has been persisted yet.
+    if state_path().exists() {
+        return None;
+    }
+
+    track("install", json!({ "cli_version": env!("CARGO_PKG_VERSION") }))
+}
+
 /// Report an event, returning a handle that should be awaited before exit so the
 /// in-flight request can flush. Returns `None` when analytics is disabled (no
 /// credentials, opted out, or first-run notice declined).
@@ -109,15 +130,19 @@ pub fn track(event_name: &str, params: Value) -> Option<JoinHandle<()>> {
         return None;
     }
 
+    Some(spawn_send(&state.app_instance_id, event_name, params))
+}
+
+/// Spawn the fire-and-forget Measurement Protocol request for a single event.
+fn spawn_send(app_instance_id: &str, event_name: &str, mut params: Value) -> JoinHandle<()> {
     // GA4 wants engagement_time_msec on events for them to surface in reports.
-    let mut params = params;
     if let Value::Object(map) = &mut params {
         map.entry("engagement_time_msec").or_insert(json!("1"));
     }
 
     let event_name = event_name.to_string();
     let body = json!({
-        "app_instance_id": state.app_instance_id,
+        "app_instance_id": app_instance_id,
         "events": [{ "name": event_name, "params": params }],
     });
 
@@ -125,7 +150,7 @@ pub fn track(event_name: &str, params: Value) -> Option<JoinHandle<()>> {
         "{COLLECT_URL}?firebase_app_id={FIREBASE_APP_ID}&api_secret={FIREBASE_API_SECRET}"
     );
 
-    Some(tokio::spawn(async move {
+    tokio::spawn(async move {
         let client = match reqwest::Client::builder().timeout(FLUSH_TIMEOUT).build() {
             Ok(c) => c,
             Err(e) => {
@@ -138,7 +163,7 @@ pub fn track(event_name: &str, params: Value) -> Option<JoinHandle<()>> {
             Ok(resp) => debug!("analytics: sent {} -> {}", event_name, resp.status()),
             Err(e) => debug!("analytics: send failed: {e}"),
         }
-    }))
+    })
 }
 
 /// Await an in-flight analytics request (from [`track`]) with a hard timeout so a

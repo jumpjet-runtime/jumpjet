@@ -55,6 +55,11 @@ impl App {
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        // On a brand-new install, report `install` once. Fired before the command
+        // event so the shared first-run setup (consent notice, app_instance_id) is
+        // persisted and reused below.
+        let install = crate::analytics::track_install();
+
         // Report the invoked command (anonymous, no project data). Held until the
         // command finishes so the request can overlap execution, then flushed.
         let analytics = self
@@ -64,6 +69,7 @@ impl App {
 
         let result = self.dispatch().await;
 
+        crate::analytics::flush(install).await;
         crate::analytics::flush(analytics).await;
 
         result
