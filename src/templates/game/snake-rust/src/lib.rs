@@ -5,7 +5,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use wit_bindgen::generate;
 use glam::{Mat4};
 
-use crate::exports::jumpjet::runtime::guest::{Game, Guest, GuestGame};
+use crate::exports::jumpjet::runtime::game::{Game, Guest, GuestGame};
 use crate::jumpjet::runtime::gpu::*;
 use crate::jumpjet::runtime::window;
 use crate::jumpjet::runtime::input::{keyboard, KeyboardKey};

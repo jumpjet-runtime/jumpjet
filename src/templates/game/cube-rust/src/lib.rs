@@ -2,7 +2,7 @@ use glam::{Mat4, Vec3};
 use once_cell::sync::OnceCell;
 use wit_bindgen::generate;
 
-use crate::exports::jumpjet::runtime::guest::{Game, Guest, GuestGame};
+use crate::exports::jumpjet::runtime::game::{Game, Guest, GuestGame};
 use crate::jumpjet::runtime::gpu::*;
 
 generate!({
@@ -19,6 +19,7 @@ impl Guest for Component {
 }
 
 struct MyGame;
+
 static RENDER_PIPELINE: OnceCell<GpuRenderPipeline> = OnceCell::new();
 static UNIFORM_BIND_GROUP: OnceCell<GpuBindGroup> = OnceCell::new();
 static VERTICES_BUFFER: OnceCell<GpuBuffer> = OnceCell::new();

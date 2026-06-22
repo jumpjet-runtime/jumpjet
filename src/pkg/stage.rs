@@ -16,8 +16,8 @@
 //!     world graph touches.
 //!
 //! A game gets its own WIT package (`jumpjet:game`) under `.jumpjet/wit/`, whose
-//! `game` world `include`s the host `jumpjet:runtime/runtime` world (pulling in
-//! every host import plus the `guest` export) and adds the dependency imports; the
+//! `game` world `include`s the host `jumpjet:runtime/client-runtime` profile world
+//! (pulling in every host import plus the `game` export) and adds the dependency imports; the
 //! guest targets `game`. The runtime itself is staged as an ordinary dependency at
 //! `.jumpjet/wit/deps/runtime/` (alongside other packages), so a single-directory
 //! resolve of `.jumpjet/wit/` sees everything. Lib packages author their own world
@@ -87,7 +87,7 @@ pub fn stage_wit(dir: &Path, manifest: &Manifest, resolution: &Resolution) -> Re
     Ok(())
 }
 
-/// Writes the generated `game` world (`include jumpjet:runtime/runtime;` plus an
+/// Writes the generated `game` world (`include jumpjet:runtime/client-runtime;` plus an
 /// `import` per dependency interface) into the game's WIT root (`.jumpjet/wit`).
 /// Called by [`stage_wit`] on every build and by `jumpjet new game` at scaffold
 /// time so a freshly created game resolves `world: "game"` before it has any
@@ -99,13 +99,13 @@ pub fn write_game_world(wit_root: &Path, imports: &[String]) -> Result<()> {
 }
 
 /// The generated `game` world: its own `jumpjet:game` package that `include`s the
-/// host `jumpjet:runtime/runtime` world and adds an `import` per dependency
-/// interface.
+/// host `jumpjet:runtime/client-runtime` profile world and adds an `import` per
+/// dependency interface.
 fn game_world(imports: &[String]) -> String {
     let mut out = String::new();
     out.push_str("package jumpjet:game;\n\n");
     out.push_str(&format!("world {GAME_WORLD} {{\n"));
-    out.push_str("  include jumpjet:runtime/runtime;\n");
+    out.push_str("  include jumpjet:runtime/client-runtime;\n");
     for imp in imports {
         out.push_str("  ");
         out.push_str(imp);
@@ -124,7 +124,7 @@ mod tests {
         let w = game_world(&[]);
         assert!(w.contains("package jumpjet:game;"));
         assert!(w.contains(&format!("world {GAME_WORLD} {{")));
-        assert!(w.contains("include jumpjet:runtime/runtime;"));
+        assert!(w.contains("include jumpjet:runtime/client-runtime;"));
     }
 
     #[test]
@@ -133,7 +133,7 @@ mod tests {
             "import jumpjet:threejs/three@0.1.0;".to_string(),
             "import jumpjet:physics/world@2.0.0;".to_string(),
         ]);
-        assert!(w.contains("include jumpjet:runtime/runtime;"));
+        assert!(w.contains("include jumpjet:runtime/client-runtime;"));
         assert!(w.contains("import jumpjet:threejs/three@0.1.0;"));
         assert!(w.contains("import jumpjet:physics/world@2.0.0;"));
     }

@@ -1,6 +1,6 @@
 use wit_bindgen::generate;
 
-use crate::exports::jumpjet::runtime::guest::{Game, Guest, GuestGame};
+use crate::exports::jumpjet::runtime::game::{Game, Guest, GuestGame};
 use crate::jumpjet::runtime::debug::log;
 
 generate!({

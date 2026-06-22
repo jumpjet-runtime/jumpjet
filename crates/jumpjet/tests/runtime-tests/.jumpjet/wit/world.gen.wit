@@ -1,5 +1,5 @@
 package jumpjet:game;
 
 world game {
-  include jumpjet:runtime/runtime;
+  include jumpjet:runtime/client-runtime;
 }

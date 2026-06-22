@@ -14,7 +14,7 @@ use wasmtime::{
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{Runtime, RuntimePre};
+use crate::{ClientRuntime, ClientRuntimePre};
 
 pub use crate::runtime::JumpjetRuntimeState;
 
@@ -70,10 +70,10 @@ impl DebugHandler for JumpjetDebugHandler {
 pub struct Game {
     pub path: String,
     pub engine: Engine,
-    pub instance_pre: RuntimePre<JumpjetRuntimeState>,
-    pub runtime: Option<Runtime>,
+    pub instance_pre: ClientRuntimePre<JumpjetRuntimeState>,
+    pub runtime: Option<ClientRuntime>,
     pub store: Option<Store<JumpjetRuntimeState>>,
-    pub game: Option<ResourceAny>,
+    pub client: Option<ResourceAny>,
     pub debug: bool,
     pub gdb_connection: Arc<Mutex<Option<TcpStream>>>,
     pub dap_connection: Arc<Mutex<Option<crate::debug::dap::DapConnection>>>,
@@ -137,9 +137,11 @@ impl Game {
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
 
         type Data = wasmtime::component::HasSelf<JumpjetRuntimeState>;
-        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
+        ClientRuntime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| {
+            state
+        })?;
 
-        let instance_pre = RuntimePre::new(linker.instantiate_pre(&component)?)?;
+        let instance_pre = ClientRuntimePre::new(linker.instantiate_pre(&component)?)?;
 
         Ok(Self {
             path: "bytes".to_owned(),
@@ -147,7 +149,7 @@ impl Game {
             instance_pre,
             runtime: None,
             store: None,
-            game: None,
+            client: None,
             debug,
             gdb_connection: Arc::new(Mutex::new(None)),
             dap_connection: Arc::new(Mutex::new(None)),
@@ -195,17 +197,17 @@ impl Game {
 
         let runtime = self.instance_pre.instantiate_async(&mut store).await?;
 
-        let game = match runtime
-            .jumpjet_runtime_guest()
+        let client = match runtime
+            .jumpjet_runtime_game()
             .game()
             .call_init(&mut store)
             .await?
         {
-            core::result::Result::Ok(game) => game,
+            core::result::Result::Ok(client) => client,
             Err(msg) => panic!("{}", msg),
         };
 
-        self.game = Some(game);
+        self.client = Some(client);
         self.runtime = Some(runtime);
         self.store = Some(store);
 
@@ -218,28 +220,28 @@ impl Game {
         delta_time: Duration,
     ) -> Result<(), anyhow::Error> {
         let store = self.store.as_mut().unwrap();
-        let game = self.game.expect("Game resource must be initialized");
+        let client = self.client.expect("Client resource must be initialized");
         self.runtime
             .as_ref()
             .unwrap()
-            .jumpjet_runtime_guest()
+            .jumpjet_runtime_game()
             .game()
-            .call_update(store, game, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
+            .call_update(store, client, epoch_time.as_secs_f64(), delta_time.as_secs_f64())
             .await?;
 
         Ok(())
     }
 
     pub async fn render(&mut self, epoch_time: Duration, alpha: f64) -> Result<(), anyhow::Error> {
-        let game = self.game.expect("Game resource must be initialized");
+        let client = self.client.expect("Client resource must be initialized");
         self.runtime
             .as_ref()
             .expect("Runtime must be initialized")
-            .jumpjet_runtime_guest()
+            .jumpjet_runtime_game()
             .game()
             .call_render(
                 self.store.as_mut().expect("Store must be initialized"),
-                game,
+                client,
                 epoch_time.as_secs_f64(),
                 alpha,
             )

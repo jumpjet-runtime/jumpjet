@@ -42,7 +42,7 @@ pub fn wgpu_id<I: wgpu_core::id::Marker, E>(
 
 #[cfg(not(target_arch = "wasm32"))]
 wasmtime::component::bindgen!({
-    world: "jumpjet:runtime/runtime",
+    world: "jumpjet:runtime/client-runtime",
     path: "wit/runtime",
     with: {
         "jumpjet:runtime/audio.audio-buffer": web_audio_api::AudioBuffer,
@@ -121,7 +121,7 @@ wasmtime::component::bindgen!({
 // });
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use exports::jumpjet::runtime::guest;
+pub use exports::jumpjet::runtime::game;
 #[cfg(not(target_arch = "wasm32"))]
 pub use jumpjet::runtime::*;
 #[cfg(not(target_arch = "wasm32"))]

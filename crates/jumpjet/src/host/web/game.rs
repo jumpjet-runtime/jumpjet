@@ -7,8 +7,10 @@
 //!   - `window.jco.instantiate(imports) -> Promise<instance>` — the harness binds
 //!     jco's `instantiate(getCoreModule, imports)`, providing `getCoreModule` to
 //!     fetch/compile the emitted `*.core*.wasm` files.
-//!   - `instance["jumpjet:runtime/guest"]` exposes a `Game` resource class with a
+//!   - `instance["jumpjet:runtime/game"]` exposes a `Game` resource class with a
 //!     static `init()` returning a game instance, plus `update`/`render` methods.
+//!     The web host runs the `game` (client/singleplayer) component; the separate
+//!     `server` component is driven by a future headless host.
 //! The guest is transpiled at build time, so there is no runtime wasm binary.
 
 use std::time::Duration;
@@ -61,10 +63,10 @@ impl Game {
         )
         .await?;
 
-        // instance["jumpjet:runtime/guest"] -> { Game } (resource class)
-        let guest: Object = Reflect::get(&instance, &JsValue::from_str("jumpjet:runtime/guest"))?
+        // instance["jumpjet:runtime/game"] -> { Game } (resource class)
+        let guest: Object = Reflect::get(&instance, &JsValue::from_str("jumpjet:runtime/game"))?
             .dyn_into()
-            .map_err(|_| JsValue::from_str("guest export `jumpjet:runtime/guest` missing"))?;
+            .map_err(|_| JsValue::from_str("guest export `jumpjet:runtime/game` missing"))?;
 
         let game_class = Reflect::get(&guest, &JsValue::from_str("Game"))?
             .dyn_into::<Function>()

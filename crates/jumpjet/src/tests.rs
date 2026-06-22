@@ -9,15 +9,15 @@ use wasmtime::{
 };
 use winit::window::Window;
 
-use crate::{JumpjetRuntimeState, Runtime, RuntimePre};
+use crate::{ClientRuntime, ClientRuntimePre, JumpjetRuntimeState};
 
 /// Test is used to run wasm component
 
 pub struct Tests {
     pub path: String,
     pub engine: Engine,
-    pub instance_pre: RuntimePre<JumpjetRuntimeState>,
-    pub runtime: Option<Runtime>,
+    pub instance_pre: ClientRuntimePre<JumpjetRuntimeState>,
+    pub runtime: Option<ClientRuntime>,
     pub store: Option<Store<JumpjetRuntimeState>>,
 }
 
@@ -46,12 +46,14 @@ impl Tests {
         wasmtime_wasi::p3::add_to_linker(&mut linker).expect("add wasmtime_wasi::p3 failed");
         wasmtime_wasi::p2::add_to_linker_async(&mut linker).expect("add wasmtime_wasi::p2 failed");
 
-        Runtime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| state)?;
+        ClientRuntime::add_to_linker::<_, Data>(&mut linker, |state: &mut JumpjetRuntimeState| {
+            state
+        })?;
 
         Ok(Self {
             path: "bytes".to_owned(),
             engine,
-            instance_pre: RuntimePre::new(linker.instantiate_pre(&component)?)?,
+            instance_pre: ClientRuntimePre::new(linker.instantiate_pre(&component)?)?,
             runtime: None,
             store: None,
         })
