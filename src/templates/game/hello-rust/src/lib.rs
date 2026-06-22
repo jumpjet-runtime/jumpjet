@@ -1,6 +1,6 @@
 use wit_bindgen::generate;
 
-use crate::exports::jumpjet::runtime::guest::Guest;
+use crate::exports::jumpjet::runtime::guest::{Game, Guest, GuestGame};
 use crate::jumpjet::runtime::debug::log;
 
 generate!({
@@ -8,21 +8,27 @@ generate!({
     path: ".jumpjet/wit",
     generate_all
 });
-export!(Game);
+export!(Component);
 
-struct Game;
+struct Component;
 
-impl Guest for Game {
-    fn init() -> Result<(), String> {
+impl Guest for Component {
+    type Game = MyGame;
+}
+
+struct MyGame;
+
+impl GuestGame for MyGame {
+    fn init() -> Result<Game, String> {
         log("init");
-        Ok(())
+        Ok(Game::new(MyGame))
     }
 
-    fn update(time: f64, delta_time: f64) {
+    fn update(&self, time: f64, delta_time: f64) {
         log(&format!("update: {:?}", time));
     }
 
-    fn render(time: f64, delta_time: f64) {
+    fn render(&self, time: f64, alpha: f64) {
         log(&format!("render: {:?}", time));
     }
 }

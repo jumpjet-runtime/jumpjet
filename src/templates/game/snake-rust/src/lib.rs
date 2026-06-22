@@ -5,7 +5,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use wit_bindgen::generate;
 use glam::{Mat4};
 
-use crate::exports::jumpjet::runtime::guest::Guest;
+use crate::exports::jumpjet::runtime::guest::{Game, Guest, GuestGame};
 use crate::jumpjet::runtime::gpu::*;
 use crate::jumpjet::runtime::window;
 use crate::jumpjet::runtime::input::{keyboard, KeyboardKey};
@@ -15,9 +15,15 @@ generate!({
     path: ".jumpjet/wit",
     generate_all
 });
-export!(Game);
+export!(Component);
 
-struct Game;
+struct Component;
+
+impl Guest for Component {
+    type Game = MyGame;
+}
+
+struct MyGame;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum Direction {
@@ -77,8 +83,8 @@ static GRAPHICS: OnceCell<Graphics> = OnceCell::new();
 const TILE_SIZE: f32 = 32.0;
 const MOVE_INTERVAL: f64 = 0.15;
 
-impl Guest for Game {
-    fn init() -> Result<(), String> {
+impl GuestGame for MyGame {
+    fn init() -> Result<Game, String> {
         let adapter = crate::jumpjet::runtime::gpu::request_adapter();
         let device = adapter.request_device();
         let queue = device.queue();
@@ -243,10 +249,10 @@ impl Guest for Game {
             queue,
         }).map_err(|_| "Failed to set GRAPHICS".to_owned())?;
 
-        Ok(())
+        Ok(Game::new(MyGame))
     }
 
-    fn update(time: f64, _delta_time: f64) {
+    fn update(&self, time: f64, _delta_time: f64) {
         let mut state = STATE.lock().unwrap();
 
         // Input
@@ -338,7 +344,7 @@ impl Guest for Game {
         }
     }
 
-    fn render(_time: f64, _delta_time: f64) {
+    fn render(&self, _time: f64, _alpha: f64) {
         let graphics = GRAPHICS.get().unwrap();
         let device = &graphics.device;
         let queue = &graphics.queue;
