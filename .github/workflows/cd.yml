@@ -207,18 +207,18 @@ jobs:
           profile: minimal
           override: true
       - uses: Swatinem/rust-cache@v2
+      - name: Install dotenvx
+        shell: bash
+        run: npm install -g @dotenvx/dotenvx
       - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-
-          use-cross: ${{ matrix.use-cross }}
-
-          toolchain: stable
-
-          args: --release --target ${{ matrix.target }}
-
-
+        # `dotenvx run` decrypts the committed .env using DOTENV_PRIVATE_KEY and
+        # injects the Firebase analytics credentials into the build environment,
+        # where build.rs bakes them into the binary. Without the secret the build
+        # still succeeds; analytics simply stays disabled.
+        shell: bash
+        run: dotenvx run -- cargo build --release --target ${{ matrix.target }}
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - name: install strip command
         shell: bash
         run: |
