@@ -1,0 +1,42 @@
+package jumpjet:runtime;
+
+/// Host-owned async work behind a sync, pollable handle. Operations that depend
+/// on async data (file/network I/O) return a `task` immediately; the host does
+/// the work in the background and the guest polls `result` each frame — it never
+/// blocks, so guest exports stay synchronous.
+interface tasks {
+  /// A host-side byte buffer with random-access reads. The bytes stay host-side;
+  /// hand it to a decoder (`image`/`audio`/`model`/`compression`) or pull ranges
+  /// into guest memory with `read`.
+  resource buffer {
+    /// Total size in bytes.
+    size: func() -> u32;
+    /// Copy `length` bytes starting at `offset` into guest memory (clamped to
+    /// the buffer's end).
+    read: func(offset: u32, length: u32) -> list<u8>;
+  }
+
+  /// The payload a completed task yields.
+  variant task-data {
+    /// Raw bytes (e.g. the result of `storage.open`).
+    buffer(buffer),
+  }
+
+  /// A snapshot of a task's state, as returned by `task.result`.
+  variant task-result {
+    /// Still running — poll again next frame.
+    pending,
+    /// Finished successfully; carries its payload (none if the op has no data).
+    complete(option<task-data>),
+    /// Failed, with a message.
+    failed(string),
+  }
+
+  /// A handle to host-side async work. Poll `result` until it is no longer
+  /// `pending`; the guest never blocks waiting on it.
+  resource task {
+    /// Non-blocking snapshot of the task's current state. (`%` escapes the WIT
+    /// `result` keyword; the method is still named `result`.)
+    %result: func() -> task-result;
+  }
+}

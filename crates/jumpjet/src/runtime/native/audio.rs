@@ -2,9 +2,8 @@ use std::io::Cursor;
 
 use cpal::traits::DeviceTrait;
 use wasmtime::Result;
-use wasmtime::component::{Accessor, HasSelf, Resource, StreamReader};
+use wasmtime::component::Resource;
 
-use super::stream::read_stream_to_vec;
 use wasmtime_wasi::ResourceTable;
 use web_audio_api::context::{
     AudioContext, AudioContextOptions, BaseAudioContext, OfflineAudioContext,
@@ -18,27 +17,27 @@ impl Host for JumpjetRuntimeState {
     async fn output(&mut self) -> Option<Resource<AudioDevice>> {
         Some(Resource::new_own(0))
     }
-}
 
-impl crate::jumpjet::runtime::audio::HostWithStore for HasSelf<JumpjetRuntimeState> {
-    async fn decode<T: Send>(
-        accessor: &Accessor<T, Self>,
-        data: StreamReader<u8>,
+    async fn decode(
+        &mut self,
+        data: Resource<Buffer>,
     ) -> core::result::Result<Resource<AudioBuffer>, DecodeError> {
-        let bytes = read_stream_to_vec(accessor, data)
-            .await
-            .map_err(|e| DecodeError::InvalidData(e.to_string()))?;
-
         // Decode through a throwaway offline context so decoding doesn't touch the
         // output device. AudioBuffers aren't bound to a context, so the result is
         // usable from the real playback context.
-        let ctx = OfflineAudioContext::new(2, 1, 44100.);
-        let buffer = ctx
-            .decode_audio_data_sync(Cursor::new(bytes))
-            .map_err(|e| DecodeError::InvalidData(e.to_string()))?;
-
-        accessor
-            .with(|mut access| access.get().table.push(buffer))
+        let buffer = {
+            let bytes = self
+                .table
+                .get(&data)
+                .map_err(|e| DecodeError::InvalidData(e.to_string()))?
+                .0
+                .clone();
+            let ctx = OfflineAudioContext::new(2, 1, 44100.);
+            ctx.decode_audio_data_sync(Cursor::new(bytes))
+                .map_err(|e| DecodeError::InvalidData(e.to_string()))?
+        };
+        self.table
+            .push(buffer)
             .map_err(|e| DecodeError::InvalidData(e.to_string()))
     }
 }

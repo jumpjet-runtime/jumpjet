@@ -1,12 +1,14 @@
 use std::fs;
 use std::io::{Read, Write};
+use std::sync::{Arc, Mutex};
 
 use vfs::{AltrootFS, FileSystem, PhysicalFS, VfsPath};
 
 use wasmtime::Result;
-use wasmtime::component::{Accessor, HasSelf, Resource, StreamReader};
+use wasmtime::component::Resource;
 
 use crate::jumpjet::runtime::storage::*;
+use crate::runtime::common::tasks::TaskState;
 use crate::runtime::storage::Storage;
 
 use super::state::JumpjetRuntimeState;
@@ -124,6 +126,43 @@ impl HostStorageDevice for JumpjetRuntimeState {
         }
     }
 
+    async fn open(
+        &mut self,
+        storage: Resource<StorageDevice>,
+        path: Resource<Path>,
+    ) -> Resource<Task> {
+        let state = Arc::new(Mutex::new(TaskState::Pending));
+
+        // Resolve to an absolute filesystem path (a `Send` `PathBuf`) so the read
+        // can run off-thread; the VFS itself isn't moved into the worker.
+        let abs = {
+            let st = self.storages.get(storage.rep() as usize);
+            let p = self.paths.get(path.rep() as usize);
+            match (st, p) {
+                (Some(Storage::Local(_, _)), Some(p)) => {
+                    Some(self.input_path.join(p.as_str().trim_start_matches('/')))
+                }
+                _ => None,
+            }
+        };
+
+        match abs {
+            Some(abs) => {
+                let worker = state.clone();
+                std::thread::spawn(move || {
+                    let outcome = match std::fs::read(&abs) {
+                        Ok(bytes) => TaskState::Complete(bytes),
+                        Err(e) => TaskState::Failed(e.to_string()),
+                    };
+                    *worker.lock().unwrap() = outcome;
+                });
+            }
+            None => *state.lock().unwrap() = TaskState::Failed("path not available".into()),
+        }
+
+        self.table.push(Task { state }).unwrap()
+    }
+
     async fn write(
         &mut self,
         storage: Resource<StorageDevice>,
@@ -183,40 +222,6 @@ impl HostStorageDevice for JumpjetRuntimeState {
     async fn drop(&mut self, rep: Resource<StorageDevice>) -> Result<()> {
         self.storages.remove(rep.rep() as usize);
         Ok(())
-    }
-}
-
-/// `open` produces a host-backed `stream<u8>`, which needs store access, so it
-/// lives on the async `HostWithStore` trait (taking an `Accessor`) rather than
-/// the `&mut self` `HostStorageDevice`.
-impl crate::jumpjet::runtime::storage::HostStorageDeviceWithStore for HasSelf<JumpjetRuntimeState> {
-    async fn open<T: Send>(
-        accessor: &Accessor<T, Self>,
-        storage: Resource<StorageDevice>,
-        path: Resource<Path>,
-    ) -> Option<StreamReader<u8>> {
-        // Read the whole file host-side (decoders buffer anyway), then emit it as
-        // a stream. Done in two `with` steps so no store borrow is held across.
-        let bytes = accessor.with(|mut access| {
-            let state = access.get();
-            let storage = state.storages.get(storage.rep() as usize)?;
-            let path = state.paths.get(path.rep() as usize)?;
-            match storage {
-                Storage::Local(_, vfs) => {
-                    if !vfs.exists(path.as_str()).unwrap_or(false)
-                        || path.is_dir().unwrap_or(false)
-                    {
-                        return None;
-                    }
-                    let mut f = vfs.open_file(path.as_str()).ok()?;
-                    let mut buf = Vec::new();
-                    f.read_to_end(&mut buf).ok()?;
-                    Some(buf)
-                }
-                Storage::Cloud => unreachable!("cloud storage is not yet available"),
-            }
-        })?;
-        super::stream::vec_to_stream(accessor, bytes).ok()
     }
 }
 

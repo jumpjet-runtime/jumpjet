@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 
 pub mod action;
+pub mod analytics;
 pub mod app;
 pub mod assets;
 pub mod cli;

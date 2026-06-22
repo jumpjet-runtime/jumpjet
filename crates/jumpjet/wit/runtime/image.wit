@@ -7,6 +7,7 @@ package jumpjet:runtime;
 /// cross the wasm boundary either.
 interface image {
   use storage.{decode-error};
+  use tasks.{buffer};
 
   /// A decoded image living in host memory. The guest holds only a handle.
   resource image-bitmap {
@@ -24,7 +25,7 @@ interface image {
     rgba8
   }
 
-  /// Decode a byte stream (PNG, JPEG, or WebP — detected from its bytes) into a
-  /// host-side bitmap. `async`: the host reads the stream before decoding.
-  decode: async func(data: stream<u8>) -> result<image-bitmap, decode-error>;
+  /// Decode a `buffer` (PNG, JPEG, or WebP — detected from its bytes) into a
+  /// host-side bitmap. Synchronous: the bytes are already loaded host-side.
+  decode: func(data: borrow<buffer>) -> result<image-bitmap, decode-error>;
 }

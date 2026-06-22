@@ -3,14 +3,14 @@ package jumpjet:runtime;
 /// An audio API based on the Web Audio API
 interface audio {
   use storage.{decode-error};
+  use tasks.{buffer};
 
   /// Gets the user's preferred audio output device
   output: func() -> option<audio-device>;
 
-  /// Decode an audio byte stream (e.g. ogg/wav/flac/mp3, detected from its
-  /// bytes) into an audio-buffer. The host reads the stream host-side; unlike
-  /// `audio-context.decode-audio-data`, no bytes cross the wasm boundary.
-  decode: async func(data: stream<u8>) -> result<audio-buffer, decode-error>;
+  /// Decode an audio `buffer` (e.g. ogg/wav/flac/mp3, detected from its bytes)
+  /// into an audio-buffer. Synchronous: the bytes are already loaded host-side.
+  decode: func(data: borrow<buffer>) -> result<audio-buffer, decode-error>;
 
   /// Represents a unique identifier for events within an audio processing context or system.
   type event-id = u32;

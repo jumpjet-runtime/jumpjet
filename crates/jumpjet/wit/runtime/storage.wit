@@ -2,6 +2,8 @@ package jumpjet:runtime;
 
 /// Virtual filesystem APIs for local and cloud based storage
 interface storage {
+  use tasks.{task};
+
   /// Returns a cloud-based storage device if configured and available
   cloud: func() -> option<storage-device>;
   /// Returns the local filesystem storage device
@@ -31,11 +33,11 @@ interface storage {
     read: func(path: path) -> option<list<u8>>;
     /// Reads file contents as UTF-8 string. Returns none if path doesn't exist
     read-string: func(path: path) -> option<string>;
-    /// Opens a file as a host-backed byte stream whose bytes stay host-side
-    /// (hand it to a decoder — `image`/`audio`/`model` — or read it yourself).
-    /// `async` because producing a stream needs host store access. Returns none
-    /// if the path doesn't exist or isn't a file.
-    open: async func(path: path) -> option<stream<u8>>;
+    /// Opens a file as a host-side `buffer`, delivered through a `task` (file I/O
+    /// runs in the background; poll the task's `result`). The buffer's bytes stay
+    /// host-side — hand it to a decoder (`image`/`audio`/`model`) or read ranges
+    /// yourself. A missing/invalid path surfaces as a `failed` task result.
+    open: func(path: path) -> task;
     /// Writes content to path. Overwrites existing files. Creates parent directories if needed
     write: func(path: path, content: writeable-content);
     /// Deletes a file or empty directory. Returns true if removed, false if not empty, none if path doesn't exist

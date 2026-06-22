@@ -17,7 +17,7 @@ use toml::Table;
 
 use crate::{
     action::Action,
-    cli::{Cli, CliCommand},
+    cli::{Cli, CliCommand, NewSubcommand},
     components::Component,
     config::Config,
     mode::Mode,
@@ -55,6 +55,21 @@ impl App {
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        // Report the invoked command (anonymous, no project data). Held until the
+        // command finishes so the request can overlap execution, then flushed.
+        let analytics = self
+            .command
+            .as_ref()
+            .and_then(|c| crate::analytics::track("command_run", command_params(c)));
+
+        let result = self.dispatch().await;
+
+        crate::analytics::flush(analytics).await;
+
+        result
+    }
+
+    async fn dispatch(&mut self) -> Result<()> {
         match &self.command {
             Some(CliCommand::New(new)) => crate::commands::new::new(new).await?,
             Some(CliCommand::Test) => {
@@ -123,4 +138,46 @@ impl App {
 
         Ok(())
     }
+}
+
+/// Build the GA4 event params for an invoked command. Only the command name and
+/// low-cardinality flags are recorded — never paths, names, identifiers, or any
+/// other project content.
+fn command_params(command: &CliCommand) -> serde_json::Value {
+    use serde_json::json;
+
+    let cli_version = env!("CARGO_PKG_VERSION");
+    let (command, extra) = match command {
+        CliCommand::New(NewSubcommand::Game { template, .. }) => {
+            ("new_game", json!({ "template": template }))
+        }
+        CliCommand::New(NewSubcommand::Package { template, .. }) => {
+            ("new_package", json!({ "template": template }))
+        }
+        CliCommand::Run {
+            release, target, ..
+        } => (
+            "run",
+            json!({ "release": release, "target": target.as_deref().unwrap_or("native") }),
+        ),
+        CliCommand::Build { release, target } => (
+            "build",
+            json!({ "release": release, "target": target.as_deref().unwrap_or("native") }),
+        ),
+        CliCommand::Bundle { release, target } => {
+            ("bundle", json!({ "release": release, "target": target }))
+        }
+        CliCommand::Wit => ("wit", json!({})),
+        CliCommand::Upgrade => ("upgrade", json!({})),
+        CliCommand::Docs => ("docs", json!({})),
+        CliCommand::Test => ("test", json!({})),
+    };
+
+    let mut params = json!({ "command": command, "cli_version": cli_version });
+    if let (serde_json::Value::Object(params), serde_json::Value::Object(extra)) =
+        (&mut params, extra)
+    {
+        params.extend(extra);
+    }
+    params
 }

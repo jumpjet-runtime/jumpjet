@@ -16,6 +16,7 @@ world runtime {
   import audio;
   import input;
   import gpu;
+  import tasks;
   import image;
   import model;
   import compression;

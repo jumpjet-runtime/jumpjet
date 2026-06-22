@@ -1,27 +1,126 @@
 package jumpjet:runtime;
 
-/// Host-side 3D model decoding. Reads a byte stream host-side and parses it into
-/// a `model` — a variant over the supported model representations (glTF/GLB
-/// today; more formats can be added as new arms without breaking callers).
+/// Host-side 3D model decoding + read access. Reads a byte stream host-side and
+/// parses it into a `model` — a variant over the supported representations
+/// (glTF/GLB today). Geometry, materials, the node graph, and textures are read
+/// back through the `gltf-model` resource's accessors.
 interface model {
   use storage.{decode-error};
+  use image.{image-bitmap};
+  use tasks.{buffer};
 
-  /// A parsed glTF 2.0 document (from `.gltf` or `.glb`). Opaque host handle;
-  /// scene/mesh/material accessors are layered on as the renderer needs them.
+  record vec2 { x: f32, y: f32 }
+  record vec3 { x: f32, y: f32, z: f32 }
+  record vec4 { x: f32, y: f32, z: f32, w: f32 }
+
+  /// A node's local transform, decomposed to translation/rotation/scale.
+  /// `rotation` is a quaternion (x, y, z, w).
+  record transform {
+    translation: vec3,
+    rotation: vec4,
+    scale: vec3,
+  }
+
+  /// How a primitive's vertices are assembled.
+  enum primitive-topology {
+    points,
+    lines,
+    line-loop,
+    line-strip,
+    triangles,
+    triangle-strip,
+    triangle-fan,
+  }
+
+  /// How a material's alpha is interpreted.
+  enum alpha-mode {
+    %opaque,
+    mask,
+    blend,
+  }
+
+  /// A node in the scene graph. `mesh`/`children` are indices into the model.
+  record node {
+    name: option<string>,
+    transform: transform,
+    mesh: option<u32>,
+    children: list<u32>,
+  }
+
+  /// One drawable primitive: parallel per-vertex attribute lists plus an
+  /// optional index list and a material reference. `positions` is always
+  /// present; the rest are present only if the primitive defines them.
+  record primitive {
+    mode: primitive-topology,
+    material: option<u32>,
+    positions: list<vec3>,
+    normals: option<list<vec3>>,
+    tangents: option<list<vec4>>,
+    tex-coords: option<list<vec2>>,
+    colors: option<list<vec4>>,
+    indices: option<list<u32>>,
+  }
+
+  /// A PBR metallic-roughness material. Texture fields are indices into the
+  /// model's image list (resolve to pixels with `image`).
+  record material {
+    name: option<string>,
+    base-color-factor: vec4,
+    base-color-texture: option<u32>,
+    metallic-factor: f32,
+    roughness-factor: f32,
+    metallic-roughness-texture: option<u32>,
+    normal-texture: option<u32>,
+    occlusion-texture: option<u32>,
+    emissive-factor: vec3,
+    emissive-texture: option<u32>,
+    alpha-mode: alpha-mode,
+    alpha-cutoff: f32,
+    double-sided: bool,
+  }
+
+  /// A parsed glTF 2.0 document (`.gltf` or `.glb`).
   resource gltf-model {
-    /// Number of scenes in the document.
+    /// Number of scenes.
     scene-count: func() -> u32;
-    /// Number of meshes in the document.
+    /// The document's default scene index, if any.
+    default-scene: func() -> option<u32>;
+    /// Root node indices of a scene (empty if the scene index is out of range).
+    scene-nodes: func(scene: u32) -> list<u32>;
+
+    /// Number of nodes.
+    node-count: func() -> u32;
+    /// A node by index.
+    node: func(index: u32) -> option<node>;
+
+    /// Number of meshes.
     mesh-count: func() -> u32;
+    /// A mesh's name, if any.
+    mesh-name: func(index: u32) -> option<string>;
+    /// Number of primitives in a mesh.
+    primitive-count: func(mesh: u32) -> u32;
+    /// Read a primitive's geometry + material reference.
+    primitive: func(mesh: u32, primitive: u32) -> option<primitive>;
+
+    /// Number of materials.
+    material-count: func() -> u32;
+    /// A material by index.
+    material: func(index: u32) -> option<material>;
+
+    /// Number of images.
+    image-count: func() -> u32;
+    /// Decode an image (by index) into a host-side bitmap, ready to upload via
+    /// `gpu.gpu-queue.copy-external-image-to-texture`. None if the index is out
+    /// of range or the pixel format isn't supported.
+    image: func(index: u32) -> option<image-bitmap>;
   }
 
   /// A decoded model, tagged by representation.
   variant model {
-    /// A glTF 2.0 document (covers both `.gltf` and `.glb`).
     gltf(gltf-model)
   }
 
-  /// Decode a byte stream into a `model` (glTF/GLB detected from its bytes).
-  /// `async`: the host reads the stream before parsing.
-  decode: async func(data: stream<u8>) -> result<model, decode-error>;
+  /// Decode a `buffer` into a `model` (glTF/GLB detected from its bytes).
+  /// Synchronous: the bytes are already loaded host-side.
+  decode: func(data: borrow<buffer>) -> result<model, decode-error>;
 }

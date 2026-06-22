@@ -58,7 +58,7 @@ wit-component = "0.245.0"
 subprocess = "0.2.9"
 wasmparser = "0.245.0"
 cab = "0.4"
-uuid = "1.14.0"
+uuid = { version = "1.14.0", features = ["v4"] }
 xz2 = "0.1.7"
 zip = "8"
 sha2 = "0.10.8"

@@ -9,6 +9,6 @@ pub mod input;
 pub mod run;
 pub mod state;
 pub mod storage;
-pub mod stream;
+pub mod tasks;
 pub mod utilities;
 pub mod window;

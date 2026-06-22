@@ -27,10 +27,6 @@ pub use winit;
 pub(crate) use gilrs;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use wgpu_core;
-// `bindgen!`'s `with` mappings resolve type paths in this crate's root, so the
-// `gltf` crate must be nameable here for `model.gltf-model` to map to it.
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) use gltf;
 
 pub type BufferSource = Vec<u8>;
 
@@ -96,8 +92,10 @@ wasmtime::component::bindgen!({
         // Host-resident asset resources live in the `ResourceTable`, mapped to
         // their backing Rust types (same pattern as audio/gpu) rather than a
         // bespoke `Slab` field on the state.
+        "jumpjet:runtime/tasks.buffer": crate::runtime::common::tasks::Buffer,
+        "jumpjet:runtime/tasks.task": crate::runtime::common::tasks::Task,
         "jumpjet:runtime/image.image-bitmap": crate::runtime::common::image::Bitmap,
-        "jumpjet:runtime/model.gltf-model": gltf::Gltf,
+        "jumpjet:runtime/model.gltf-model": crate::runtime::common::model::GltfModel,
 
         "jumpjet:runtime/input.gamepad-device": gilrs::GamepadId,
 
