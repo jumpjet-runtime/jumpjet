@@ -1,10 +1,11 @@
 //! Typed view of a `jumpjet.toml` manifest.
 //!
-//! Components are declared as `[<type>.build]` — `[client.build]` (the client /
-//! singleplayer entrypoint), the optional `[server.build]` (a headless multiplayer
-//! server), and `[lib.build]` (a library package). [`Manifest::primary_build`]
-//! selects the right one by `[package].type`; [`Manifest::server_build`] returns the
-//! server component when present.
+//! `[package].type` is the project kind, either `game` or `lib`. A `game` declares
+//! `[client.build]` (the client / singleplayer entrypoint) and optionally
+//! `[server.build]` (a headless multiplayer server); a `lib` declares `[lib.build]`
+//! (a library package). [`Manifest::primary_build`] selects the entrypoint by type
+//! (`[client.build]` for games, `[lib.build]` for libs); [`Manifest::server_build`]
+//! returns the server component when present.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -110,7 +111,7 @@ fn validate_label(label: &str) -> Result<()> {
 #[serde(rename_all = "lowercase")]
 pub enum PackageKind {
     #[default]
-    Client,
+    Game,
     Lib,
 }
 
@@ -144,7 +145,7 @@ pub struct Build {
     pub output: Option<String>,
 }
 
-/// A buildable component, declared as `[<type>.build]` (e.g. `[client.build]`,
+/// A buildable component, declared as `[<component>.build]` (e.g. `[client.build]`,
 /// `[server.build]`, `[lib.build]`). The outer table (`[client]`, `[server]`, …) is
 /// the component's identity; `build` is how it's compiled. Component-level config
 /// (e.g. future server runtime settings) would live as sibling fields here.
@@ -227,7 +228,7 @@ impl Manifest {
     /// `[package].type`: `[client.build]` for games, `[lib.build]` for libs.
     pub fn primary_build(&self) -> Result<&Build> {
         match self.package.kind {
-            PackageKind::Client => self
+            PackageKind::Game => self
                 .client
                 .as_ref()
                 .map(|c| &c.build)
@@ -328,7 +329,7 @@ mod tests {
             [package]
             identifier = "my-game"
             version = "0.1.0"
-            type = "client"
+            type = "game"
             author = ""
 
             [runtime]
@@ -372,7 +373,7 @@ mod tests {
             r#"
             [package]
             identifier = "solo"
-            type = "client"
+            type = "game"
 
             [client.build]
             entrypoint = "./solo.wasm"
@@ -411,7 +412,7 @@ mod tests {
             r#"
             [package]
             identifier = "broken"
-            type = "client"
+            type = "game"
         "#,
         )
         .unwrap();
