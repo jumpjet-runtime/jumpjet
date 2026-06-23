@@ -127,10 +127,40 @@ pub enum CliCommand {
     //     #[clap(long, short = 'v', value_name = "VERSION")]
     //     version: Option<String>,
     // },
+    /// Sign in to your Jumpjet account, or sign out
+    #[command(subcommand)]
+    Auth(AuthSubcommand),
+    /// Link this directory to a project in your Jumpjet account, or create one
+    #[command(subcommand)]
+    Project(ProjectSubcommand),
     /// Re-sync the project's staged WIT to this CLI's embedded runtime definitions
     Wit,
     /// Upgrade the Jumpjet CLI to the latest version
     Upgrade,
+}
+
+#[derive(Subcommand)]
+pub enum AuthSubcommand {
+    /// Sign in via the browser and store an access token
+    Signin,
+    /// Sign out and remove the stored access token
+    Logout,
+}
+
+#[derive(Subcommand)]
+pub enum ProjectSubcommand {
+    /// List the projects in your Jumpjet account
+    List,
+    /// Create a new project and link this directory to it
+    Create {
+        /// The new project's name
+        name: String,
+    },
+    /// Link this directory to an existing project (interactive if no id given)
+    Link {
+        /// The project id to link; omit to pick from a list
+        id: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]

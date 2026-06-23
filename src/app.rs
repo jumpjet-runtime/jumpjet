@@ -17,7 +17,7 @@ use toml::Table;
 
 use crate::{
     action::Action,
-    cli::{Cli, CliCommand, NewSubcommand},
+    cli::{AuthSubcommand, Cli, CliCommand, NewSubcommand, ProjectSubcommand},
     components::Component,
     config::Config,
     mode::Mode,
@@ -144,6 +144,11 @@ impl App {
             //     .await?
             // }
             // Some(CliCommand::Publish) => crate::commands::publish::publish().await?,
+            // Some(CliCommand::Auth(sub)) => match sub {
+            //     crate::cli::AuthSubcommand::Signin => crate::commands::auth::signin().await?,
+            //     crate::cli::AuthSubcommand::Logout => crate::commands::auth::logout().await?,
+            // },
+            // Some(CliCommand::Project(sub)) => crate::commands::project::project(sub).await?,
             Some(CliCommand::Wit) => crate::commands::wit::wit().await?,
             Some(CliCommand::Upgrade) => crate::commands::upgrade::upgrade().await?,
             Some(CliCommand::Docs) => crate::commands::docs::docs(&self.config, &self.mode).await?,
@@ -180,6 +185,22 @@ fn command_params(command: &CliCommand) -> serde_json::Value {
         ),
         CliCommand::Bundle { release, target } => {
             ("bundle", json!({ "release": release, "target": target }))
+        }
+        CliCommand::Auth(sub) => {
+            let action = match sub {
+                AuthSubcommand::Signin => "auth_signin",
+                AuthSubcommand::Logout => "auth_logout",
+            };
+            (action, json!({}))
+        }
+        // Record only the sub-action — never the project id or name.
+        CliCommand::Project(sub) => {
+            let action = match sub {
+                ProjectSubcommand::List => "project_list",
+                ProjectSubcommand::Create { .. } => "project_create",
+                ProjectSubcommand::Link { .. } => "project_link",
+            };
+            (action, json!({}))
         }
         CliCommand::Wit => ("wit", json!({})),
         CliCommand::Upgrade => ("upgrade", json!({})),

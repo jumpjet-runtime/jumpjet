@@ -62,6 +62,9 @@ uuid = { version = "1.14.0", features = ["v4"] }
 xz2 = "0.1.7"
 zip = "8"
 sha2 = "0.10.8"
+base64 = "0.22"                # PKCE code_challenge encoding (auth signin)
+rand = "0.8"                   # CSRF state + PKCE verifier randomness (auth signin)
+urlencoding = "2"              # query-param encoding for the auth URL
 wac-graph = "0.10.1"           # programmatic component composition (package deps)
 toml_edit = "0.25.12"          # `jumpjet add` edits to jumpjet.toml, preserving comments
 wasm-pkg-client = "0.15.1"     # registry fetch/publish (wasm-pkg-tools)
