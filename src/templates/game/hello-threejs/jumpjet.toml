@@ -1,7 +1,6 @@
-[package]
-identifier = "{{ identifier }}"
-version = "0.1.0"
+[project]
 type = "game"
+version = "0.1.0"
 author = ""
 
 [runtime]
@@ -15,6 +14,7 @@ output = "./bin" # Jumpjet's build output
 
 [bundle]
 name = "{{ name }}"
+identifier = "{{ identifier }}"
 
 [dependencies]
 three = "165.0"

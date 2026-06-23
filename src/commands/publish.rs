@@ -16,10 +16,10 @@ pub async fn publish() -> Result<()> {
     }
     let name = manifest.package_name()?;
     let version = manifest
-        .package
+        .project
         .version
         .clone()
-        .ok_or_else(|| eyre!("[package].version is required to publish"))?;
+        .ok_or_else(|| eyre!("[project].version is required to publish"))?;
 
     // Build to make sure the published component is current.
     crate::commands::build::build(&false).await?;

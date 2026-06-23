@@ -1,9 +1,10 @@
 //! Typed view of a `jumpjet.toml` manifest.
 //!
-//! `[package].type` is the project kind, either `game` or `lib`. A `game` declares
+//! `[project].type` is the project kind, either `game` or `lib`. A `game` declares
 //! `[client.build]` (the client / singleplayer entrypoint) and optionally
-//! `[server.build]` (a headless multiplayer server); a `lib` declares `[lib.build]`
-//! (a library package). [`Manifest::primary_build`] selects the entrypoint by type
+//! `[server.build]` (a headless multiplayer server); a `lib` declares `[lib]`
+//! (its `namespace:name` identifier) + `[lib.build]`. [`Manifest::primary_build`]
+//! selects the entrypoint by type
 //! (`[client.build]` for games, `[lib.build]` for libs); [`Manifest::server_build`]
 //! returns the server component when present.
 
@@ -109,22 +110,23 @@ fn validate_label(label: &str) -> Result<()> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum PackageKind {
+pub enum ProjectKind {
     #[default]
     Game,
     Lib,
 }
 
+/// `[project]` — the first section of every `jumpjet.toml`. Holds the project's
+/// kind and metadata, plus the remote project `id` once `jumpjet project link`/
+/// `create` has linked this directory to a project in the user's account.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Package {
-    /// wasm-pkg identity `namespace:name`. Required for `type = "lib"`.
-    pub name: Option<String>,
-    /// Legacy flat identifier used by game templates.
-    pub identifier: Option<String>,
-    pub version: Option<Version>,
+pub struct Project {
     #[serde(rename = "type", default)]
-    pub kind: PackageKind,
+    pub kind: ProjectKind,
+    pub version: Option<Version>,
     pub author: Option<String>,
+    /// Remote project id (added by `jumpjet project link`/`create`).
+    pub id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -146,11 +148,21 @@ pub struct Build {
 }
 
 /// A buildable component, declared as `[<component>.build]` (e.g. `[client.build]`,
-/// `[server.build]`, `[lib.build]`). The outer table (`[client]`, `[server]`, …) is
-/// the component's identity; `build` is how it's compiled. Component-level config
-/// (e.g. future server runtime settings) would live as sibling fields here.
+/// `[server.build]`). The outer table (`[client]`, `[server]`) is the component's
+/// identity; `build` is how it's compiled. Component-level config (e.g. future
+/// server runtime settings) would live as sibling fields here.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Component {
+    #[serde(default)]
+    pub build: Build,
+}
+
+/// `[lib]` — a library package component. Unlike a game, a library has a wasm-pkg
+/// `identifier` (`namespace:name`) so it can be published and depended on.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Lib {
+    /// wasm-pkg identity `namespace:name`.
+    pub identifier: Option<String>,
     #[serde(default)]
     pub build: Build,
 }
@@ -187,15 +199,18 @@ impl Dependency {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Manifest {
-    pub package: Package,
+    /// `[project]` — kind/version/author and the linked project `id`. The first
+    /// section of every manifest.
+    #[serde(default)]
+    pub project: Project,
     #[serde(default)]
     pub runtime: Runtime,
     /// The client (and singleplayer) component: `[client.build]`.
     pub client: Option<Component>,
     /// The optional headless server component (multiplayer): `[server.build]`.
     pub server: Option<Component>,
-    /// The library component for `type = "lib"` packages: `[lib.build]`.
-    pub lib: Option<Component>,
+    /// The library component for `type = "lib"` packages: `[lib]` + `[lib.build]`.
+    pub lib: Option<Lib>,
     #[serde(default)]
     pub dependencies: BTreeMap<String, Dependency>,
     /// `[bundle]` (and any other sections) are preserved opaquely so a typed
@@ -225,15 +240,15 @@ impl Manifest {
     }
 
     /// The build config for the project's primary component, selected by
-    /// `[package].type`: `[client.build]` for games, `[lib.build]` for libs.
+    /// `[project].type`: `[client.build]` for games, `[lib.build]` for libs.
     pub fn primary_build(&self) -> Result<&Build> {
-        match self.package.kind {
-            PackageKind::Game => self
+        match self.project.kind {
+            ProjectKind::Game => self
                 .client
                 .as_ref()
                 .map(|c| &c.build)
                 .ok_or_else(|| eyre!("missing [client.build] section in jumpjet.toml")),
-            PackageKind::Lib => self
+            ProjectKind::Lib => self
                 .lib
                 .as_ref()
                 .map(|c| &c.build)
@@ -247,22 +262,23 @@ impl Manifest {
         self.server.as_ref().map(|c| &c.build)
     }
 
-    /// The package's wasm-pkg identity. Prefers `name = "namespace:name"`, falling
-    /// back to the legacy `identifier` under a `game:` namespace for games.
+    /// The linked remote project id (`[project].id`), if this directory is linked.
+    pub fn project_id(&self) -> Option<&str> {
+        self.project.id.as_deref()
+    }
+
+    /// The library's wasm-pkg identity (`[lib].identifier`, `namespace:name`).
+    /// Only libraries have one — games are identified by their `[project]`.
     pub fn package_name(&self) -> Result<PackageName> {
-        if let Some(name) = &self.package.name {
-            return name.parse();
-        }
-        if let Some(id) = &self.package.identifier {
-            return PackageName::new("game", id.replace('_', "-"));
-        }
-        Err(eyre!(
-            "[package] must set `name = \"namespace:name\"` (or legacy `identifier`)"
-        ))
+        self.lib
+            .as_ref()
+            .and_then(|l| l.identifier.as_deref())
+            .ok_or_else(|| eyre!("[lib].identifier (\"namespace:name\") is required"))?
+            .parse()
     }
 
     pub fn is_lib(&self) -> bool {
-        self.package.kind == PackageKind::Lib
+        self.project.kind == ProjectKind::Lib
     }
 }
 
@@ -297,12 +313,14 @@ mod tests {
     fn parses_dependencies_both_shapes() {
         let m = Manifest::parse(
             r#"
-            [package]
-            name = "acme:demo"
-            version = "0.1.0"
+            [project]
             type = "lib"
+            version = "0.1.0"
 
-            [build]
+            [lib]
+            identifier = "acme:demo"
+
+            [lib.build]
             entrypoint = "demo.wasm"
             wit = "wit"
 
@@ -326,11 +344,11 @@ mod tests {
     fn multiplayer_game_manifest_resolves_components() {
         let m = Manifest::parse(
             r#"
-            [package]
-            identifier = "my-game"
-            version = "0.1.0"
+            [project]
             type = "game"
+            version = "0.1.0"
             author = ""
+            id = "7203549128374"
 
             [runtime]
             version = "0.1.0"
@@ -350,7 +368,7 @@ mod tests {
         )
         .unwrap();
         assert!(!m.is_lib());
-        assert_eq!(m.package_name().unwrap().to_string(), "game:my-game");
+        assert_eq!(m.project_id(), Some("7203549128374"));
         assert!(m.extra.contains_key("bundle"));
 
         // `[client.build]` is the primary component.
@@ -371,8 +389,7 @@ mod tests {
     fn singleplayer_game_has_no_server() {
         let m = Manifest::parse(
             r#"
-            [package]
-            identifier = "solo"
+            [project]
             type = "game"
 
             [client.build]
@@ -383,16 +400,19 @@ mod tests {
         .unwrap();
         assert!(m.primary_build().is_ok());
         assert!(m.server_build().is_none());
+        assert!(m.project_id().is_none());
     }
 
     #[test]
     fn lib_manifest_resolves_primary() {
         let m = Manifest::parse(
             r#"
-            [package]
-            name = "acme:physics"
-            version = "0.1.0"
+            [project]
             type = "lib"
+            version = "0.1.0"
+
+            [lib]
+            identifier = "acme:physics"
 
             [lib.build]
             entrypoint = "./physics.wasm"
@@ -402,6 +422,7 @@ mod tests {
         )
         .unwrap();
         assert!(m.is_lib());
+        assert_eq!(m.package_name().unwrap().to_string(), "acme:physics");
         assert_eq!(m.primary_build().unwrap().wit.as_deref(), Some("./wit"));
         assert!(m.server_build().is_none());
     }
@@ -410,8 +431,7 @@ mod tests {
     fn missing_primary_build_errors() {
         let m = Manifest::parse(
             r#"
-            [package]
-            identifier = "broken"
+            [project]
             type = "game"
         "#,
         )

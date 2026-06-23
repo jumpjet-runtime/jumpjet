@@ -1,11 +1,13 @@
-[package]
-name = "{{ name }}"
-version = "0.1.0"
+[project]
 type = "lib"
+version = "0.1.0"
 author = ""
 
 [runtime]
 version = "{{ runtime_version }}"
+
+[lib]
+identifier = "{{ name }}"
 
 [lib.build]
 pre = "cargo build --target wasm32-wasip2"

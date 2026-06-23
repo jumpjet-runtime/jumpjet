@@ -1,7 +1,6 @@
-[package]
-identifier = "{{ identifier }}"
-version = "0.1.0"
+[project]
 type = "game"
+version = "0.1.0"
 author = ""
 
 [runtime]
@@ -21,3 +20,4 @@ entrypoint = "./target/wasm32-wasip2/debug/server.wasm"
 
 [bundle]
 name = "{{ name }}"
+identifier = "{{ identifier }}"

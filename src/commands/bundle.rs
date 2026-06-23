@@ -48,13 +48,26 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
     }
     .to_owned();
 
+    // The app's reverse-DNS/bundle identifier now lives in `[bundle]`; version and
+    // author come from the typed `[project]` section.
+    let bundle_id = config["bundle"]["identifier"]
+        .as_str()
+        .expect("[bundle].identifier is required to bundle")
+        .to_owned();
+    let metadata_author = manifest.project.author.clone().unwrap_or_default();
+    let metadata_version = manifest
+        .project
+        .version
+        .clone()
+        .expect("[project].version is required to bundle");
+
     let settings = Settings {
         current_dir: current_dir.clone(),
         jumpjet_dir,
         jumpjet_bin_dir,
-        metadata_id: config["package"]["identifier"].as_str().unwrap().to_owned(),
-        metadata_author: config["package"]["author"].as_str().unwrap().to_owned(),
-        metadata_version: Version::parse(config["package"]["version"].as_str().unwrap()).unwrap(),
+        metadata_id: bundle_id.clone(),
+        metadata_author,
+        metadata_version,
         build,
         target,
         target_triplet,
@@ -63,7 +76,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
             .clone()
             .join(manifest.primary_build()?.output.as_deref().unwrap_or("bin")),
         bundle_name: config["bundle"]["name"].as_str().unwrap().to_owned(),
-        bundle_identifier: config["package"]["identifier"].as_str().unwrap().to_owned(),
+        bundle_identifier: bundle_id.clone(),
 
         ios_signing_identity: config
             .get("ios")
@@ -86,7 +99,7 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
             .get("android")
             .and_then(|t| t.get("package"))
             .and_then(|v| v.as_str())
-            .unwrap_or_else(|| config["package"]["identifier"].as_str().unwrap())
+            .unwrap_or(bundle_id.as_str())
             .to_owned(),
         android_min_sdk: config
             .get("android")

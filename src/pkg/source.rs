@@ -269,10 +269,10 @@ fn fetch_from_project(dir: &Path, name: &PackageName) -> Result<FetchedPackage> 
     }
 
     let version = manifest
-        .package
+        .project
         .version
         .clone()
-        .ok_or_else(|| eyre!("dependency `{name}` is missing [package].version"))?;
+        .ok_or_else(|| eyre!("dependency `{name}` is missing [project].version"))?;
     let build = manifest.primary_build()?;
     let output = build.output.clone().unwrap_or_else(|| "bin".into());
     // `jumpjet build` always componentizes to a canonical filename in the
