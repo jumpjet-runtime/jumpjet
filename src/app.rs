@@ -144,11 +144,11 @@ impl App {
             //     .await?
             // }
             // Some(CliCommand::Publish) => crate::commands::publish::publish().await?,
-            // Some(CliCommand::Auth(sub)) => match sub {
-            //     crate::cli::AuthSubcommand::Signin => crate::commands::auth::signin().await?,
-            //     crate::cli::AuthSubcommand::Logout => crate::commands::auth::logout().await?,
-            // },
-            // Some(CliCommand::Project(sub)) => crate::commands::project::project(sub).await?,
+            Some(CliCommand::Auth(sub)) => match sub {
+                crate::cli::AuthSubcommand::Signin => crate::commands::auth::signin().await?,
+                crate::cli::AuthSubcommand::Logout => crate::commands::auth::logout().await?,
+            },
+            Some(CliCommand::Project(sub)) => crate::commands::project::project(sub).await?,
             Some(CliCommand::Wit) => crate::commands::wit::wit().await?,
             Some(CliCommand::Upgrade) => crate::commands::upgrade::upgrade().await?,
             Some(CliCommand::Docs) => crate::commands::docs::docs(&self.config, &self.mode).await?,
