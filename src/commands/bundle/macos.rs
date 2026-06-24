@@ -1,10 +1,11 @@
 use std::{
     ffi::OsStr,
-    fs,
-    io::Write,
+    fs::{self, File},
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
 };
 
+use color_eyre::eyre::eyre;
 use image::GenericImageView;
 
 use crate::settings::Settings;
@@ -218,87 +219,60 @@ fn copy_frameworks_to_bundle(bundle_directory: &Path, settings: &Settings) -> cr
     Ok(())
 }
 
-/// Given a list of icon files, try to produce an ICNS file in the resources
-/// directory and return the path to it.  Returns `Ok(None)` if no usable icons
-/// were provided.
+/// Produces an `.icns` in the resources directory from the configured
+/// `[bundle].icon` source image, returning the path to it. Returns `Ok(None)` when
+/// no icon is configured. If the source is already an `.icns`, it's copied as-is;
+/// otherwise it's resized into every ICNS slot the source resolution can fill.
 fn create_icns_file(
-    resources_dir: &PathBuf,
+    resources_dir: &Path,
     settings: &Settings,
-) -> std::io::Result<Option<PathBuf>> {
-    // if settings.icon_files().count() == 0 {
-    //     return Ok(None);
-    // }
+) -> crate::Result<Option<PathBuf>> {
+    let Some(icon_path) = settings.icon.as_ref() else {
+        return Ok(None);
+    };
 
-    // // If one of the icon files is already an ICNS file, just use that.
-    // for icon_path in settings.icon_files() {
-    //     let icon_path = icon_path?;
-    //     if icon_path.extension() == Some(OsStr::new("icns")) {
-    //         let mut dest_path = resources_dir.to_path_buf();
-    //         dest_path.push(icon_path.file_name().unwrap());
-    //         crate::fs::copy_file(&icon_path, &dest_path)?;
-    //         return Ok(Some(dest_path));
-    //     }
-    // }
+    let dest_path = resources_dir.join(format!("{}.icns", settings.bundle_name));
 
-    // Otherwise, read available images and pack them into a new ICNS file.
-    let family = icns::IconFamily::new();
+    // If the source is already an ICNS file, just copy it over.
+    if icon_path.extension() == Some(OsStr::new("icns")) {
+        fs::create_dir_all(resources_dir)?;
+        crate::fs::copy_file(icon_path.clone(), dest_path.clone())?;
+        return Ok(Some(dest_path));
+    }
 
-    fn add_icon_to_family(
-        icon: image::DynamicImage,
-        density: u32,
-        family: &mut icns::IconFamily,
-    ) -> std::io::Result<()> {
-        // Try to add this image to the icon family.  Ignore images whose sizes
-        // don't map to any ICNS icon type; print warnings and skip images that
-        // fail to encode.
-        match icns::IconType::from_pixel_size_and_density(icon.width(), icon.height(), density) {
-            Some(icon_type) => {
-                if !family.has_icon_with_type(icon_type) {
-                    let icon = make_icns_image(icon)?;
-                    family.add_icon_with_type(&icon, icon_type)?;
-                }
-                Ok(())
+    // Otherwise read the source image and pack it into a new ICNS file, resizing
+    // into each standard ICNS size/density slot. We never upscale past the
+    // source's resolution, so a small icon simply fills fewer slots.
+    let source = image::open(icon_path)
+        .map_err(|e| eyre!("reading [bundle].icon {}: {e}", icon_path.display()))?;
+    let source_size = source.width().min(source.height());
+
+    let mut family = icns::IconFamily::new();
+    for &size in &[16u32, 32, 64, 128, 256, 512, 1024] {
+        if size > source_size {
+            continue;
+        }
+        for density in [1u32, 2] {
+            let Some(icon_type) = icns::IconType::from_pixel_size_and_density(size, size, density)
+            else {
+                continue;
+            };
+            if family.has_icon_with_type(icon_type) {
+                continue;
             }
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "No matching IconType",
-            )),
+            let resized = source.resize_exact(size, size, image::imageops::FilterType::Lanczos3);
+            family.add_icon_with_type(&make_icns_image(resized)?, icon_type)?;
         }
     }
 
-    // let mut images_to_resize: Vec<(image::DynamicImage, u32, u32)> = vec![];
-    // for icon_path in settings.icon_files() {
-    //     let icon_path = icon_path?;
-    //     let icon = image::open(&icon_path)?;
-    //     let density = if common::is_retina(&icon_path) { 2 } else { 1 };
-    //     let (w, h) = icon.dimensions();
-    //     let orig_size = min(w, h);
-    //     let next_size_down = 2f32.powf((orig_size as f32).log2().floor()) as u32;
-    //     if orig_size > next_size_down {
-    //         images_to_resize.push((icon, next_size_down, density));
-    //     } else {
-    //         add_icon_to_family(icon, density, &mut family)?;
-    //     }
-    // }
+    if family.is_empty() {
+        return Ok(None);
+    }
 
-    // for (icon, next_size_down, density) in images_to_resize {
-    //     let icon = icon.resize_exact(next_size_down, next_size_down, image::Lanczos3);
-    //     add_icon_to_family(icon, density, &mut family)?;
-    // }
-
-    // if !family.is_empty() {
-    //     fs::create_dir_all(resources_dir)?;
-    //     let mut dest_path = resources_dir.clone();
-    //     dest_path.push(settings.bundle_name());
-    //     dest_path.set_extension("icns");
-    //     let icns_file = BufWriter::new(File::create(&dest_path)?);
-    //     family.write(icns_file)?;
-    //     return Ok(Some(dest_path));
-    // }
-
-    Ok(None)
-
-    // bail!("No usable icon files found.");
+    fs::create_dir_all(resources_dir)?;
+    let icns_file = BufWriter::new(File::create(&dest_path)?);
+    family.write(icns_file)?;
+    Ok(Some(dest_path))
 }
 
 /// Converts an image::DynamicImage into an icns::Image.

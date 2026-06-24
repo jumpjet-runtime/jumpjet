@@ -1,7 +1,8 @@
 pub mod android;
 pub mod ios;
+pub mod linux;
 pub mod macos;
-// pub mod windows;
+pub mod windows;
 pub mod web;
 
 use std::{
@@ -78,6 +79,14 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
         bundle_name: config["bundle"]["name"].as_str().unwrap().to_owned(),
         bundle_identifier: bundle_id.clone(),
 
+        // `[bundle].icon` is an optional path relative to the project root; resolve
+        // it to an absolute path so each platform bundler can read it directly.
+        icon: config
+            .get("bundle")
+            .and_then(|t| t.get("icon"))
+            .and_then(|v| v.as_str())
+            .map(|p| current_dir.join(p)),
+
         ios_signing_identity: config
             .get("ios")
             .and_then(|t| t.get("signing-identity"))
@@ -140,9 +149,9 @@ pub async fn bundle(target: &String, release: &bool) -> Result<()> {
     build_target(&settings).await?;
 
     match settings.target.as_str() {
-        "linux" => {}
+        "linux" => linux::bundle_project(&settings)?,
         "macos" => macos::bundle_project(&settings)?,
-        // "windows" => windows::bundle_project(&settings)?,
+        "windows" => windows::bundle_project(&settings)?,
         // "web" => web::bundle_project(&settings)?,
         _ => {}
     }

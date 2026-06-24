@@ -15,3 +15,4 @@ output = "./bin" # Jumpjet's build output
 [bundle]
 name = "{{ name }}"
 identifier = "{{ identifier }}"
+# icon = "./icon.png" # Optional: app icon (PNG), converted to each platform's native format

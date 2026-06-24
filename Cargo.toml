@@ -58,7 +58,7 @@ wit-component = "0.245.0"
 subprocess = "0.2.9"
 wasmparser = "0.245.0"
 cab = "0.4"
-uuid = { version = "1.14.0", features = ["v4"] }
+uuid = { version = "1.14.0", features = ["v4", "v5"] }
 xz2 = "0.1.7"
 zip = "8"
 sha2 = "0.10.8"
@@ -86,10 +86,10 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.20"
+version = "0.1.21"
 authors = ["Lochlan Wansbrough"]
 edition = "2024"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
-jumpjet = { path = "crates/jumpjet", version = "0.1.20" }
+jumpjet = { path = "crates/jumpjet", version = "0.1.21" }

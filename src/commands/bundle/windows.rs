@@ -1,6 +1,9 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet}, ffi::OsStr, fs, io::Write, path::{Path, PathBuf}
 };
+
+use color_eyre::eyre::eyre;
+use image::GenericImageView;
 use uuid::Uuid;
 
 type Package = msi::Package<fs::File>;
@@ -28,8 +31,12 @@ struct ResourceInfo {
     source_path: PathBuf,
     // Relative path from the install dir where this will be installed.
     dest_path: PathBuf,
-    // The name of this resource file in the filesystem.
+    // The on-disk name of this resource file (used for the MSI `FileName`).
     filename: String,
+    // A unique key for this resource, used as the `File` table primary key and the
+    // file's name inside its cabinet. Distinct from `filename` so two files that
+    // share a basename in different directories don't collide.
+    key: String,
     // The size of this resource file, in bytes.
     size: u64,
     // The database key for the Component that this resource is part of.
@@ -57,32 +64,55 @@ struct CabinetInfo {
 }
 
 pub fn bundle_project(settings: &Settings) -> crate::Result<()> {
-    let msi_bundle_name = format!("{}.msi", settings.bundle_name);
     let msi_path = settings
         .current_dir
         .join("bundle/windows")
-        .join(&msi_bundle_name);
+        .join(format!("{}.msi", settings.bundle_name));
     if msi_path.exists() {
-        fs::remove_dir_all(&msi_path)?;
+        fs::remove_file(&msi_path)?;
     }
 
-    let package = new_empty_package(&msi_path)?;
+    let mut package = new_empty_package(&msi_path)?;
 
     let guid = generate_package_guid(settings);
     set_summary_info(&mut package, guid, settings);
-    create_property_table(&mut package, guid, settings)
-        .expect("Failed to generate Property table");
+    create_property_table(&mut package, guid, settings)?;
 
-    let mut resources = collect_resource_info(settings)
-        .expect("Failed to collect resource file information");
-    let directories = collect_directory_info(settings, &mut resources)
-        .expect("Failed to collect resource directory information");
+    // Stage every install file (the host binary plus the guest `.jumpjet/input`
+    // tree) into cabinets embedded in the package, then describe them across the
+    // MSI's directory / feature / component / file tables.
+    let mut resources = collect_resource_info(settings)?;
+    let directories = collect_directory_info(settings, &mut resources)?;
     let cabinets = divide_resources_into_cabinets(resources);
-    generate_resource_cabinets(&mut package, &cabinets)
-        .expect("Failed to generate resource cabinets");
+    generate_resource_cabinets(&mut package, &cabinets)?;
 
-    copy_build_output_to_bundle(&bundle_directory, settings)?;
+    create_directory_table(&mut package, &directories)?;
+    create_feature_table(&mut package, settings)?;
+    create_component_table(&mut package, guid, &directories)?;
+    create_feature_components_table(&mut package, &directories)?;
+    create_media_table(&mut package, &cabinets)?;
+    create_file_table(&mut package, &cabinets)?;
 
+    // Installer UI + sequencing tables.
+    create_install_execute_sequence_table(&mut package, &cabinets)?;
+    create_install_ui_sequence_table(&mut package, &cabinets)?;
+    create_dialog_table(&mut package, &cabinets)?;
+    create_control_table(&mut package, &cabinets)?;
+    create_control_event_table(&mut package, &cabinets)?;
+    create_event_mapping_table(&mut package, &cabinets)?;
+    create_text_style_table(&mut package, &cabinets)?;
+
+    package.flush()?;
+
+    // Emit the app icon (converted to `.ico`) alongside the installer when one is
+    // configured.
+    if settings.icon.is_some() {
+        let ico_path = msi_path.with_extension("ico");
+        let mut file = fs::File::create(&ico_path)?;
+        create_app_icon(&mut file, settings)?;
+    }
+
+    println!("Bundled {}", msi_path.display());
     Ok(())
 }
 
@@ -108,9 +138,9 @@ fn generate_package_guid(settings: &Settings) -> Uuid {
 fn set_summary_info(package: &mut Package, package_guid: Uuid, settings: &Settings) {
     let summary_info = package.summary_info_mut();
     summary_info.set_creation_time_to_now();
-    summary_info.set_subject(settings.bundle_name);
+    summary_info.set_subject(settings.bundle_name.as_str());
     summary_info.set_uuid(package_guid);
-    summary_info.set_author(settings.metadata_author);
+    summary_info.set_author(settings.metadata_author.as_str());
     summary_info.set_creating_application(format!("jumpjet v{}", settings.runtime_version));
     summary_info.set_word_count(2);
 }
@@ -120,7 +150,6 @@ fn create_property_table(
     package_guid: Uuid,
     settings: &Settings,
 ) -> crate::Result<()> {
-    let authors = settings.metadata_author;
     package.create_table(
         "Property",
         vec![
@@ -132,7 +161,7 @@ fn create_property_table(
         msi::Insert::into("Property")
             .row(vec![
                 msi::Value::from("Manufacturer"),
-                msi::Value::Str(authors),
+                msi::Value::from(settings.metadata_author.as_str()),
             ])
             .row(vec![
                 msi::Value::from("ProductCode"),
@@ -144,7 +173,7 @@ fn create_property_table(
             ])
             .row(vec![
                 msi::Value::from("ProductName"),
-                msi::Value::from(settings.bundle_name),
+                msi::Value::from(settings.bundle_name.as_str()),
             ])
             .row(vec![
                 msi::Value::from("ProductVersion"),
@@ -175,42 +204,57 @@ fn create_property_table(
     Ok(())
 }
 
-fn copy_build_output_to_bundle(bundle_directory: &Path, settings: &Settings) -> crate::Result<()> {
-    let dest_dir = bundle_directory.join("MacOS");
-    crate::fs::copy_dir_all(&settings.build_output_dir, dest_dir.join(".jumpjet/input"))?;
-    crate::fs::copy_file(
-        settings.target_binary_path(),
-        dest_dir.join(settings.binary_name()),
-    )?;
-    Ok(())
-}
-
 fn collect_resource_info(settings: &Settings) -> crate::Result<Vec<ResourceInfo>> {
     let mut resources = Vec::<ResourceInfo>::new();
+
+    // The host wrapper executable, installed at the root of INSTALLDIR. Keys are
+    // `file{index}`, assigned from the resource's position as it's pushed.
+    let binary = settings.target_binary_path();
     resources.push(ResourceInfo {
-        source_path: settings.binary_path().to_path_buf(),
+        key: format!("file{:04}", resources.len()),
+        filename: settings.binary_name(),
         dest_path: PathBuf::from(settings.binary_name()),
-        filename: settings.binary_name().to_string(),
-        size: settings.binary_path().metadata()?.len(),
+        size: binary.metadata()?.len(),
+        source_path: binary,
         component_key: String::new(),
     });
-    let root_rsrc_dir = PathBuf::from("Resources");
-    for source_path in settings.resource_files() {
-        let source_path = source_path?;
-        let metadata = source_path.metadata()?;
-        let size = metadata.len();
-        let dest_path = root_rsrc_dir.join(common::resource_relpath(&source_path));
+
+    // The guest tree, installed under `.jumpjet/input/` next to the executable so
+    // the runtime finds it via `current_exe()`.
+    let input_root = PathBuf::from(".jumpjet").join("input");
+    for source_path in collect_files(&settings.build_output_dir)? {
+        let rel = source_path
+            .strip_prefix(&settings.build_output_dir)
+            .expect("walked path is under build_output_dir");
+        let dest_path = input_root.join(rel);
         let filename = dest_path.file_name().unwrap().to_string_lossy().to_string();
-        let info = ResourceInfo {
-            source_path,
-            dest_path,
+        resources.push(ResourceInfo {
+            key: format!("file{:04}", resources.len()),
             filename,
-            size,
+            dest_path,
+            size: source_path.metadata()?.len(),
+            source_path,
             component_key: String::new(),
-        };
-        resources.push(info);
+        });
     }
     Ok(resources)
+}
+
+/// Recursively lists every file (not directory) under `dir`, or an empty list if
+/// `dir` doesn't exist.
+fn collect_files(dir: &Path) -> crate::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    if dir.exists() {
+        for entry in fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                files.extend(collect_files(&path)?);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    Ok(files)
 }
 
 fn collect_directory_info(
@@ -224,7 +268,7 @@ fn collect_directory_info(
         DirectoryInfo {
             key: "INSTALLDIR".to_string(),
             parent_key: "ProgramFilesFolder".to_string(),
-            name: settings.bundle_name().to_string(),
+            name: settings.bundle_name.clone(),
             files: Vec::new(),
         },
     );
@@ -254,7 +298,9 @@ fn collect_directory_info(
         }
         let directory = dir_map.get_mut(&dir_path).unwrap();
         debug_assert_eq!(directory.key, dir_key);
-        directory.files.push(resource.filename.clone());
+        // `files` holds File-table keys (not basenames) so Component.KeyPath below
+        // points at a unique File primary key.
+        directory.files.push(resource.key.clone());
         resource.component_key = dir_key.to_string();
     }
     Ok(dir_map.into_values().collect())
@@ -263,7 +309,7 @@ fn collect_directory_info(
 fn divide_resources_into_cabinets(mut resources: Vec<ResourceInfo>) -> Vec<CabinetInfo> {
     let mut cabinets = Vec::new();
     while !resources.is_empty() {
-        let mut filenames = HashSet::<String>::new();
+        let mut keys = HashSet::<String>::new();
         let mut total_size = 0;
         let mut leftovers = Vec::<ResourceInfo>::new();
         let mut cabinet = CabinetInfo {
@@ -273,11 +319,11 @@ fn divide_resources_into_cabinets(mut resources: Vec<ResourceInfo>) -> Vec<Cabin
         for resource in resources.into_iter() {
             if cabinet.resources.len() >= CABINET_MAX_FILES
                 || (!cabinet.resources.is_empty() && total_size + resource.size > CABINET_MAX_SIZE)
-                || filenames.contains(&resource.filename)
+                || keys.contains(&resource.key)
             {
                 leftovers.push(resource);
             } else {
-                filenames.insert(resource.filename.clone());
+                keys.insert(resource.key.clone());
                 total_size += resource.size;
                 cabinet.resources.push(resource);
             }
@@ -304,9 +350,9 @@ fn generate_resource_cabinets(
             {
                 let resource = &cabinet_info.resources[resource_index];
                 folder_size += resource.size;
-                folder.add_file(resource.filename.as_str());
-                debug_assert!(!file_map.contains_key(&resource.filename));
-                file_map.insert(resource.filename.clone(), &resource.source_path);
+                folder.add_file(resource.key.as_str());
+                debug_assert!(!file_map.contains_key(&resource.key));
+                file_map.insert(resource.key.clone(), &resource.source_path);
                 resource_index += 1;
             }
         }
@@ -393,7 +439,7 @@ fn create_feature_table(package: &mut Package, settings: &Settings) -> crate::Re
     package.insert_rows(msi::Insert::into("Feature").row(vec![
         msi::Value::from(MAIN_FEATURE_NAME),
         msi::Value::Null,
-        msi::Value::from(settings.bundle_name()),
+        msi::Value::from(settings.bundle_name.as_str()),
         msi::Value::Null,
         msi::Value::Int(1),
         msi::Value::Int(1),
@@ -549,7 +595,7 @@ fn create_file_table(package: &mut Package, cabinets: &[CabinetInfo]) -> crate::
     for cabinet in cabinets.iter() {
         for resource in cabinet.resources.iter() {
             rows.push(vec![
-                msi::Value::Str(resource.filename.clone()),
+                msi::Value::Str(resource.key.clone()),
                 msi::Value::Str(resource.component_key.clone()),
                 msi::Value::Str(resource.filename.clone()),
                 msi::Value::Int(resource.size as i32),
@@ -1070,15 +1116,27 @@ fn create_text_style_table(package: &mut Package, _cabinets: &[CabinetInfo]) -> 
     Ok(())
 }
 
-fn create_app_icon<W: Write>(writer: &mut W, settings: &Settings) -> crate::Result<()> {
-    // Prefer ICO files.
-    for icon_path in settings.icon_files() {
-        let icon_path = icon_path?;
-        if icon_path.extension() == Some(OsStr::new("ico")) {
-            std::io::copy(&mut fs::File::open(icon_path)?, writer)?;
-            return Ok(());
-        }
+fn create_app_icon<W: Write + std::io::Seek>(
+    writer: &mut W,
+    settings: &Settings,
+) -> crate::Result<()> {
+    let Some(icon_path) = settings.icon.as_ref() else {
+        return Ok(());
+    };
+
+    // An existing `.ico` is copied through unchanged.
+    if icon_path.extension() == Some(OsStr::new("ico")) {
+        std::io::copy(&mut fs::File::open(icon_path)?, writer)?;
+        return Ok(());
     }
-    // TODO: Convert from other formats.
+
+    // Otherwise convert the source image to ICO. The format tops out at 256x256, so
+    // scale anything larger down to fit.
+    let mut img = image::open(icon_path)
+        .map_err(|e| eyre!("reading [bundle].icon {}: {e}", icon_path.display()))?;
+    if img.width() > 256 || img.height() > 256 {
+        img = img.resize(256, 256, image::imageops::FilterType::Lanczos3);
+    }
+    img.write_to(writer, image::ImageOutputFormat::Ico)?;
     Ok(())
 }

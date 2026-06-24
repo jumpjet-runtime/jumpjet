@@ -22,6 +22,11 @@ pub struct Settings {
     pub bundle_name: String,
     pub bundle_identifier: String,
 
+    /// Absolute path to the source icon image (e.g. a PNG) declared as
+    /// `[bundle].icon` in `jumpjet.toml`. Each platform bundler converts it to its
+    /// native format (`.icns` on macOS, `.ico` on Windows). `None` ships no icon.
+    pub icon: Option<PathBuf>,
+
     /// iOS codesign identity (e.g. "Apple Development: you@example.com"). `None`
     /// leaves the app unsigned — fine for the Simulator, rejected on device.
     pub ios_signing_identity: Option<String>,
