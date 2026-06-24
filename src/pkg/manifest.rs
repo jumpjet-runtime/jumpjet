@@ -116,6 +116,16 @@ pub enum ProjectKind {
     Lib,
 }
 
+impl ProjectKind {
+    /// The wire/manifest spelling (`game` or `lib`), as sent to the projects API.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProjectKind::Game => "game",
+            ProjectKind::Lib => "lib",
+        }
+    }
+}
+
 /// `[project]` — the first section of every `jumpjet.toml`. Holds the project's
 /// kind and metadata, plus the remote project `id` once `jumpjet project link`/
 /// `create` has linked this directory to a project in the user's account.

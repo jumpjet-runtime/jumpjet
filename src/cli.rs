@@ -128,11 +128,11 @@ pub enum CliCommand {
     //     version: Option<String>,
     // },
     /// Sign in to your Jumpjet account, or sign out
-    #[command(subcommand)]
-    Auth(AuthSubcommand),
-    /// Link this directory to a project in your Jumpjet account, or create one
-    #[command(subcommand)]
-    Project(ProjectSubcommand),
+    // #[command(subcommand)]
+    // Auth(AuthSubcommand),
+    // /// Link this directory to a project in your Jumpjet account, or create one
+    // #[command(subcommand)]
+    // Project(ProjectSubcommand),
     /// Re-sync the project's staged WIT to this CLI's embedded runtime definitions
     Wit,
     /// Upgrade the Jumpjet CLI to the latest version

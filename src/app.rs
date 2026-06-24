@@ -186,22 +186,22 @@ fn command_params(command: &CliCommand) -> serde_json::Value {
         CliCommand::Bundle { release, target } => {
             ("bundle", json!({ "release": release, "target": target }))
         }
-        CliCommand::Auth(sub) => {
-            let action = match sub {
-                AuthSubcommand::Signin => "auth_signin",
-                AuthSubcommand::Logout => "auth_logout",
-            };
-            (action, json!({}))
-        }
-        // Record only the sub-action — never the project id or name.
-        CliCommand::Project(sub) => {
-            let action = match sub {
-                ProjectSubcommand::List => "project_list",
-                ProjectSubcommand::Create { .. } => "project_create",
-                ProjectSubcommand::Link { .. } => "project_link",
-            };
-            (action, json!({}))
-        }
+        // CliCommand::Auth(sub) => {
+        //     let action = match sub {
+        //         AuthSubcommand::Signin => "auth_signin",
+        //         AuthSubcommand::Logout => "auth_logout",
+        //     };
+        //     (action, json!({}))
+        // }
+        // // Record only the sub-action — never the project id or name.
+        // CliCommand::Project(sub) => {
+        //     let action = match sub {
+        //         ProjectSubcommand::List => "project_list",
+        //         ProjectSubcommand::Create { .. } => "project_create",
+        //         ProjectSubcommand::Link { .. } => "project_link",
+        //     };
+        //     (action, json!({}))
+        // }
         CliCommand::Wit => ("wit", json!({})),
         CliCommand::Upgrade => ("upgrade", json!({})),
         CliCommand::Docs => ("docs", json!({})),

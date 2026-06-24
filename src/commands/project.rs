@@ -16,7 +16,7 @@ use toml_edit::{DocumentMut, Item, Table, value};
 
 use crate::cli::ProjectSubcommand;
 use crate::commands::auth;
-use crate::pkg::manifest::Manifest;
+use crate::pkg::manifest::{Manifest, ProjectKind};
 
 /// A project as returned by `GET`/`POST /api/projects`. The backend serializes the
 /// snowflake `id` as a string.
@@ -67,6 +67,9 @@ async fn link(id: Option<String>) -> Result<()> {
         Some(id) => id,
         None => select_interactively().await?,
     };
+    // Record the local project type on the remote project before linking, so the
+    // backend reflects what this directory actually is.
+    set_project_type(&id, current_project_type()).await?;
     write_project_id(&id)?;
     println!("✓ Linked to project {id}");
     Ok(())
@@ -133,10 +136,33 @@ async fn create_project(name: &str) -> Result<ApiProject> {
     let resp = reqwest::Client::new()
         .post(&url)
         .bearer_auth(token)
-        .json(&json!({ "name": name }))
+        .json(&json!({ "name": name, "type": current_project_type() }))
         .send()
         .await?;
     parse_json(resp, "creating project").await
+}
+
+/// Updates the remote project's type (`PATCH /api/projects/:id`), used when linking
+/// an existing project to this directory.
+async fn set_project_type(id: &str, r#type: &str) -> Result<()> {
+    let token = require_token()?;
+    let url = format!("{}/api/projects/{}", auth::base_url(), id);
+    let resp = reqwest::Client::new()
+        .patch(&url)
+        .bearer_auth(token)
+        .json(&json!({ "type": r#type }))
+        .send()
+        .await?;
+    let _: ApiProject = parse_json(resp, "linking project").await?;
+    Ok(())
+}
+
+/// The project kind (`game`/`lib`) declared in this directory's `jumpjet.toml`,
+/// defaulting to `game` when no manifest is present.
+fn current_project_type() -> &'static str {
+    Manifest::load()
+        .map(|m| m.project.kind.as_str())
+        .unwrap_or_else(|_| ProjectKind::default().as_str())
 }
 
 /// Loads the stored bearer token, or a friendly "sign in first" error.
