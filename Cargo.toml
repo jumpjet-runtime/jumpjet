@@ -86,10 +86,10 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.21"
+version = "0.1.22"
 authors = ["Lochlan Wansbrough"]
 edition = "2024"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
-jumpjet = { path = "crates/jumpjet", version = "0.1.21" }
+jumpjet = { path = "crates/jumpjet", version = "0.1.22" }
